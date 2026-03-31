@@ -1,6 +1,5 @@
+import { CalendarClock, CheckCircle2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Info, X } from 'lucide-react';
 
 export type PencilBookedPopupPayload = {
   requestedAtIso: string;
@@ -10,24 +9,14 @@ export type PencilBookedPopupPayload = {
 const STORAGE_KEY = '__pencil_booked_success_popup__';
 const EVENT_NAME = 'pencil-booked-success-popup';
 
-/**
- * Call this after the booking is successfully saved.
- * It will show the popup even if Inertia redirects to another page.
- */
 export function triggerPencilBookedSuccessPopup(payload: PencilBookedPopupPayload) {
-  // store for "next page" load
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch {
-    // ignore storage errors (private mode etc.)
-  }
+  } catch {}
 
-  // also notify immediately if layout is already mounted
   try {
     window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: payload }));
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 function safeReadFromSession(): PencilBookedPopupPayload | null {
@@ -35,7 +24,6 @@ function safeReadFromSession(): PencilBookedPopupPayload | null {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
 
-    // remove immediately so it doesn't show again on refresh/back
     sessionStorage.removeItem(STORAGE_KEY);
 
     const parsed = JSON.parse(raw);
@@ -83,24 +71,20 @@ export default function PencilBookedSuccessPopup() {
 
     setPayload(p);
 
-    // auto close after 5 seconds
     timerRef.current = window.setTimeout(() => {
       setPayload(null);
       timerRef.current = null;
-    }, 5000);
+    }, 1500);
   };
 
   useEffect(() => {
-    // 1) show if a previous page stored it (redirect case)
     const fromSession = safeReadFromSession();
     if (fromSession) show(fromSession);
 
-    // 2) listen for immediate triggers (no redirect case)
     const handler = (e: Event) => {
       const ce = e as CustomEvent<PencilBookedPopupPayload>;
       if (!ce?.detail) return;
 
-      // if it was stored, remove to avoid repeat
       try {
         sessionStorage.removeItem(STORAGE_KEY);
       } catch {}
@@ -122,39 +106,41 @@ export default function PencilBookedSuccessPopup() {
   if (!payload) return null;
 
   return (
-    <div className="fixed inset-x-0 top-4 z-[9999] flex justify-center px-4" role="status" aria-live="polite">
-      <div className="w-full max-w-xl rounded-lg border bg-background shadow-lg">
-        <div className="flex items-start gap-3 p-4">
-          {/* icon */}
-          <div className="mt-0.5 rounded-full bg-emerald-600/10 p-2">
-            <Info className="h-5 w-5 text-emerald-600" />
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-md">
+      <div className="w-full max-w-lg rounded-[1.9rem] border border-emerald-200/70 bg-white text-slate-950 shadow-[0_30px_90px_rgba(15,23,42,0.28)] animate-in fade-in zoom-in-95 duration-200 dark:border-emerald-500/20 dark:bg-[#0f172a] dark:text-white">
+        <div className="flex items-start gap-4 p-5">
+          <div className="rounded-2xl bg-emerald-500/12 p-3 text-emerald-600 dark:bg-emerald-400/12 dark:text-emerald-300">
+            <CheckCircle2 className="h-6 w-6" />
           </div>
 
-          {/* content */}
           <div className="min-w-0 flex-1">
-            <div className="text-base font-extrabold leading-tight">SUCCESS!</div>
-            <div className="text-sm font-semibold leading-tight">YOUR BOOKING IS PENCIL BOOKED FOR 24 HRS...</div>
+            <div className="text-xs font-bold uppercase tracking-[0.28em] text-emerald-700 dark:text-emerald-300">
+              Booking submitted
+            </div>
 
-            <div className="mt-3 text-sm leading-snug">
-              <div className="flex items-start gap-2">
-                <Info className="mt-[2px] h-4 w-4 shrink-0 text-muted-foreground" />
-                <div>
-                  <div className="font-semibold">
-                    KINDLY SETLE YOUR PAYMENT ON OR BEFORE{' '}
-                    <span className="underline underline-offset-2">{formatDateTimeLocal(payload.dueAtIso)}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Automatic declined status on the booking if not been accomplished.
-                  </div>
-                </div>
+            <div className="mt-2 text-base font-semibold leading-tight">
+              Your booking is pencil booked for 24 hours.
+            </div>
+
+            <div className="mt-3 flex items-start gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-600 dark:bg-white/5 dark:text-slate-300">
+              <CalendarClock className="mt-1 h-4 w-4 shrink-0" />
+              <div>
+                Kindly settle your payment on or before{' '}
+                <span className="font-semibold text-slate-900 dark:text-white">
+                  {formatDateTimeLocal(payload.dueAtIso)}
+                </span>.
               </div>
             </div>
           </div>
 
-          {/* close */}
-          <Button type="button" variant="ghost" size="icon" onClick={close} aria-label="Close notice" title="Close">
+          <button
+            type="button"
+            onClick={close}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-slate-500 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+            aria-label="Close notice"
+          >
             <X className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
       </div>
     </div>

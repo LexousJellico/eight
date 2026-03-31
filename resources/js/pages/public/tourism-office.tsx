@@ -1,5 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
-import { Clock3, Mail, MapPin, Phone } from 'lucide-react';
+import { CalendarDays, Clock3, Mail, MapPin, Phone } from 'lucide-react';
 import PageHero from '@/components/public/page-hero';
 import PublicLayout, { type SiteSettings } from '@/layouts/public-layout';
 import type { PublicEventItem, PublicSpaceItem } from '@/types/public-content';
@@ -134,12 +134,42 @@ export default function TourismOfficePage({
           <div className="space-y-4">
             <h3 className="text-3xl font-semibold text-slate-900 dark:text-white">Public Event Picks</h3>
             <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-2">
-              {events.slice(0, 4).map((event, index) => (
-                <div key={`${event.title}-${index}`} className="min-w-[300px] rounded-[1.7rem] border border-black/5 bg-white p-5 shadow-[0_18px_45px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/5">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">{event.scope === 'city' ? 'City Event' : 'BCCC Event'}</div>
-                  <div className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{event.title}</div>
-                  <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{event.summary}</p>
-                </div>
+              {events.slice(0, 4).map((event) => (
+                <article
+                  key={String(event.id)}
+                  className="min-w-[300px] overflow-hidden rounded-[1.7rem] border border-black/5 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/5"
+                >
+                  <div className="h-44 overflow-hidden">
+                    <img
+                      src={event.images?.[0] || event.image || '/marketing/images/events/1.JPG'}
+                      alt={event.title}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="p-5">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-300">
+                      {event.scope === 'city' ? 'City Event' : 'BCCC Event'}
+                    </div>
+                    <div className="mt-2 text-xl font-semibold text-slate-900 dark:text-white">{event.title}</div>
+                    <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                      <div className="inline-flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4" />
+                        {event.date}
+                      </div>
+                      {event.time ? (
+                        <div className="inline-flex items-center gap-2">
+                          <Clock3 className="h-4 w-4" />
+                          {event.time}
+                        </div>
+                      ) : null}
+                      <div className="inline-flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        {event.venue}
+                      </div>
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{event.summary}</p>
+                  </div>
+                </article>
               ))}
             </div>
           </div>

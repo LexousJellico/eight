@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { CalendarDays, ChevronLeft, ChevronRight, Lock, MapPin } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import PageHero from '@/components/public/page-hero';
 import PublicLayout from '@/layouts/public-layout';
 import type { PublicEventItem } from '@/types/public-content';
@@ -25,14 +25,24 @@ function formatDateKey(date: Date) {
 
 function expandDateRange(start: string, end: string) {
   const list: string[] = [];
+
   const current = new Date(`${start}T00:00:00`);
-  const last = new Date(`${end}T00:00:00`);
+  const rawLast = new Date(`${end}T00:00:00`);
+
+  if (Number.isNaN(current.getTime()) || Number.isNaN(rawLast.getTime())) {
+    return list;
+  }
+
+  const last = new Date(rawLast);
+
   while (current.getTime() <= last.getTime()) {
     list.push(formatDateKey(current));
     current.setDate(current.getDate() + 1);
   }
+
   return list;
 }
+
 
 function getMonthMatrix(baseDate: Date) {
   const year = baseDate.getFullYear();
@@ -53,6 +63,29 @@ function monthLabel(date: Date) {
   return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(date);
 }
 
+function pickInitialSelectedDate(
+  baseDate: Date,
+  eventMap: Map<string, PublicEventItem[]>,
+  blockMap: Map<string, CalendarBlockItem[]>,
+) {
+  const todayKey = formatDateKey(new Date());
+  const monthPrefix = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}`;
+
+  if (
+    todayKey.startsWith(`${monthPrefix}-`) &&
+    (eventMap.has(todayKey) || blockMap.has(todayKey))
+  ) {
+    return todayKey;
+  }
+
+  const firstMarked = [...new Set([...eventMap.keys(), ...blockMap.keys()])]
+    .filter((key) => key.startsWith(`${monthPrefix}-`))
+    .sort()[0];
+
+  return firstMarked ?? `${monthPrefix}-01`;
+}
+
+
 function longDate(date: Date | null) {
   if (!date) return '';
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(date);
@@ -69,7 +102,8 @@ export default function CalendarPage({
 }) {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDateKey, setSelectedDateKey] = useState(formatDateKey(today));
+  const [selectedDateKey, setSelectedDateKey] = useState(() => formatDateKey(today));
+
 
   const eventMap = useMemo(() => {
     const map = new Map<string, PublicEventItem[]>();
@@ -108,12 +142,20 @@ export default function CalendarPage({
   };
 
   const cells = useMemo(() => getMonthMatrix(currentMonth), [currentMonth]);
+    useEffect(() => {
+    const monthPrefix = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    const hasVisibleCell = cells.some((cell) => cell && formatDateKey(cell) === selectedDateKey);
+
+    if (!hasVisibleCell || !selectedDateKey.startsWith(`${monthPrefix}-`)) {
+      setSelectedDateKey(pickInitialSelectedDate(currentMonth, eventMap, blockMap));
+    }
+  }, [currentMonth, cells, selectedDateKey, eventMap, blockMap]);
+
   const selectedDate = useMemo(() => new Date(`${selectedDateKey}T00:00:00`), [selectedDateKey]);
   const selectedStatus = getDateStatus(selectedDateKey);
   const selectedEvents = eventMap.get(selectedDateKey) ?? [];
   const selectedBlocks = blockMap.get(selectedDateKey) ?? [];
-
-  const canOpenDate = (status: CalendarStatus) => status !== 'private_booked' && status !== 'blocked';
 
   const styleFor = (status: CalendarStatus, selected: boolean) => {
     if (status === 'private_booked') return selected ? 'bg-[#B88B14] text-white border-[#B88B14]' : 'bg-[#F4E3AF] text-[#7B5B00] border-[#D7B14B]';
@@ -177,19 +219,17 @@ export default function CalendarPage({
                 const key = formatDateKey(date);
                 const status = getDateStatus(key);
                 const selected = selectedDateKey === key;
-                const disabled = !canOpenDate(status);
-
-                return (
+                                return (
                   <button
                     key={key}
                     type="button"
-                    disabled={disabled}
                     onClick={() => setSelectedDateKey(key)}
-                    className={`aspect-square rounded-[1.2rem] border text-sm font-semibold transition ${styleFor(status, selected)} ${disabled ? 'cursor-not-allowed opacity-90' : 'hover:-translate-y-0.5'}`}
+                    className={`aspect-square rounded-[1.2rem] border text-sm font-semibold transition ${styleFor(status, selected)} hover:-translate-y-0.5`}
                   >
                     {date.getDate()}
                   </button>
                 );
+
               })}
             </div>
 
@@ -225,34 +265,64 @@ export default function CalendarPage({
               <div className="mt-5 rounded-[1.5rem] bg-[#f8f4ea] p-4 text-sm leading-7 text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
                 <div className="inline-flex items-center gap-2 font-semibold">
                   <Lock className="h-4 w-4" />
-                  Details are not shown publicly for this date.
+                  {selectedStatus === 'private_booked'
+                    ? 'This date is privately booked. Public details are hidden for privacy.'
+                    : 'This date is blocked. Public details are hidden because the venue is unavailable.'}
                 </div>
+
+                <p className="mt-3">
+                  {selectedStatus === 'private_booked'
+                    ? 'You may still send an inquiry if you want to ask about nearby available dates.'
+                    : 'This schedule is currently unavailable for public request or booking.'}
+                </p>
               </div>
             ) : (
+
               <div className="mt-5 space-y-4">
-                {selectedEvents.map((event, index) => (
-                  <div key={`${event.title}-${index}`} className="rounded-[1.4rem] bg-[#f8f4ea] p-4 dark:bg-slate-900/70">
+                                {selectedEvents.map((event) => (
+                  <div key={String(event.id)} className="rounded-[1.4rem] bg-[#f8f4ea] p-4 dark:bg-slate-900/70">
                     <div className="text-lg font-semibold text-slate-900 dark:text-white">{event.title}</div>
-                    <div className="mt-2 inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                      <MapPin className="h-4 w-4" />
-                      {event.venue}
+
+                    <div className="mt-2 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                      <div className="inline-flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        {event.venue}
+                      </div>
+
+                      {event.time ? (
+                        <div className="inline-flex items-center gap-2">
+                          <Clock3 className="h-4 w-4" />
+                          {event.time}
+                        </div>
+                      ) : null}
                     </div>
-                    <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{event.summary || event.description}</p>
+
+                    <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                      {event.summary || event.description}
+                    </p>
                   </div>
                 ))}
+
 
                 {selectedBlocks
                   .filter((block) => block.publicStatus === 'blue')
                   .map((block, index) => (
                     <div key={`${block.title}-${index}`} className="rounded-[1.4rem] bg-[#f8f4ea] p-4 dark:bg-slate-900/70">
                       <div className="text-lg font-semibold text-slate-900 dark:text-white">{block.title}</div>
+
                       <div className="mt-2 inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                         <CalendarDays className="h-4 w-4" />
-                        {block.area}
+                        {block.area || 'Visible public calendar activity'}
                       </div>
-                      {block.notes ? <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">{block.notes}</p> : null}
+
+                      {block.notes ? (
+                        <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+                          {block.notes}
+                        </p>
+                      ) : null}
                     </div>
                   ))}
+
 
                 {selectedEvents.length === 0 && selectedBlocks.filter((block) => block.publicStatus === 'blue').length === 0 ? (
                   <div className="rounded-[1.4rem] bg-[#f8f4ea] p-4 text-sm leading-7 text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">

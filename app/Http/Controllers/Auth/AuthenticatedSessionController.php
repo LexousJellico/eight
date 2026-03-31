@@ -64,19 +64,22 @@ class AuthenticatedSessionController extends Controller
 
     protected function resolveAdminTarget(Request $request, mixed $user): ?string
     {
+        $isAdminLike = method_exists($user, 'hasAnyRole')
+            && $user->hasAnyRole(['admin', 'manager']);
+
         $redirectTo = (string) $request->input('redirect_to', '');
 
         if (Str::startsWith($redirectTo, '/admin')) {
-            return $redirectTo;
+            return $isAdminLike ? $redirectTo : null;
         }
 
         $previous = (string) url()->previous();
 
         if (Str::contains($previous, '/admin')) {
-            return '/admin/home';
+            return $isAdminLike ? '/admin/home' : null;
         }
 
-        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['admin', 'manager'])) {
+        if ($isAdminLike) {
             return '/admin/home';
         }
 

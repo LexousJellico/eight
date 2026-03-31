@@ -94,9 +94,9 @@ export interface Booking {
     client_address: string;
     type_of_event: string;
     booking_date_from: string | null;
-    booking_date_to: string | null;  
+    booking_date_to: string | null;
     number_of_guests: number;
-    booking_status: 'pending' | 'confirmed' | 'cancelled' | 'declined' | 'completed';
+    booking_status: 'pending' | 'confirmed' | 'active' | 'cancelled' | 'declined' | 'completed';
     payment_status: 'unpaid' | 'partial' | 'paid' | 'owing';
     created_at: string;
     items?: BookingServiceLine[];
@@ -104,8 +104,22 @@ export interface Booking {
     totals?: {
         items_total: number | null;
         payments_total: number | null;
-    }
+        submitted_payments_total?: number | null;
+        confirmed_payments_total?: number | null;
+    };
 }
+
+export interface BookingPayment {
+    id: number;
+    status: 'pending' | 'confirmed' | 'failed' | 'declined' | 'refunded';
+    payment_method: string;
+    amount: number;
+    transaction_reference?: string | null;
+    payment_gateway?: string | null;
+    remarks?: string | null;
+    created_at: string;
+}
+
 
 export interface BookingServiceLine {
     id: number;
@@ -114,15 +128,4 @@ export interface BookingServiceLine {
     price: number;
     quantity: number;
     line_total: number;
-}
-
-export interface BookingPayment {
-    id: number;
-    status: 'pending' | 'completed' | 'failed' | 'declined' | 'refunded';
-    payment_method: string;
-    amount: number;
-    transaction_reference?: string | null;
-    payment_gateway?: string | null;
-    remarks?: string | null;
-    created_at: string;
 }

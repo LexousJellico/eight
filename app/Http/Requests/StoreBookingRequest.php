@@ -14,64 +14,101 @@ class StoreBookingRequest extends FormRequest
      *   so EVE doesn't become "tomorrow".
      */
     protected function prepareForValidation(): void
-    {
-        $payload = $this->all();
+{
+    $payload = $this->all();
 
-        // Normalize main schedule
-        [$fromN, $toN] = $this->normalizeSchedulePair(
-            $payload['booking_date_from'] ?? null,
-            $payload['booking_date_to'] ?? null
-        );
+    $trimmedStrings = [
+        'company_name',
+        'client_name',
+        'client_contact_number',
+        'client_address',
+        'head_of_organization',
+        'type_of_event',
+    ];
 
-        $payload['booking_date_from'] = $fromN;
-        $payload['booking_date_to'] = $toN;
-
-        // Normalize extra schedules
-        if (isset($payload['extra_schedules']) && is_array($payload['extra_schedules'])) {
-            foreach ($payload['extra_schedules'] as $i => $row) {
-                if (!is_array($row)) continue;
-
-                [$ef, $et] = $this->normalizeSchedulePair(
-                    $row['from'] ?? null,
-                    $row['to'] ?? null
-                );
-
-                $payload['extra_schedules'][$i]['from'] = $ef;
-                $payload['extra_schedules'][$i]['to'] = $et;
-            }
+    foreach ($trimmedStrings as $field) {
+        if (array_key_exists($field, $payload) && is_string($payload[$field])) {
+            $payload[$field] = trim($payload[$field]);
         }
-
-        if (isset($payload['items']) && is_array($payload['items'])) {
-    $seen = [];
-    $normalizedItems = [];
-
-    foreach ($payload['items'] as $row) {
-        if (! is_array($row)) {
-            continue;
-        }
-
-        $serviceId = (int) ($row['service_id'] ?? 0);
-        if ($serviceId < 1) {
-            continue;
-        }
-
-        if (isset($seen[$serviceId])) {
-            continue;
-        }
-
-        $seen[$serviceId] = true;
-
-        $normalizedItems[] = [
-            'service_id' => $serviceId,
-            'quantity' => 1,
-        ];
     }
 
-    $payload['items'] = $normalizedItems;
+    foreach (['client_email', 'survey_email'] as $field) {
+        if (array_key_exists($field, $payload) && is_string($payload[$field])) {
+            $value = strtolower(trim($payload[$field]));
+            $payload[$field] = $value !== '' ? $value : null;
+        }
+    }
+
+    if (array_key_exists('number_of_guests', $payload)) {
+        $payload['number_of_guests'] = is_numeric($payload['number_of_guests'])
+            ? (int) $payload['number_of_guests']
+            : $payload['number_of_guests'];
+    }
+
+    if (array_key_exists('booking_status', $payload) && is_string($payload['booking_status'])) {
+        $payload['booking_status'] = strtolower(trim($payload['booking_status']));
+    }
+
+    if (array_key_exists('payment_status', $payload) && is_string($payload['payment_status'])) {
+        $payload['payment_status'] = strtolower(trim($payload['payment_status']));
+    }
+
+    [$fromN, $toN] = $this->normalizeSchedulePair(
+        $payload['booking_date_from'] ?? null,
+        $payload['booking_date_to'] ?? null
+    );
+
+    $payload['booking_date_from'] = $fromN;
+    $payload['booking_date_to'] = $toN;
+
+    if (isset($payload['extra_schedules']) && is_array($payload['extra_schedules'])) {
+        foreach ($payload['extra_schedules'] as $i => $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            [$ef, $et] = $this->normalizeSchedulePair(
+                $row['from'] ?? null,
+                $row['to'] ?? null
+            );
+
+            $payload['extra_schedules'][$i]['from'] = $ef;
+            $payload['extra_schedules'][$i]['to'] = $et;
+        }
+    }
+
+    if (isset($payload['items']) && is_array($payload['items'])) {
+        $seen = [];
+        $normalizedItems = [];
+
+        foreach ($payload['items'] as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            $serviceId = (int) ($row['service_id'] ?? 0);
+            if ($serviceId < 1) {
+                continue;
+            }
+
+            if (isset($seen[$serviceId])) {
+                continue;
+            }
+
+            $seen[$serviceId] = true;
+
+            $normalizedItems[] = [
+                'service_id' => $serviceId,
+                'quantity' => 1,
+            ];
+        }
+
+        $payload['items'] = $normalizedItems;
+    }
+
+    $this->merge($payload);
 }
 
-        $this->merge($payload);
-    }
 
     public function authorize(): bool
     {
@@ -108,7 +145,7 @@ class StoreBookingRequest extends FormRequest
             'extra_schedules.*.from' => ['required_with:extra_schedules.*.to', 'date'],
             'extra_schedules.*.to'   => ['required_with:extra_schedules.*.from', 'date'],
 
-            'number_of_guests' => ['required', 'integer', 'min:0'],
+            'number_of_guests' => ['required', 'integer', 'min:1'],
 
             'booking_status' => ['required', 'in:pending,active,confirmed,cancelled,declined,completed'],
             'payment_status' => ['sometimes', 'in:unpaid,partial,paid,owing'],

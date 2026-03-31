@@ -26,7 +26,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
   return (
     <div className="public-shell min-h-screen overflow-x-clip text-slate-900 dark:text-white">
       <PublicHeader />
-      <main className="relative z-10 pt-24 md:pt-28">{children}</main>
+      <main className="relative z-10 ">{children}</main>
       <PublicFooter siteSettings={siteSettings} />
     </div>
   );

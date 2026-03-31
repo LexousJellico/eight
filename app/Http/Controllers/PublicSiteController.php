@@ -17,19 +17,20 @@ use Inertia\Response;
 class PublicSiteController extends Controller
 {
     public function home(): Response
-    {
-        return Inertia::render('public/home', [
-            'siteSettings' => $this->siteSettingsPayload(),
-            'venueOptions' => $this->venueOptionsPayload()->all(),
-            'events' => $this->eventsPayload()->all(),
-            'spaces' => $this->spacesPayload()
-                ->where('featured', true)
-                ->values()
-                ->all(),
-            'stats' => $this->statsPayload()->all(),
-            'offers' => $this->packagesPayload()->all(),
-        ]);
-    }
+{
+    return Inertia::render('public/home', [
+        'siteSettings' => $this->siteSettingsPayload(),
+        'venueOptions' => $this->venueOptionsPayload()->all(),
+        'events' => $this->eventsPayload()->all(),
+        'spaces' => $this->spacesPayload()
+            ->where('homepageVisible', true)
+            ->values()
+            ->all(),
+        'stats' => $this->statsPayload()->all(),
+        'offers' => $this->packagesPayload()->all(),
+    ]);
+}
+
 
     public function facilities(): Response
     {
@@ -40,20 +41,24 @@ class PublicSiteController extends Controller
     }
 
     public function facilityShow(string $slug): Response
-    {
-        $spaces = $this->spacesPayload();
-        $facility = $spaces->firstWhere('slug', $slug);
+{
+    $spaces = $this->spacesPayload();
+    $facility = $spaces->firstWhere('slug', $slug);
 
-        return Inertia::render('public/facility-show', [
-            'siteSettings' => $this->siteSettingsPayload(),
-            'facility' => $facility,
-            'relatedFacilities' => $spaces
-                ->reject(fn (array $item) => $item['slug'] === $slug)
-                ->take(3)
-                ->values()
-                ->all(),
-        ]);
-    }
+    abort_unless($facility, 404);
+
+    return Inertia::render('public/facility-show', [
+        'siteSettings' => $this->siteSettingsPayload(),
+        'facility' => $facility,
+        'relatedFacilities' => $spaces
+            ->reject(fn (array $item) => $item['slug'] === $slug)
+            ->take(3)
+            ->values()
+            ->all(),
+    ]);
+}
+
+
 
     public function events(): Response
     {
@@ -73,21 +78,25 @@ class PublicSiteController extends Controller
     }
 
     public function tourismOffice(): Response
-    {
-        $spaces = $this->spacesPayload();
-        $officeSpace = $spaces->firstWhere('slug', 'tourism-office');
+{
+    $spaces = $this->spacesPayload();
 
-        return Inertia::render('public/tourism-office', [
-            'siteSettings' => $this->siteSettingsPayload(),
-            'officeSpace' => $officeSpace,
-            'events' => $this->eventsPayload()
-                ->filter(fn (array $item) => $item['isPublic'] === true)
-                ->take(3)
-                ->values()
-                ->all(),
-            'members' => $this->membersPayload()->all(),
-        ]);
-    }
+    $officeSpace = $spaces->first(function (array $item) {
+        return $this->isTourismOfficeSpace($item);
+    });
+
+    return Inertia::render('public/tourism-office', [
+        'siteSettings' => $this->siteSettingsPayload(),
+        'officeSpace' => $officeSpace,
+        'events' => $this->eventsPayload()
+            ->filter(fn (array $item) => $item['isPublic'] === true)
+            ->take(3)
+            ->values()
+            ->all(),
+        'members' => $this->membersPayload()->all(),
+    ]);
+}
+
 
     public function contact(): Response
     {
@@ -141,137 +150,190 @@ class PublicSiteController extends Controller
     }
 
     protected function spacesPayload(): Collection
-    {
-        return VenueSpace::query()
-            ->orderBy('sort_order')
-            ->get()
-            ->map(function (VenueSpace $space) {
-                $fallbackLight = '/marketing/images/branding/noon.jpg';
-                $fallbackDark = '/marketing/images/hero/night.png';
+{
+    return VenueSpace::query()
+        ->orderBy('sort_order')
+        ->get()
+        ->map(function (VenueSpace $space) {
+            $fallbackLight = '/marketing/images/branding/noon.jpg';
+            $fallbackDark = '/marketing/images/hero/night.png';
 
-                return [
+            $light = $space->light_image ?: $fallbackLight;
+            $dark = $space->dark_image ?: ($space->light_image ?: $fallbackDark);
+            $homepageVisible = (bool) $space->homepage_visible;
+
+            return [
+                'id' => $space->id,
+                'slug' => Str::slug($space->title),
+                'title' => $space->title,
+                'shortDescription' => $space->short_description,
+                'summary' => $space->summary ?: $space->short_description,
+                'details' => is_array($space->details) ? array_values($space->details) : [],
+                'image' => $light,
+                'lightImage' => $light,
+                'darkImage' => $dark,
+                'capacity' => $space->capacity ?: 'Flexible venue capacity',
+                'category' => $space->category ?: 'Venue Space',
+                'ctaLabel' => $this->isTourismOfficeSpace([
                     'slug' => Str::slug($space->title),
                     'title' => $space->title,
-                    'shortDescription' => $space->short_description,
-                    'summary' => $space->summary ?: $space->short_description,
-                    'details' => is_array($space->details) ? $space->details : [],
-                    'image' => $space->light_image ?: $fallbackLight,
-                    'lightImage' => $space->light_image ?: $fallbackLight,
-                    'darkImage' => $space->dark_image ?: ($space->light_image ?: $fallbackDark),
-                    'capacity' => $space->capacity ?: 'Flexible venue capacity',
-                    'category' => $space->category ?: 'Venue Space',
-                    'ctaLabel' => Str::lower($space->title) === 'tourism office' ? 'View Office' : 'View Space',
-                    'featured' => (bool) $space->homepage_visible,
-                ];
-            })
-            ->values();
-    }
+                    'category' => $space->category,
+                ]) ? 'View Office' : 'View Space',
+                'homepageVisible' => $homepageVisible,
+                'featured' => $homepageVisible,
+            ];
+        })
+        ->values();
+}
+
 
     protected function eventsPayload(): Collection
-    {
-        return PublicEvent::query()
-            ->where('is_public', true)
-            ->orderByDesc('is_highlighted')
-            ->orderBy('event_date')
-            ->orderBy('sort_order')
-            ->get()
-            ->map(function (PublicEvent $event) {
-                $image = is_array($event->images) && count($event->images) > 0
-                    ? $event->images[0]
-                    : '/marketing/images/events/1.JPG';
+{
+    return PublicEvent::query()
+        ->where('is_public', true)
+        ->orderByDesc('is_highlighted')
+        ->orderBy('event_date')
+        ->orderBy('sort_order')
+        ->get()
+        ->map(function (PublicEvent $event) {
+            $images = is_array($event->images) && count($event->images) > 0
+                ? array_values($event->images)
+                : ['/marketing/images/events/1.JPG'];
 
-                $scope = $event->scope === 'city' ? 'city' : 'bccc';
+            $image = $images[0];
+            $scope = $event->scope === 'city' ? 'city' : 'bccc';
+            $highlighted = (bool) $event->is_highlighted;
 
-                return [
-                    'title' => $event->title,
-                    'date' => $event->event_date?->format('F j, Y') ?? '',
-                    'dateKey' => $event->event_date?->format('Y-m-d'),
-                    'summary' => $event->note ?: Str::limit((string) $event->description, 140),
-                    'description' => $event->description,
-                    'note' => $event->note ?: 'Public event details remain subject to final operational confirmation.',
-                    'venue' => $event->venue,
-                    'image' => $image,
-                    'lightImage' => $image,
-                    'darkImage' => $image,
-                    'category' => $scope === 'city' ? 'Baguio City Event' : 'BCCC Public Event',
-                    'featured' => (bool) $event->is_highlighted,
-                    'highlighted' => (bool) $event->is_highlighted,
-                    'scope' => $scope,
-                    'isPublic' => (bool) $event->is_public,
-                ];
-            })
-            ->values();
-    }
+            return [
+                'id' => $event->id,
+                'title' => $event->title,
+                'date' => $event->event_date?->format('F j, Y') ?? '',
+                'dateKey' => $event->event_date?->format('Y-m-d'),
+                'time' => $event->event_time,
+                'summary' => $event->note ?: Str::limit((string) $event->description, 140),
+                'description' => $event->description,
+                'note' => $event->note ?: 'Public event details remain subject to final operational confirmation.',
+                'venue' => $event->venue,
+                'images' => $images,
+                'image' => $image,
+                'lightImage' => $image,
+                'darkImage' => $image,
+                'category' => $scope === 'city' ? 'Baguio City Event' : 'BCCC Public Event',
+                'featured' => $highlighted,
+                'highlighted' => $highlighted,
+                'scope' => $scope,
+                'isPublic' => (bool) $event->is_public,
+            ];
+        })
+        ->values();
+}
+
 
     protected function statsPayload(): Collection
-    {
-        return HomepageStat::query()
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn (HomepageStat $stat) => [
-                'value' => (string) $stat->value,
-                'suffix' => $stat->suffix ?: '',
-                'label' => $stat->label,
-            ])
-            ->values();
-    }
+{
+    return HomepageStat::query()
+        ->orderBy('sort_order')
+        ->get()
+        ->map(fn (HomepageStat $stat) => [
+            'id' => $stat->id,
+            'value' => (string) $stat->value,
+            'suffix' => $stat->suffix ?: '',
+            'label' => $stat->label,
+        ])
+        ->values();
+}
+
 
     protected function packagesPayload(): Collection
-    {
-        return FeaturePackage::query()
-            ->orderBy('sort_order')
-            ->get()
-            ->map(function (FeaturePackage $package) {
-                $image = is_array($package->images) && count($package->images) > 0
-                    ? $package->images[0]
-                    : '/marketing/images/events/4.jpg';
+{
+    return FeaturePackage::query()
+        ->orderBy('sort_order')
+        ->get()
+        ->map(function (FeaturePackage $package) {
+            $images = is_array($package->images) && count($package->images) > 0
+                ? array_values($package->images)
+                : ['/marketing/images/events/4.jpg'];
 
-                return [
-                    'title' => $package->title,
-                    'subtitle' => 'Venue package option',
-                    'description' => $package->description,
-                    'image' => $image,
-                    'lightImage' => $image,
-                    'darkImage' => $image,
-                    'buttonLabel' => 'Ask About This Package',
-                    'href' => '/contact',
-                ];
-            })
-            ->values();
-    }
+            $image = $images[0];
+
+            return [
+                'id' => $package->id,
+                'title' => $package->title,
+                'subtitle' => 'Venue package option',
+                'description' => $package->description,
+                'images' => $images,
+                'image' => $image,
+                'lightImage' => $image,
+                'darkImage' => $image,
+                'buttonLabel' => 'Ask About This Package',
+                'href' => '/contact',
+            ];
+        })
+        ->values();
+}
+
 
     protected function calendarBlocksPayload(): Collection
-    {
-        return CalendarBlock::query()
-            ->whereNotNull('public_status')
-            ->orderBy('date_from')
-            ->get()
-            ->map(function (CalendarBlock $block) {
-                $status = strtolower((string) ($block->public_status ?? 'red'));
+{
+    return CalendarBlock::query()
+        ->whereNotNull('public_status')
+        ->orderBy('date_from')
+        ->get()
+        ->map(function (CalendarBlock $block) {
+            $status = strtolower((string) ($block->public_status ?? 'red'));
 
-                return [
-                    'title' => match ($status) {
-                        'blue' => (string) ($block->title ?? 'Public Event Block'),
-                        'gold' => 'Private Booking',
-                        default => 'Blocked Date',
-                    },
-                    'area' => match ($status) {
-                        'blue' => (string) ($block->area ?? ''),
-                        'gold' => 'Reserved area details are hidden',
-                        default => 'Unavailable for public requests',
-                    },
-                    'notes' => match ($status) {
-                        'blue' => (string) ($block->notes ?? ''),
-                        'gold' => 'Private booking details are hidden from public view.',
-                        default => 'This date is blocked for maintenance, control, or other internal reasons.',
-                    },
-                    'publicStatus' => $status ?: 'red',
-                    'dateFrom' => substr((string) $block->date_from, 0, 10),
-                    'dateTo' => substr((string) $block->date_to, 0, 10),
-                ];
-            })
-            ->values();
+            return [
+                'title' => match ($status) {
+                    'blue' => (string) ($block->title ?? 'Public Event Block'),
+                    'gold' => 'Private Booking',
+                    default => 'Blocked Date',
+                },
+                'area' => match ($status) {
+                    'blue' => (string) ($block->area ?? ''),
+                    'gold' => 'Reserved area details are hidden',
+                    default => 'Unavailable for public requests',
+                },
+                'notes' => match ($status) {
+                    'blue' => (string) ($block->notes ?? ''),
+                    'gold' => 'Private booking details are hidden from public view.',
+                    default => 'This date is blocked for maintenance, control, or other internal reasons.',
+                },
+                'publicStatus' => $status ?: 'red',
+                'dateFrom' => $this->normalizePublicCalendarStartDate($block->date_from),
+                'dateTo' => $this->normalizePublicCalendarEndDate($block->date_from, $block->date_to),
+            ];
+        })
+        ->values();
+}
+
+protected function normalizePublicCalendarStartDate(mixed $value): string
+{
+    try {
+        return \Carbon\Carbon::parse($value)->format('Y-m-d');
+    } catch (\Throwable $e) {
+        return substr((string) $value, 0, 10);
     }
+}
+
+protected function normalizePublicCalendarEndDate(mixed $fromValue, mixed $toValue): string
+{
+    try {
+        $from = \Carbon\Carbon::parse($fromValue);
+        $to = \Carbon\Carbon::parse($toValue);
+
+        if (
+            $to->format('H:i') === '00:00'
+            && $to->copy()->startOfDay()->equalTo($from->copy()->startOfDay()->addDay())
+        ) {
+            return $from->format('Y-m-d');
+        }
+
+        return $to->format('Y-m-d');
+    } catch (\Throwable $e) {
+        return substr((string) $toValue, 0, 10);
+    }
+}
+
 
     protected function membersPayload(): Collection
     {
@@ -297,4 +359,16 @@ class PublicSiteController extends Controller
             })
             ->values();
     }
+
+    protected function isTourismOfficeSpace(array $item): bool
+{
+    $slug = Str::slug((string) ($item['slug'] ?? ''));
+    $title = Str::lower(trim((string) ($item['title'] ?? '')));
+    $category = Str::lower(trim((string) ($item['category'] ?? '')));
+
+    return $slug === 'tourism-office'
+        || str_contains($title, 'tourism office')
+        || str_contains($category, 'tourism');
+}
+
 }

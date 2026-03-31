@@ -261,106 +261,106 @@ class BookingController extends Controller
     }
 
     public function storePayment(StoreBookingPaymentRequest $request, Booking $booking): RedirectResponse
-    {
-        $this->ensureBookingAccess($request, $booking);
+{
+    $this->ensureBookingAccess($request, $booking);
 
-        $data = $request->validated();
+    $data = $request->validated();
 
-        $actor = $request->user();
+    $actor = $request->user();
+    $canManage = $actor ? $actor->can('payments.manage') : false;
 
-        if (!$actor || !$actor->can('payments.manage')) {
-            $data['status'] = 'pending';
-        } else {
-            $data['status'] = $data['status'] ?? 'pending';
-        }
+    $data['amount'] = round((float) ($data['amount'] ?? 0), 2);
 
-        /** @var BookingPayment $payment */
-        $payment = $booking->payments()->create($data);
-
-        $this->bookings->recalculatePaymentStatus($booking);
-
-        if ($request->user()) {
-            $this->notifications->paymentCreated($payment, $booking->refresh(), $request->user());
-        }
-
-        return redirect()
-            ->back()
-            ->with('success', 'Payment recorded');
+    if (! $canManage) {
+        $data['status'] = 'pending';
+    } else {
+        $data['status'] = strtolower((string) ($data['status'] ?? 'pending'));
     }
+
+    /** @var BookingPayment $payment */
+    $payment = $booking->payments()->create($data);
+
+    unset($payment);
+
+    $this->bookings->recalculatePaymentStatus($booking->refresh());
+
+    return redirect()
+        ->back()
+        ->with('success', 'Payment recorded.');
+}
+
 
     public function updatePayment(UpdateBookingPaymentRequest $request, Booking $booking, BookingPayment $payment): RedirectResponse
-    {
-        $this->ensureBookingAccess($request, $booking);
+{
+    $this->ensureBookingAccess($request, $booking);
 
-        if ($payment->booking_id !== $booking->id) {
-            abort(404);
-        }
-
-        $data = $request->validated();
-        $original = $payment->getOriginal();
-
-        $payment->update($data);
-        $this->bookings->recalculatePaymentStatus($booking);
-
-        $changes = [];
-        $newAttributes = $payment->getAttributes();
-        foreach ($newAttributes as $field => $newVal) {
-            if (!array_key_exists($field, $original)) continue;
-            $oldVal = $original[$field];
-            if ($oldVal == $newVal) continue;
-            $changes[$field] = [$oldVal, $newVal];
-        }
-
-        if ($request->user()) {
-            $this->notifications->paymentUpdated(
-                $payment->refresh(),
-                $booking->refresh(),
-                $request->user(),
-                $changes
-            );
-        }
-
-        return redirect()
-            ->back()
-            ->with('success', 'Payment updated');
+    if ($payment->booking_id !== $booking->id) {
+        abort(404);
     }
+
+    $data = $request->validated();
+    $data['amount'] = round((float) ($data['amount'] ?? 0), 2);
+    $data['status'] = strtolower((string) ($data['status'] ?? 'pending'));
+
+    $payment->update($data);
+
+    $this->bookings->recalculatePaymentStatus($booking->refresh());
+
+    return redirect()
+        ->back()
+        ->with('success', 'Payment updated.');
+}
+
 
     public function availability(Request $request): JsonResponse
-    {
-        $date = (string) $request->query('date', '');
-        $excludeId = $request->query('exclude_booking_id');
+{
+    $date = trim((string) $request->query('date', ''));
 
-        $availability = $this->bookings->getDailyAvailability($date, $excludeId);
-
-        if (!isset($availability['busy']) || !is_array($availability['busy'])) {
-            $availability['busy'] = [];
-        }
-        if (!isset($availability['free']) || !is_array($availability['free'])) {
-            $availability['free'] = [];
-        }
-        if (!isset($availability['blocks']) || !is_array($availability['blocks'])) {
-            $availability['blocks'] = [];
-        }
-        if (!isset($availability['is_fully_booked'])) {
-            $availability['is_fully_booked'] = false;
-        }
-
-        $user = $request->user();
-        if ($user && $user->hasRole('user')) {
-            $isStaffLike = method_exists($user, 'hasAnyRole')
-                && $user->hasAnyRole(['admin', 'manager', 'staff']);
-
-            if (!$isStaffLike) {
-                return response()->json([
-                    'date' => $availability['date'] ?? $date,
-                    'blocks' => $availability['blocks'] ?? [],
-                    'is_fully_booked' => (bool) ($availability['is_fully_booked'] ?? false),
-                ]);
-            }
-        }
-
-        return response()->json($availability);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        return response()->json([
+            'message' => 'Invalid date. Use YYYY-MM-DD format.',
+        ], 422);
     }
+
+    $excludeIdRaw = $request->query('exclude_booking_id');
+    $excludeId = is_numeric($excludeIdRaw) ? (int) $excludeIdRaw : null;
+
+    $availability = $this->bookings->getDailyAvailability($date, $excludeId);
+
+    if (!isset($availability['busy']) || !is_array($availability['busy'])) {
+        $availability['busy'] = [];
+    }
+
+    if (!isset($availability['free']) || !is_array($availability['free'])) {
+        $availability['free'] = [];
+    }
+
+    if (!isset($availability['blocks']) || !is_array($availability['blocks'])) {
+        $availability['blocks'] = [];
+    }
+
+    if (!isset($availability['is_fully_booked'])) {
+        $availability['is_fully_booked'] = false;
+    }
+
+    $user = $request->user();
+
+    if ($user && $user->hasRole('user')) {
+        $isStaffLike = method_exists($user, 'hasAnyRole')
+            && $user->hasAnyRole(['admin', 'manager', 'staff']);
+
+        if (! $isStaffLike) {
+            return response()->json([
+                'date' => $availability['date'] ?? $date,
+                'blocks' => $availability['blocks'] ?? [],
+                'is_fully_booked' => (bool) ($availability['is_fully_booked'] ?? false),
+            ]);
+        }
+    }
+
+    return response()->json($availability);
+}
+
 
     private function ensureBookingAccess(Request $request, Booking $booking): void
     {

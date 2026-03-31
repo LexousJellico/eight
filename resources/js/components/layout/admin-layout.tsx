@@ -31,14 +31,15 @@ const navItems = [
     { label: 'Contact Us', href: '#footer-config', icon: Mail },
 ];
 
-const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
-const [logoutProcessing, setLogoutProcessing] = useState(false);
+
 
 export default function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
     const page = usePage<SharedProps>();
     const user = page.props.auth?.user;
     const [mobileOpen, setMobileOpen] = useState(false);
 
+    const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false);
+    const [logoutProcessing, setLogoutProcessing] = useState(false);
     useEffect(() => {
         const previous = document.body.style.overflow;
 

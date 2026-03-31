@@ -114,8 +114,17 @@ class GoogleAuthController extends Controller
         request()->session()->regenerate();
 
         return redirect()
-            ->intended(route('dashboard', absolute: false))
+            ->intended($this->resolvePostLoginTarget($user))
             ->with('success', 'Signed in with Google successfully.');
+    }
+
+    protected function resolvePostLoginTarget(User $user): string
+    {
+        if (method_exists($user, 'hasAnyRole') && $user->hasAnyRole(['admin', 'manager'])) {
+            return '/admin/home';
+        }
+
+        return route('dashboard', absolute: false);
     }
 
     protected function googleIsConfigured(): bool

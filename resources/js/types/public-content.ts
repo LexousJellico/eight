@@ -10,12 +10,18 @@ export type PublicEventItem = {
     title: string;
     venue: string;
     date: string;
+    dateKey?: string | null;
     time?: string | null;
     description: string;
     summary: string;
     note?: string | null;
     highlighted: boolean;
+    featured?: boolean;
     images: string[];
+    image?: string;
+    lightImage?: string;
+    darkImage?: string;
+    category?: string;
     scope: 'bccc' | 'city' | string;
     isPublic: boolean;
 };
@@ -33,6 +39,8 @@ export type PublicSpaceItem = {
     darkImage: string;
     image: string;
     homepageVisible: boolean;
+    featured?: boolean;
+    ctaLabel?: string;
 };
 
 export type FeaturePackageItem = {
@@ -41,8 +49,11 @@ export type FeaturePackageItem = {
     description: string;
     images: string[];
     image: string;
+    lightImage?: string;
+    darkImage?: string;
     subtitle: string;
     buttonLabel: string;
+    href?: string;
 };
 
 export type HomepageStatItem = {
@@ -58,6 +69,8 @@ export type SiteConfig = {
     address: string;
     phone: string;
     email: string;
+    visitaUrl?: string;
+    creativeBaguioUrl?: string;
     footerDescription: string;
     footerCopyright: string;
 };

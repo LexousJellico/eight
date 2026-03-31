@@ -16,7 +16,7 @@ export default function StatsBanner({ items = [] }: Props) {
 
   return (
     <section className="public-container mt-12">
-      <div className="relative overflow-hidden rounded-[2.2rem] border border-white/10">
+      <div className="relative w-full overflow-hidden border-white/10">
         <img
           src="/marketing/images/events/lightmain.JPG"
           alt="BCCC exterior"

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Inquiry;
+use App\Models\SiteSetting;
 use App\Models\UserNotification;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -10,8 +11,6 @@ use Inertia\Middleware;
 class HandleInertiaRequests extends Middleware
 {
     /**
-     * The root template that's loaded on the first page visit.
-     *
      * @var string
      */
     protected $rootView = 'app';
@@ -27,11 +26,17 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $request->user();
+        $settings = SiteSetting::query()->first();
 
         return array_merge(parent::share($request), [
             'survey' => [
                 'url' => config('survey.url'),
                 'qr_image_url' => config('survey.qr_image_url'),
+            ],
+
+            'support' => [
+                'phone' => $settings?->phone ?: '(074) 446 2009',
+                'email' => $settings?->email ?: 'info@bccc-ease.com',
             ],
 
             'features' => [

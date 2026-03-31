@@ -9,12 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Booking, BreadcrumbItem } from '@/types';
 import bookingsRoutes from '@/routes/bookings';
 import { cn } from '@/lib/utils';
-
-// ✅ IMPORTANT: You can't use "@/..." directly in <img src="...">.
-// You must import the asset so Vite can bundle it correctly.
 import qrPng from '@/components/logo/qr.png';
 
-const CONTACT_US_NUMBER = '09123456789'; // ✅ replace with your actual contact number
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -382,7 +378,12 @@ export default function EditBooking({ booking }: EditBookingProps) {
 ];
 
 
-  const { auth, survey } = usePage<{ auth?: AuthLike | null; survey?: any }>().props;
+  const { auth, survey, support } = usePage<{
+  auth?: AuthLike | null;
+  survey?: any;
+  support?: { phone?: string | null; email?: string | null } | null;
+}>().props;
+
 
   const roleNames = useMemo(() => getRoleNames(auth).map((r) => r.toLowerCase()), [auth]);
   const isAdmin = roleNames.includes('admin') || roleNames.includes('administrator') || roleNames.includes('superadmin');
@@ -391,7 +392,15 @@ export default function EditBooking({ booking }: EditBookingProps) {
 
   const isAdminOrManager = isAdmin || isManager;
 
-  const isClient = roleNames.includes('user') && !isAdminOrManager && !isStaff;
+  const supportPhoneLabel =
+  (typeof support?.phone === 'string' && support.phone.trim() !== '')
+    ? support.phone.trim()
+    : '(074) 446 2009';
+
+const contactHref = `tel:${supportPhoneLabel.replace(/[^\d+]/g, '')}`;
+
+  const authEmail = getOptionalString((auth as unknown) ?? null, 'email') || getOptionalString((auth as any)?.user ?? null, 'email');
+
 
   // Admin/Manager: everything
   // Client: editable details + survey + proof image; schedule & status disabled
@@ -419,6 +428,7 @@ export default function EditBooking({ booking }: EditBookingProps) {
     client_name: (booking as any).client_name ?? '',
     client_contact_number: (booking as any).client_contact_number ?? '',
     client_email: (booking as any).client_email ?? '',
+    client_email: isClient && authEmail ? authEmail : ((booking as any).client_email ?? ''),
     survey_email: getOptionalString(booking, 'survey_email'),
     survey_proof_image: null, // ✅ always null on load
     client_address: (booking as any).client_address ?? '',
@@ -429,6 +439,13 @@ export default function EditBooking({ booking }: EditBookingProps) {
     number_of_guests: (booking as any).number_of_guests ?? '',
     booking_status: toBookingStatus((booking as any).booking_status),
   });
+  useEffect(() => {
+  if (!isClient || !authEmail) return;
+  if (data.client_email !== authEmail) {
+    setData('client_email', authEmail);
+  }
+}, [isClient, authEmail, data.client_email, setData]);
+
 
   const [bookingDate, setBookingDate] = useState<string>(initialDate);
   const [selectedBlocks, setSelectedBlocks] = useState<BlockKey[]>(initialBlocks);
@@ -555,8 +572,6 @@ export default function EditBooking({ booking }: EditBookingProps) {
   const surveyEmailDisabled = !canEditSurvey;
   const surveyProofDisabled = !canEditSurvey;
 
-  const contactHref = `tel:${CONTACT_US_NUMBER.replace(/[^\d+]/g, '')}`;
-
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSubmit) return;
@@ -622,7 +637,7 @@ export default function EditBooking({ booking }: EditBookingProps) {
                 <div className="mt-1">
                   Schedule and status changes are not available here. Please contact{' '}
                   <a href={contactHref} className="text-primary underline underline-offset-2 font-medium">
-                    {CONTACT_US_NUMBER}
+                    {supportPhoneLabel}
                   </a>
                   .
                 </div>
@@ -680,18 +695,22 @@ export default function EditBooking({ booking }: EditBookingProps) {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="client_email">Booking Email</Label>
-                    <Input
-                      id="client_email"
-                      type="email"
-                      value={data.client_email}
-                      onChange={(e) => setData('client_email', e.currentTarget.value)}
-                      required
-                      disabled={bookingDetailsDisabled}
-                      className={roCls(bookingDetailsDisabled, Boolean(errors.client_email))}
-                    />
-                    <FieldError message={errors.client_email} />
-                  </div>
+  <Label htmlFor="client_email">Booking Email</Label>
+  <Input
+    id="client_email"
+    type="email"
+    value={data.client_email}
+    onChange={(e) => setData('client_email', e.currentTarget.value)}
+    required
+    disabled={bookingDetailsDisabled || (isClient && !!authEmail)}
+    className={roCls(
+      bookingDetailsDisabled || (isClient && !!authEmail),
+      Boolean(errors.client_email),
+    )}
+  />
+  <FieldError message={errors.client_email} />
+</div>
+
 
                   <div className="grid gap-2 sm:col-span-2">
                     <Label htmlFor="client_address">Address</Label>
@@ -947,7 +966,7 @@ export default function EditBooking({ booking }: EditBookingProps) {
                     <p className="text-xs text-muted-foreground">
                       Need schedule or status changes? Contact{' '}
                       <a href={contactHref} className="text-primary underline underline-offset-2 font-medium">
-                        {CONTACT_US_NUMBER}
+                        {supportPhoneLabel}
                       </a>
                       .
                     </p>

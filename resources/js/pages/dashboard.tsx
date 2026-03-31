@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import { type Auth, type BreadcrumbItem } from '@/types';
@@ -81,6 +81,52 @@ function dateKey(date: Date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+function shiftDateKey(dateValue: string, delta: number) {
+  const base = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(base.getTime())) return dateValue;
+  base.setDate(base.getDate() + delta);
+  return dateKey(base);
+}
+
+function eventSpansDate(event: DashboardEvent, targetDate: string) {
+  const startDate = String(event.start ?? '').slice(0, 10);
+  const rawEndDate = String(event.end ?? '').slice(0, 10);
+  const rawEndTime = String(event.end ?? '').slice(11, 16);
+
+  if (!startDate || !rawEndDate) return false;
+
+  let endDate = rawEndDate;
+
+  if (rawEndTime === '00:00' && rawEndDate > startDate) {
+    endDate = shiftDateKey(rawEndDate, -1);
+  }
+
+  return targetDate >= startDate && targetDate <= endDate;
+}
+
+function pickInitialSelectedDate(
+  month: string,
+  availability: DashboardProps['monthAvailability'],
+  events: DashboardEvent[],
+) {
+  const today = dateKey(new Date());
+
+  if (today.startsWith(`${month}-`) && (availability[today] || events.some((event) => eventSpansDate(event, today)))) {
+    return today;
+  }
+
+  const eventMatch = events.find((event) => String(event.start ?? '').slice(0, 7) === month);
+  if (eventMatch) {
+    return String(eventMatch.start).slice(0, 10);
+  }
+
+  const firstAvailabilityDate = Object.keys(availability)
+    .filter((key) => key.startsWith(`${month}-`))
+    .sort()[0];
+
+  return firstAvailabilityDate ?? `${month}-01`;
+}
+
 function monthLabel(date: Date) {
   return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
@@ -129,7 +175,7 @@ function statusForDate(
   isClient: boolean,
 ) {
   const day = availability[date];
-  const dayEvents = events.filter((event) => eventDateKey(event) === date);
+  const dayEvents = events.filter((event) => eventSpansDate(event, date));
 
   const hasOwnBooking = dayEvents.some((event) => event.kind !== 'block');
   const hasBlock = dayEvents.some((event) => event.kind === 'block' || typeof event.block_id === 'number');
@@ -143,6 +189,7 @@ function statusForDate(
 
   return 'available';
 }
+
 
 function dayStyle(status: string, selected: boolean) {
   const selectedRing = selected ? 'ring-2 ring-offset-2 ring-[#174f40] dark:ring-[#8ea3ff]' : '';
@@ -169,17 +216,18 @@ export default function Dashboard({ counts, events, month, monthAvailability }: 
   const isClient = roleNames.includes('user');
 
   const grid = useMemo(() => buildMonthGrid(month), [month]);
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const today = dateKey(new Date());
-    return monthAvailability[today] || events.some((event) => eventDateKey(event) === today)
-      ? today
-      : month && `${month}-01`;
-  });
+  const [selectedDate, setSelectedDate] = useState(() =>
+  pickInitialSelectedDate(month, monthAvailability, events),
+);
 
-  const selectedEvents = useMemo(
-    () => (events || []).filter((event) => eventDateKey(event) === selectedDate),
-    [events, selectedDate],
-  );
+useEffect(() => {
+  setSelectedDate(pickInitialSelectedDate(month, monthAvailability, events));
+}, [month, monthAvailability, events]);
+
+const selectedEvents = useMemo(
+  () => (events || []).filter((event) => eventSpansDate(event, selectedDate)),
+  [events, selectedDate],
+);
 
   const selectedAvailability = monthAvailability[selectedDate];
   const selectedStatus = statusForDate(selectedDate, monthAvailability, events, isClient);
@@ -448,33 +496,49 @@ export default function Dashboard({ counts, events, month, monthAvailability }: 
                 {selectedEvents.length > 0 ? (
                   selectedEvents.map((event) => (
                     <div
-                      key={event.id}
-                      className="rounded-2xl border border-black/5 bg-[#f7f5ef] px-4 py-4 dark:border-white/10 dark:bg-white/5"
-                    >
-                      <div className="text-lg font-semibold">{event.title}</div>
+  key={event.id}
+  className="rounded-2xl border border-black/5 bg-[#f7f5ef] px-4 py-4 dark:border-white/10 dark:bg-white/5"
+>
+  <div className="flex items-start justify-between gap-3">
+    <div>
+      <div className="text-lg font-semibold">{event.title}</div>
 
-                      <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                        {String(event.start).slice(11, 16)} - {String(event.end).slice(11, 16)}
-                      </div>
+      <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        {String(event.start).slice(0, 10) === String(event.end).slice(0, 10)
+          ? `${String(event.start).slice(11, 16)} - ${String(event.end).slice(11, 16)}`
+          : `${String(event.start).slice(0, 10)} ${String(event.start).slice(11, 16)} → ${String(event.end).slice(0, 10)} ${String(event.end).slice(11, 16)}`}
+      </div>
 
-                      {event.area ? (
-                        <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                          Area: {event.area}
-                        </div>
-                      ) : null}
+      {event.area ? (
+        <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Area: {event.area}
+        </div>
+      ) : null}
 
-                      {event.block ? (
-                        <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                          Block: {event.block}
-                        </div>
-                      ) : null}
+      {event.block ? (
+        <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Block: {event.block}
+        </div>
+      ) : null}
 
-                      {event.status ? (
-                        <div className="mt-2 inline-flex rounded-full bg-[#eef7f4] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#174f40] dark:bg-[#16212b] dark:text-[#9dc0ff]">
-                          {event.status}
-                        </div>
-                      ) : null}
-                    </div>
+      {event.status ? (
+        <div className="mt-2 inline-flex rounded-full bg-[#eef7f4] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#174f40] dark:bg-[#16212b] dark:text-[#9dc0ff]">
+          {event.status}
+        </div>
+      ) : null}
+    </div>
+
+    {event.kind !== 'block' ? (
+      <Link
+        href={`/bookings/${event.id}`}
+        className="inline-flex rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold dark:border-white/10 dark:bg-white/5"
+      >
+        Open
+      </Link>
+    ) : null}
+  </div>
+</div>
+
                   ))
                 ) : (
                   <div className="rounded-2xl border border-dashed border-black/10 px-4 py-6 text-sm text-slate-500 dark:border-white/10 dark:text-slate-300">

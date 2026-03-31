@@ -255,6 +255,14 @@ class BookingService implements BookingServiceInterface
         unset($data['items'], $data['extra_schedules']);
         unset($data['created_by_user_id']);
 
+        if (isset($data['client_email'])) {
+            $data['client_email'] = strtolower(trim((string) $data['client_email']));
+        }
+
+        if (isset($data['survey_email'])) {
+            $data['survey_email'] = strtolower(trim((string) $data['survey_email']));
+        }
+
         if (isset($data['booking_date_from'], $data['booking_date_to'])) {
             [$from, $to] = $this->normalizeRangeToPreferred(
                 (string) $data['booking_date_from'],
@@ -274,7 +282,7 @@ class BookingService implements BookingServiceInterface
         }
 
         if ($user && $user->hasRole('user')) {
-            $data['client_email'] = $user->email;
+            $data['client_email'] = strtolower(trim((string) $user->email));
             $data['booking_status'] = 'pending';
             $data['payment_status'] = 'unpaid';
         } else {
@@ -301,6 +309,7 @@ class BookingService implements BookingServiceInterface
 }
 
 
+
     public function update(Booking $booking, array $data): Booking
 {
     return DB::transaction(function () use ($booking, $data) {
@@ -312,6 +321,14 @@ class BookingService implements BookingServiceInterface
         $extraSchedules = (array) ($data['extra_schedules'] ?? []);
         unset($data['items'], $data['extra_schedules']);
         unset($data['created_by_user_id']);
+
+        if (isset($data['client_email'])) {
+            $data['client_email'] = strtolower(trim((string) $data['client_email']));
+        }
+
+        if (isset($data['survey_email'])) {
+            $data['survey_email'] = strtolower(trim((string) $data['survey_email']));
+        }
 
         $user = auth()->user();
 
@@ -333,6 +350,9 @@ class BookingService implements BookingServiceInterface
             ];
 
             $data = array_intersect_key($data, array_flip($allowed));
+
+            $data['client_email'] = strtolower(trim((string) $user->email));
+
             $items = null;
             $itemsWasSubmitted = false;
         }
@@ -374,6 +394,7 @@ class BookingService implements BookingServiceInterface
         return $booking->refresh();
     });
 }
+
 
 
     public function delete(Booking $booking): void

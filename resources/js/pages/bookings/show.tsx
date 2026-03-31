@@ -126,7 +126,10 @@ type PaymentRaw = {
 type BookingTotalsRaw = {
   items_total?: number | string | null;
   payments_total?: number | string | null;
+  submitted_payments_total?: number | string | null;
+  confirmed_payments_total?: number | string | null;
 };
+
 
 type BookingVM = Booking & {
   id: number;
@@ -432,11 +435,10 @@ export default function ShowBooking({ booking, services }: ShowBookingProps) {
   const { auth } = usePage<{ auth?: AuthLike | null }>().props;
 
   const roleNames = getRoleNames(auth).map((r) => r.toLowerCase());
+  const isAdminOrManager = roleNames.includes('admin') || roleNames.includes('manager');
+  const isStaff = !isAdminOrManager && (roleNames.includes('staff') || roleNames.includes('employee'));
+  const isClient = !isAdminOrManager && !isStaff && roleNames.includes('user');
 
-  const isClient = roleNames.includes('user');
-
-  // ✅ STAFF READ-ONLY
-  const isStaff = roleNames.includes('staff') || roleNames.includes('employee');
 
   const b = booking as unknown as BookingVM;
 
@@ -880,18 +882,30 @@ export default function ShowBooking({ booking, services }: ShowBookingProps) {
                       )}
                     </tbody>
                     <tfoot>
-                      <tr className="border-t">
-                        <td className="py-2 pr-2" colSpan={4}>
-                          Payments Total
-                        </td>
-                        <td className="py-2 pr-2 text-right">
-                          {Number(b.totals?.payments_total ?? 0).toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </td>
-                      </tr>
-                    </tfoot>
+  <tr className="border-t">
+    <td className="py-2 pr-2" colSpan={4}>
+      Submitted Total
+    </td>
+    <td className="py-2 pr-2 text-right">
+      {Number(b.totals?.submitted_payments_total ?? 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}
+    </td>
+  </tr>
+  <tr>
+    <td className="py-2 pr-2" colSpan={4}>
+      Confirmed Paid
+    </td>
+    <td className="py-2 pr-2 text-right">
+      {Number(b.totals?.confirmed_payments_total ?? b.totals?.payments_total ?? 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}
+    </td>
+  </tr>
+</tfoot>
+
                   </table>
                 </div>
               </div>
@@ -1262,13 +1276,23 @@ function PaymentStatusBadge({ status }: { status?: string }) {
 function BookingPaymentSummary({ booking }: { booking: BookingVM }) {
   const itemsTotal = Number(booking.totals?.items_total ?? 0);
 
-  const completedPaid = Array.isArray(booking.payments)
-    ? booking.payments
-        .filter((p) => p.status === 'confirmed')
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0)
-    : 0;
+  const submittedTotal = Number(
+    booking.totals?.submitted_payments_total ??
+      (Array.isArray(booking.payments)
+        ? booking.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0)
+        : 0),
+  );
 
-  const balance = Math.max(itemsTotal - completedPaid, 0);
+  const confirmedPaid = Number(
+    booking.totals?.confirmed_payments_total ??
+      (Array.isArray(booking.payments)
+        ? booking.payments
+            .filter((p) => p.status === 'confirmed')
+            .reduce((sum, p) => sum + Number(p.amount || 0), 0)
+        : 0),
+  );
+
+  const balance = Math.max(itemsTotal - confirmedPaid, 0);
 
   return (
     <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -1279,9 +1303,15 @@ function BookingPaymentSummary({ booking }: { booking: BookingVM }) {
         </span>
       </div>
       <div>
+        Submitted Total:{' '}
+        <span className="font-medium">
+          {submittedTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+      </div>
+      <div>
         Confirmed Paid:{' '}
         <span className="font-medium">
-          {completedPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          {confirmedPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       </div>
       <div>
@@ -1293,3 +1323,4 @@ function BookingPaymentSummary({ booking }: { booking: BookingVM }) {
     </div>
   );
 }
+

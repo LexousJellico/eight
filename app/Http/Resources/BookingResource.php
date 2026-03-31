@@ -13,40 +13,41 @@ class BookingResource extends JsonResource
     public function toArray(Request $request): array
     {
         $items = $this->whenLoaded('bookingServices', function () {
-    return $this->bookingServices->map(function ($item) {
-        $price = (float) ($item->service?->price ?? 0);
+            return $this->bookingServices->map(function ($item) {
+                $price = (float) ($item->service?->price ?? 0);
 
-        return [
-            'id' => $item->id,
-            'service_id' => $item->service_id,
-            'service_name' => $item->service?->name,
-            'price' => $price,
-            'quantity' => 1,
-            'line_total' => $price,
-        ];
-    })->toArray();
-});
-
-
-        $payments = $this->whenLoaded('payments', function () {
-            return $this->payments->map(function ($p) {
                 return [
-                    'id' => $p->id,
-                    'status' => $p->status,
-                    'payment_method' => $p->payment_method,
-                    'amount' => $p->amount,
-                    'transaction_reference' => $p->transaction_reference,
-                    'payment_gateway' => $p->payment_gateway,
-                    'remarks' => $p->remarks,
-                    'created_at' => $p->created_at,
+                    'id' => $item->id,
+                    'service_id' => $item->service_id,
+                    'service_name' => $item->service?->name,
+                    'price' => $price,
+                    'quantity' => 1,
+                    'line_total' => $price,
                 ];
-            })->toArray();
+            })->values()->toArray();
         });
 
-        // ✅ Creator (avoid lazy-loading)
+        $payments = $this->whenLoaded('payments', function () {
+            return $this->payments
+                ->sortByDesc('created_at')
+                ->values()
+                ->map(function ($p) {
+                    return [
+                        'id' => $p->id,
+                        'status' => $p->status,
+                        'payment_method' => $p->payment_method,
+                        'amount' => (float) $p->amount,
+                        'transaction_reference' => $p->transaction_reference,
+                        'payment_gateway' => $p->payment_gateway,
+                        'remarks' => $p->remarks,
+                        'created_at' => optional($p->created_at)->toIso8601String(),
+                    ];
+                })
+                ->toArray();
+        });
+
         $creator = $this->relationLoaded('createdBy') ? $this->createdBy : null;
 
-        // ✅ Per-user view state (used for “NEW” highlight in bookings index)
         $currentUserView = null;
         $isUnviewedForCurrentUser = null;
 
@@ -60,15 +61,10 @@ class BookingResource extends JsonResource
             }
         }
 
-        /**
-         * ✅ IMPORTANT:
-         * - Proof may exist as DB BLOB OR disk path.
-         * - We add a cache-busting query param (?v=updated_at_timestamp) so the browser fetches the NEW image after replace.
-         */
         $hasProof =
-            !empty($this->survey_proof_image) ||
-            !empty($this->survey_proof_image_path) ||
-            !empty($this->survey_proof_image_name);
+            ! empty($this->survey_proof_image) ||
+            ! empty($this->survey_proof_image_path) ||
+            ! empty($this->survey_proof_image_name);
 
         $proofUrl = null;
         if ($hasProof) {
@@ -76,6 +72,21 @@ class BookingResource extends JsonResource
             $v = $this->updated_at ? $this->updated_at->getTimestamp() : time();
             $proofUrl = $base . '?v=' . $v;
         }
+
+        $itemsTotal = is_array($items)
+            ? array_sum(array_map(fn ($i) => (float) ($i['line_total'] ?? 0), $items))
+            : null;
+
+        $submittedPaymentsTotal = is_array($payments)
+            ? array_sum(array_map(fn ($p) => (float) ($p['amount'] ?? 0), $payments))
+            : null;
+
+        $confirmedPaymentsTotal = is_array($payments)
+            ? array_sum(array_map(
+                fn ($p) => ($p['status'] ?? '') === 'confirmed' ? (float) ($p['amount'] ?? 0) : 0,
+                $payments
+            ))
+            : null;
 
         return [
             'id' => $this->id,
@@ -87,7 +98,6 @@ class BookingResource extends JsonResource
             'client_contact_number' => $this->client_contact_number,
             'client_email' => $this->client_email,
 
-            // ✅ Required Google Survey
             'survey_email' => $this->survey_email,
             'survey_proof_image_url' => $proofUrl,
 
@@ -104,7 +114,6 @@ class BookingResource extends JsonResource
             'booking_status' => $this->booking_status,
             'payment_status' => $this->payment_status,
 
-            // ✅ Created-by fields for UI (index/show)
             'created_by_user_id' => $this->created_by_user_id,
             'created_by' => $creator
                 ? [
@@ -116,18 +125,19 @@ class BookingResource extends JsonResource
             'created_by_name' => $creator?->name,
             'created_by_email' => $creator?->email,
 
-            // ✅ “NEW” indicator (per current user)
             'is_unviewed_for_current_user' => $isUnviewedForCurrentUser,
             'current_user_viewed_at' => $currentUserView?->viewed_at?->toIso8601String(),
 
-            'created_at' => $this->created_at,
+            'created_at' => optional($this->created_at)->toIso8601String(),
 
             'items' => $items,
             'payments' => $payments,
 
             'totals' => [
-                'items_total' => is_array($items) ? array_sum(array_map(fn ($i) => $i['line_total'] ?? 0, $items)) : null,
-                'payments_total' => is_array($payments) ? array_sum(array_map(fn ($p) => (float) ($p['amount'] ?? 0), $payments)) : null,
+                'items_total' => $itemsTotal,
+                'payments_total' => $confirmedPaymentsTotal,
+                'submitted_payments_total' => $submittedPaymentsTotal,
+                'confirmed_payments_total' => $confirmedPaymentsTotal,
             ],
         ];
     }

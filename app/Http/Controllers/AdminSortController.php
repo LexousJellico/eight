@@ -23,22 +23,29 @@ class AdminSortController extends Controller
             'ordered_ids.*' => ['integer'],
         ]);
 
-        $ids = array_values($data['ordered_ids']);
+        $requestedIds = array_values(array_unique(array_map('intval', $data['ordered_ids'])));
 
-        $records = PublicEvent::query()
+        $existingScopeIds = PublicEvent::query()
             ->where('scope', $data['scope'])
-            ->whereIn('id', $ids)
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->all();
 
-        if (count($records) !== count($ids)) {
+        $unknownIds = array_diff($requestedIds, $existingScopeIds);
+
+        if (! empty($unknownIds)) {
             return response()->json([
                 'message' => 'Some events could not be found for the selected scope.',
             ], 422);
         }
 
-        DB::transaction(function () use ($ids) {
-            foreach ($ids as $index => $id) {
+        $remainingIds = array_values(array_diff($existingScopeIds, $requestedIds));
+        $finalIds = array_values(array_merge($requestedIds, $remainingIds));
+
+        DB::transaction(function () use ($finalIds) {
+            foreach ($finalIds as $index => $id) {
                 PublicEvent::query()
                     ->whereKey($id)
                     ->update(['sort_order' => $index + 1]);
@@ -79,19 +86,26 @@ class AdminSortController extends Controller
             'ordered_ids.*' => ['integer'],
         ]);
 
-        $ids = array_values($data['ordered_ids']);
+        $requestedIds = array_values(array_unique(array_map('intval', $data['ordered_ids'])));
 
-        $records = $modelClass::query()
-            ->whereIn('id', $ids)
+        $existingIds = $modelClass::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->all();
 
-        if (count($records) !== count($ids)) {
+        $unknownIds = array_diff($requestedIds, $existingIds);
+
+        if (! empty($unknownIds)) {
             abort(422, 'Some sortable items could not be found.');
         }
 
-        DB::transaction(function () use ($ids, $modelClass) {
-            foreach ($ids as $index => $id) {
+        $remainingIds = array_values(array_diff($existingIds, $requestedIds));
+        $finalIds = array_values(array_merge($requestedIds, $remainingIds));
+
+        DB::transaction(function () use ($finalIds, $modelClass) {
+            foreach ($finalIds as $index => $id) {
                 $modelClass::query()
                     ->whereKey($id)
                     ->update(['sort_order' => $index + 1]);

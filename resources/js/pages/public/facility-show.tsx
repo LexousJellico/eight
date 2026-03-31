@@ -26,6 +26,10 @@ export default function FacilityShowPage({
     );
   }
 
+  const details = facility.details?.length
+    ? facility.details
+    : ['Space details and usage notes may be updated from the admin content area.'];
+
   return (
     <PublicLayout>
       <Head title={facility.title} />
@@ -62,7 +66,7 @@ export default function FacilityShowPage({
             </p>
 
             <div className="mt-6 space-y-3">
-              {(facility.details || []).map((detail, index) => (
+              {details.map((detail, index) => (
                 <div
                   key={`${detail}-${index}`}
                   className="rounded-[1.2rem] bg-[#f8f4ea] px-4 py-3 text-sm leading-7 text-slate-600 dark:bg-slate-900/70 dark:text-slate-300"
@@ -95,7 +99,7 @@ export default function FacilityShowPage({
             <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-2">
               {relatedFacilities.map((item) => (
                 <article
-                  key={item.slug}
+                  key={String(item.id)}
                   className="min-w-[280px] max-w-[280px] overflow-hidden rounded-[1.7rem] border border-black/5 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/5"
                 >
                   <div className="h-52 overflow-hidden">
@@ -108,7 +112,7 @@ export default function FacilityShowPage({
                       href={`/facilities/${item.slug}`}
                       className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#0f8b6d] px-4 py-2 text-sm font-semibold text-white dark:bg-[#294CFF]"
                     >
-                      View Space
+                      {item.ctaLabel || 'View Space'}
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                   </div>

@@ -1,9 +1,11 @@
 import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Edit3, Image as ImageIcon, Plus, Trash2, X } from 'lucide-react';
+import SortOrderBoard from '@/components/admin/sort-order-board';
 import AdminLayout from '@/layouts/admin-layout';
 import TourismMemberManager, { type TourismMemberRow } from '@/components/admin/tourism-member-manager';
+
 
 type RowId = number | string;
 
@@ -285,6 +287,15 @@ function FieldError({ error }: { error?: string }) {
   return <div className="mt-1 text-sm font-medium text-red-600 dark:text-red-300">{error}</div>;
 }
 
+function normalizeDateInput(value?: string | null) {
+  const match = String(value ?? '').match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : '';
+}
+
+function trimText(value: string) {
+  return value.trim();
+}
+
 function NoticeBar({ notice }: { notice: NoticeState }) {
   if (!notice) return null;
   return (
@@ -294,14 +305,30 @@ function NoticeBar({ notice }: { notice: NoticeState }) {
   );
 }
 
-function SectionPanel({ children, title }: { children: ReactNode; title: string }) {
+function SectionPanel({
+  children,
+  title,
+  panelId,
+  active = false,
+}: {
+  children: ReactNode;
+  title: string;
+  panelId?: string;
+  active?: boolean;
+}) {
   return (
-    <section className="rounded-2xl border bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#161b24]">
+    <section
+      id={panelId}
+      className={`rounded-2xl border bg-white p-5 shadow-sm transition dark:border-white/10 dark:bg-[#161b24] ${
+        active ? 'ring-2 ring-emerald-500/40 dark:ring-blue-400/40' : ''
+      }`}
+    >
       <h2 className="mb-4 text-xl font-bold">{title}</h2>
       {children}
     </section>
   );
 }
+
 
 function ItemImageStrip({ images }: { images: string[] }) {
   if (!images?.length) return null;
@@ -312,6 +339,25 @@ function ItemImageStrip({ images }: { images: string[] }) {
       ))}
     </div>
   );
+}
+
+function reorderRowsByIds<T extends { id: RowId }>(items: T[], orderedIds: Array<RowId>) {
+  const rank = new Map(orderedIds.map((id, index) => [String(id), index]));
+
+  return [...items].sort((a, b) => {
+    const aRank = rank.get(String(a.id));
+    const bRank = rank.get(String(b.id));
+
+    if (aRank == null && bRank == null) return 0;
+    if (aRank == null) return 1;
+    if (bRank == null) return -1;
+
+    return aRank - bRank;
+  });
+}
+
+function monthPrefixFromDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
 
@@ -341,12 +387,21 @@ function formatMonthLabel(value: Date) {
   }).format(value);
 }
 
+function toDateOnly(value: string) {
+  const match = String(value ?? '').match(/\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : '';
+}
+
 function expandDateRange(start: string, end: string) {
   const output: string[] = [];
-  if (!start || !end) return output;
 
-  const current = new Date(`${start}T00:00:00`);
-  const last = new Date(`${end}T00:00:00`);
+  const startDate = toDateOnly(start);
+  const endDate = toDateOnly(end);
+
+  if (!startDate || !endDate) return output;
+
+  const current = new Date(`${startDate}T00:00:00`);
+  const last = new Date(`${endDate}T00:00:00`);
 
   if (Number.isNaN(current.getTime()) || Number.isNaN(last.getTime())) return output;
 
@@ -357,6 +412,25 @@ function expandDateRange(start: string, end: string) {
 
   return output;
 }
+
+function pickInitialCalendarPreviewDate(
+  baseDate: Date,
+  map: Map<string, CalendarBlockRow[]>,
+) {
+  const monthPrefix = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}`;
+  const today = formatDateKey(new Date());
+
+  if (today.startsWith(`${monthPrefix}-`) && map.has(today)) {
+    return today;
+  }
+
+  const firstMarkedDate = [...map.keys()]
+    .filter((key) => key.startsWith(`${monthPrefix}-`))
+    .sort()[0];
+
+  return firstMarkedDate ?? `${monthPrefix}-01`;
+}
+
 
 function getMonthGridSundayFirst(baseDate: Date) {
   const year = baseDate.getFullYear();
@@ -439,7 +513,17 @@ export default function AdminHome({
 }: AdminHomePageProps) {
   const page = usePage();
   const url = page.url;
-  const currentTab = useMemo(() => new URLSearchParams(url.split('?')[1] ?? '').get('tab') ?? 'home', [url]);
+
+  const currentTab = useMemo(
+    () => new URLSearchParams(url.split('?')[1] ?? '').get('tab') ?? 'home',
+    [url],
+  );
+
+  const currentEditor = useMemo(
+    () => new URLSearchParams(url.split('?')[1] ?? '').get('editor') ?? '',
+    [url],
+  );
+
 
   const [calendarPreviewMonth, setCalendarPreviewMonth] = useState<Date>(() => {
     const firstBlockDate = initialCalendarBlocks[0]?.dateFrom;
@@ -453,7 +537,17 @@ export default function AdminHome({
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState<string>('');
+    const [selectedCalendarDateKey, setSelectedCalendarDateKey] = useState<string>(() => {
+    const today = formatDateKey(new Date());
+    const monthPrefix = `${calendarPreviewMonth.getFullYear()}-${String(calendarPreviewMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    if (today.startsWith(`${monthPrefix}-`)) {
+      return today;
+    }
+
+    return `${monthPrefix}-01`;
+  });
+
 
   const [bcccEvents, setBcccEvents] = useState<EventRow[]>(initialBcccEvents);
   const [cityEvents, setCityEvents] = useState<EventRow[]>(initialCityEvents);
@@ -519,6 +613,21 @@ export default function AdminHome({
     return spaces.filter((item) => `${item.title} ${item.category} ${item.shortDescription}`.toLowerCase().includes(needle));
   }, [spaces, search]);
 
+    const editingEventRow = useMemo(() => {
+    if (editingEventId == null) return null;
+    return [...bcccEvents, ...cityEvents].find((item) => item.id === editingEventId) ?? null;
+  }, [bcccEvents, cityEvents, editingEventId]);
+
+  const editingPackageRow = useMemo(() => {
+    if (editingPackageId == null) return null;
+    return packages.find((item) => item.id === editingPackageId) ?? null;
+  }, [packages, editingPackageId]);
+
+  const editingSpaceRow = useMemo(() => {
+    if (editingSpaceId == null) return null;
+    return spaces.find((item) => item.id === editingSpaceId) ?? null;
+  }, [spaces, editingSpaceId]);
+
   const calendarPreviewCells = useMemo(() => getMonthGridSundayFirst(calendarPreviewMonth), [calendarPreviewMonth]);
 
   const calendarPreviewMap = useMemo(() => {
@@ -539,12 +648,42 @@ export default function AdminHome({
     if (!selectedCalendarDateKey) return [] as CalendarBlockRow[];
     return calendarPreviewMap.get(selectedCalendarDateKey) ?? [];
   }, [calendarPreviewMap, selectedCalendarDateKey]);
+    useEffect(() => {
+    const monthPrefix = monthPrefixFromDate(calendarPreviewMonth);
+
+    const hasSelectedCell = calendarPreviewCells.some(
+      (cell) => cell && formatDateKey(cell) === selectedCalendarDateKey,
+    );
+
+    if (!hasSelectedCell || !selectedCalendarDateKey.startsWith(`${monthPrefix}-`)) {
+      const firstMarkedDate = [...calendarPreviewMap.keys()]
+        .filter((key) => key.startsWith(`${monthPrefix}-`))
+        .sort()[0];
+
+      setSelectedCalendarDateKey(firstMarkedDate ?? `${monthPrefix}-01`);
+    }
+  }, [calendarPreviewMonth, calendarPreviewCells, calendarPreviewMap, selectedCalendarDateKey]);
+
 
   const selectedCalendarDate = useMemo(() => {
     if (!selectedCalendarDateKey) return null;
     const parsed = new Date(`${selectedCalendarDateKey}T00:00:00`);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }, [selectedCalendarDateKey]);
+    useEffect(() => {
+    const monthPrefix = `${calendarPreviewMonth.getFullYear()}-${String(calendarPreviewMonth.getMonth() + 1).padStart(2, '0')}`;
+
+    const hasSelectedCell = calendarPreviewCells.some(
+      (cell) => cell && formatDateKey(cell) === selectedCalendarDateKey,
+    );
+
+    if (!hasSelectedCell || !selectedCalendarDateKey.startsWith(`${monthPrefix}-`)) {
+      setSelectedCalendarDateKey(
+        pickInitialCalendarPreviewDate(calendarPreviewMonth, calendarPreviewMap),
+      );
+    }
+  }, [calendarPreviewMonth, calendarPreviewCells, calendarPreviewMap, selectedCalendarDateKey]);
+
 
   const resetEventForm = () => {
     setEventForm(emptyEventForm);
@@ -572,16 +711,82 @@ export default function AdminHome({
     setStatErrors({});
   };
 
-  const handleEventFiles = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+    useEffect(() => {
+    if (!currentEditor) return;
+
+    const panelByEditor: Record<string, string> = {
+      'bccc-events': 'events-editor',
+      'city-events': 'events-editor',
+      packages: 'packages-editor',
+      'calendar-rules': 'calendar-editor',
+      spaces: 'spaces-editor',
+      stats: 'stats-editor',
+      'site-details': 'site-details-editor',
+    };
+
+    if (currentEditor === 'bccc-events') {
+      setEditingEventId(null);
+      setEventErrors({});
+      setEventForm({ ...emptyEventForm, scope: 'bccc' });
+    }
+
+    if (currentEditor === 'city-events') {
+      setEditingEventId(null);
+      setEventErrors({});
+      setEventForm({ ...emptyEventForm, scope: 'city' });
+    }
+
+    if (currentEditor === 'packages') {
+      setEditingPackageId(null);
+      setPackageErrors({});
+      setPackageForm(emptyPackageForm);
+    }
+
+    if (currentEditor === 'calendar-rules') {
+      setEditingCalendarId(null);
+      setCalendarErrors({});
+      setCalendarForm(emptyCalendarBlockForm);
+    }
+
+    if (currentEditor === 'spaces') {
+      setEditingSpaceId(null);
+      setSpaceErrors({});
+      setSpaceForm(emptySpaceForm);
+    }
+
+    if (currentEditor === 'stats') {
+      setEditingStatId(null);
+      setStatErrors({});
+      setStatForm(emptyStatForm);
+    }
+
+    if (currentEditor === 'site-details') {
+      setSiteErrors({});
+    }
+
+    const targetId = panelByEditor[currentEditor];
+    if (!targetId) return;
+
+    requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }, [currentEditor]);
+
+    const handleEventFiles = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).slice(0, 3);
     setEventForm((prev) => ({ ...prev, files }));
     setEventErrors((prev) => ({ ...prev, files: '' }));
   };
-  const handlePackageFiles = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+
+    const handlePackageFiles = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).slice(0, 3);
     setPackageForm((prev) => ({ ...prev, files }));
     setPackageErrors((prev) => ({ ...prev, files: '' }));
   };
+
   const handleLightFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     setSpaceForm((prev) => ({ ...prev, lightFile: file }));
@@ -599,16 +804,16 @@ export default function AdminHome({
     setEventErrors({});
 
     const formData = new FormData();
-    formData.append('scope', eventForm.scope);
-    formData.append('title', eventForm.title);
-    formData.append('venue', eventForm.venue);
-    formData.append('event_date', eventForm.date);
-    formData.append('event_time', eventForm.time);
-    formData.append('description', eventForm.description);
-    formData.append('note', eventForm.note);
-    formData.append('is_highlighted', eventForm.highlighted ? '1' : '0');
-    formData.append('is_public', eventForm.isPublic ? '1' : '0');
-    eventForm.files.forEach((file) => formData.append('images[]', file));
+    formData.append('title', trimText(spaceForm.title));
+    formData.append('category', trimText(spaceForm.category));
+    formData.append('capacity', trimText(spaceForm.capacity));
+    formData.append('short_description', trimText(spaceForm.shortDescription));
+    formData.append('summary', trimText(spaceForm.summary));
+    formData.append('details_text', spaceForm.detailsText.trim());
+    formData.append('homepage_visible', spaceForm.homepageVisible ? '1' : '0');
+    if (spaceForm.lightFile) formData.append('light_image', spaceForm.lightFile);
+    if (spaceForm.darkFile) formData.append('dark_image', spaceForm.darkFile);
+
 
     try {
       const payload = editingEventId
@@ -635,9 +840,10 @@ export default function AdminHome({
     setPackageErrors({});
 
     const formData = new FormData();
-    formData.append('title', packageForm.title);
-    formData.append('description', packageForm.description);
-    packageForm.files.forEach((file) => formData.append('images[]', file));
+    formData.append('title', trimText(packageForm.title));
+    formData.append('description', trimText(packageForm.description));
+    packageForm.files.slice(0, 3).forEach((file) => formData.append('images[]', file));
+
 
     try {
       const payload = editingPackageId
@@ -756,16 +962,17 @@ export default function AdminHome({
 
     try {
       const payload = await apiJson<{ message: string; item: SiteConfigState }>('/admin/site-settings', 'PUT', {
-        map_embed_url: siteConfig.mapEmbedUrl,
-        open_map_url: siteConfig.openMapUrl,
-        address: siteConfig.address,
-        phone: siteConfig.phone,
-        email: siteConfig.email,
-        visita_url: siteConfig.visitaUrl,
-        creative_baguio_url: siteConfig.creativeBaguioUrl,
-        footer_description: siteConfig.footerDescription,
-        footer_copyright: siteConfig.footerCopyright,
+        map_embed_url: siteConfig.mapEmbedUrl.trim(),
+        open_map_url: siteConfig.openMapUrl.trim(),
+        address: siteConfig.address.trim(),
+        phone: siteConfig.phone.trim(),
+        email: siteConfig.email.trim(),
+        visita_url: siteConfig.visitaUrl.trim(),
+        creative_baguio_url: siteConfig.creativeBaguioUrl.trim(),
+        footer_description: siteConfig.footerDescription.trim(),
+        footer_copyright: siteConfig.footerCopyright.trim(),
       });
+
       setSiteConfig(payload.item);
       setNotice({ type: 'success', text: payload.message });
     } catch (error) {
@@ -774,14 +981,14 @@ export default function AdminHome({
     }
   };
 
-  const editEvent = (row: EventRow) => {
+    const editEvent = (row: EventRow) => {
     setEditingEventId(row.id);
     setEventErrors({});
     setEventForm({
       scope: row.scope ?? 'bccc',
       title: row.title,
       venue: row.venue,
-      date: row.date,
+      date: normalizeDateInput(row.date),
       time: row.time ?? '',
       description: row.description,
       note: row.note,
@@ -791,6 +998,7 @@ export default function AdminHome({
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
 
   const editPackage = (row: PackageRow) => {
     setEditingPackageId(row.id);
@@ -854,6 +1062,56 @@ export default function AdminHome({
       setNotice({ type: 'error', text: normalizeErrorMessage(error) });
     }
   };
+  const saveSortNotice = () => {
+    setNotice({ type: 'success', text: 'Display order updated.' });
+  };
+
+  const reorderBcccEvents = async (orderedIds: Array<number | string>) => {
+    await apiJson<{ ok: boolean }>('/admin/sort/events', 'POST', {
+      scope: 'bccc',
+      ordered_ids: orderedIds,
+    });
+
+    setBcccEvents((prev) => reorderRowsByIds(prev, orderedIds));
+    saveSortNotice();
+  };
+
+  const reorderCityEvents = async (orderedIds: Array<number | string>) => {
+    await apiJson<{ ok: boolean }>('/admin/sort/events', 'POST', {
+      scope: 'city',
+      ordered_ids: orderedIds,
+    });
+
+    setCityEvents((prev) => reorderRowsByIds(prev, orderedIds));
+    saveSortNotice();
+  };
+
+  const reorderPackages = async (orderedIds: Array<number | string>) => {
+    await apiJson<{ ok: boolean }>('/admin/sort/packages', 'POST', {
+      ordered_ids: orderedIds,
+    });
+
+    setPackages((prev) => reorderRowsByIds(prev, orderedIds));
+    saveSortNotice();
+  };
+
+  const reorderSpaces = async (orderedIds: Array<number | string>) => {
+    await apiJson<{ ok: boolean }>('/admin/sort/spaces', 'POST', {
+      ordered_ids: orderedIds,
+    });
+
+    setSpaces((prev) => reorderRowsByIds(prev, orderedIds));
+    saveSortNotice();
+  };
+
+  const reorderStats = async (orderedIds: Array<number | string>) => {
+    await apiJson<{ ok: boolean }>('/admin/sort/stats', 'POST', {
+      ordered_ids: orderedIds,
+    });
+
+    setStats((prev) => reorderRowsByIds(prev, orderedIds));
+    saveSortNotice();
+  };
 
   return (
     <AdminLayout title="Content settings">
@@ -875,7 +1133,12 @@ export default function AdminHome({
 
         {currentTab === 'home' ? (
           <div className="grid gap-5 xl:grid-cols-2">
-            <SectionPanel title={editingPackageId ? 'Edit package' : 'New package'}>
+            <SectionPanel
+  title={editingPackageId ? 'Edit package' : 'New package'}
+  panelId="packages-editor"
+  active={currentEditor === 'packages'}
+>
+
               <form onSubmit={savePackage} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Title</label>
@@ -890,7 +1153,18 @@ export default function AdminHome({
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Images</label>
                   <input type="file" multiple accept="image/*" onChange={handlePackageFiles} className={inputClass(!!packageErrors.files)} />
-                  {packageForm.files.length ? <div className="mt-1 text-sm text-slate-500 dark:text-slate-300">{packageForm.files.map((file) => file.name).join(', ')}</div> : null}
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    Upload up to 3 images.
+                  </div>
+                  {editingPackageRow?.images?.length ? (
+                    <div className="mt-3">
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">
+                        Current saved images
+                      </div>
+                      <ItemImageStrip images={editingPackageRow.images} />
+                    </div>
+                  ) : null}
+                  {packageForm.files.length ? <div className="mt-2 text-sm text-slate-500 dark:text-slate-300">{packageForm.files.map((file) => file.name).join(', ')}</div> : null}
                   <FieldError error={packageErrors.files} />
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -921,7 +1195,12 @@ export default function AdminHome({
               </div>
             </SectionPanel>
 
-            <SectionPanel title={editingStatId ? 'Edit stat' : 'New stat'}>
+            <SectionPanel
+  title={editingStatId ? 'Edit stat' : 'New stat'}
+  panelId="stats-editor"
+  active={currentEditor === 'stats'}
+>
+
               <form onSubmit={saveStat} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Label</label>
@@ -969,9 +1248,76 @@ export default function AdminHome({
           </div>
         ) : null}
 
+
+            {currentEditor === 'ordering' ? (
+              <div id="ordering-boards" className="grid gap-5 xl:col-span-2 xl:grid-cols-2">
+                <SortOrderBoard
+                  title="Homepage packages"
+                  description="Change the order of the offer/package cards shown on the public homepage."
+                  items={packages.map((item) => ({
+                    id: item.id,
+                    title: item.title,
+                    subtitle: item.description,
+                  }))}
+                  onReorder={reorderPackages}
+                />
+
+                <SortOrderBoard
+                  title="Homepage stats"
+                  description="Adjust the order of the numeric counters shown on the homepage."
+                  items={stats.map((item) => ({
+                    id: item.id,
+                    title: item.label,
+                    subtitle: `${item.value}${item.suffix ? ` ${item.suffix}` : ''}`,
+                  }))}
+                  onReorder={reorderStats}
+                />
+
+                <SortOrderBoard
+                  title="BCCC public events"
+                  description="Arrange the display order of BCCC event cards."
+                  items={bcccEvents.map((item) => ({
+                    id: item.id,
+                    title: item.title,
+                    subtitle: `${item.venue} • ${item.date}`,
+                  }))}
+                  onReorder={reorderBcccEvents}
+                />
+
+                <SortOrderBoard
+                  title="Baguio City events"
+                  description="Arrange the display order of city event cards."
+                  items={cityEvents.map((item) => ({
+                    id: item.id,
+                    title: item.title,
+                    subtitle: `${item.venue} • ${item.date}`,
+                  }))}
+                  onReorder={reorderCityEvents}
+                />
+
+                <div className="xl:col-span-2">
+                  <SortOrderBoard
+                    title="Facility spaces"
+                    description="Arrange the order of the public venue/facility cards."
+                    items={spaces.map((item) => ({
+                      id: item.id,
+                      title: item.title,
+                      subtitle: `${item.category}${item.capacity ? ` • ${item.capacity}` : ''}`,
+                    }))}
+                    onReorder={reorderSpaces}
+                  />
+                </div>
+              </div>
+            ) : null}
+
         {currentTab === 'events' ? (
           <div className="grid gap-5 xl:grid-cols-2">
-            <SectionPanel title={editingEventId ? 'Edit event' : 'New event'}>
+            <SectionPanel
+  title={editingEventId ? 'Edit event' : 'New event'}
+  panelId="events-editor"
+  active={currentEditor === 'bccc-events' || currentEditor === 'city-events'}
+>
+
               <form onSubmit={saveEvent} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Type</label>
@@ -1016,7 +1362,18 @@ export default function AdminHome({
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Images</label>
                   <input type="file" multiple accept="image/*" onChange={handleEventFiles} className={inputClass(!!eventErrors.files)} />
-                  {eventForm.files.length ? <div className="mt-1 text-sm text-slate-500 dark:text-slate-300">{eventForm.files.map((file) => file.name).join(', ')}</div> : null}
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                    Upload up to 3 images.
+                  </div>
+                  {editingEventRow?.images?.length ? (
+                    <div className="mt-3">
+                      <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">
+                        Current saved images
+                      </div>
+                      <ItemImageStrip images={editingEventRow.images} />
+                    </div>
+                  ) : null}
+                  {eventForm.files.length ? <div className="mt-2 text-sm text-slate-500 dark:text-slate-300">{eventForm.files.map((file) => file.name).join(', ')}</div> : null}
                   <FieldError error={eventErrors.files} />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -1062,7 +1419,12 @@ export default function AdminHome({
 
         {currentTab === 'calendar' ? (
           <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-            <SectionPanel title={editingCalendarId ? 'Edit block' : 'New block'}>
+            <SectionPanel
+  title={editingCalendarId ? 'Edit calendar rule' : 'New calendar rule'}
+  panelId="calendar-editor"
+  active={currentEditor === 'calendar-rules'}
+>
+
               <form onSubmit={saveCalendar} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Title</label>
@@ -1280,7 +1642,12 @@ export default function AdminHome({
 
         {currentTab === 'facilities' ? (
           <div className="grid gap-5 xl:grid-cols-2">
-            <SectionPanel title={editingSpaceId ? 'Edit space' : 'New space'}>
+            <SectionPanel
+  title={editingSpaceId ? 'Edit space' : 'New space'}
+  panelId="spaces-editor"
+  active={currentEditor === 'spaces'}
+>
+
               <form onSubmit={saveSpace} className="space-y-4">
                 <div>
                   <label className="mb-1 block text-sm font-semibold">Title</label>
@@ -1327,6 +1694,29 @@ export default function AdminHome({
                     {spaceForm.darkFile ? <div className="mt-1 text-sm text-slate-500 dark:text-slate-300">{spaceForm.darkFile.name}</div> : null}
                     <FieldError error={spaceErrors.darkFile} />
                   </div>
+                                  {editingSpaceRow && (editingSpaceRow.lightImage || editingSpaceRow.darkImage) ? (
+                  <div className="rounded-xl border px-4 py-4 dark:border-white/10">
+                    <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">
+                      Current saved images
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {editingSpaceRow.lightImage ? (
+                        <img
+                          src={editingSpaceRow.lightImage}
+                          alt="Current light"
+                          className="h-20 w-28 rounded-lg border object-cover dark:border-white/10"
+                        />
+                      ) : null}
+                      {editingSpaceRow.darkImage ? (
+                        <img
+                          src={editingSpaceRow.darkImage}
+                          alt="Current dark"
+                          className="h-20 w-28 rounded-lg border object-cover dark:border-white/10"
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 </div>
                 <label className="flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium dark:border-white/10">
                   <input type="checkbox" checked={spaceForm.homepageVisible} onChange={(e) => setSpaceForm((prev) => ({ ...prev, homepageVisible: e.target.checked }))} />
@@ -1369,7 +1759,12 @@ export default function AdminHome({
         {currentTab === 'tourism-office' ? <TourismMemberManager initialMembers={initialTourismMembers} /> : null}
 
         {currentTab === 'contact' ? (
-          <SectionPanel title="Contact and site settings">
+          <SectionPanel
+  title="Contact and site settings"
+  panelId="site-details-editor"
+  active={currentEditor === 'site-details'}
+>
+
             <form onSubmit={saveSiteConfig} className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-semibold">Map embed URL</label>

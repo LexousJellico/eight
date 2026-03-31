@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { CalendarDays, MapPin } from 'lucide-react';
+import { CalendarDays, Clock3, MapPin } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import PageHero from '@/components/public/page-hero';
 import PublicLayout from '@/layouts/public-layout';
@@ -9,6 +9,7 @@ type FilterMode = 'all' | 'bccc' | 'city';
 
 export default function EventsPage({ events = [] }: { events?: PublicEventItem[] }) {
   const [filter, setFilter] = useState<FilterMode>('all');
+
   const source = useMemo(() => events.filter((item) => item.isPublic), [events]);
   const featured = source.find((item) => item.highlighted) ?? source[0];
 
@@ -16,6 +17,11 @@ export default function EventsPage({ events = [] }: { events?: PublicEventItem[]
     if (filter === 'all') return source;
     return source.filter((item) => item.scope === filter);
   }, [filter, source]);
+
+  const heroImage =
+    featured?.images?.[0] ||
+    featured?.image ||
+    '/marketing/images/events/lightmain.JPG';
 
   return (
     <PublicLayout>
@@ -25,10 +31,7 @@ export default function EventsPage({ events = [] }: { events?: PublicEventItem[]
         eyebrow="Events"
         title="Public events, city highlights, and convention-center announcements."
         description="Browse visible BCCC public events and Baguio City highlights in a cleaner, more premium layout inspired by your reference."
-        backgroundImages={[
-          featured?.images?.[0] || '/marketing/images/events/lightmain.JPG',
-          featured?.images?.[0] || '/marketing/images/events/darkmain.JPG',
-        ]}
+        backgroundImages={[heroImage, heroImage]}
         actions={[
           { label: 'View Calendar', href: '/calendar' },
           { label: 'Send Inquiry', href: '/contact', variant: 'secondary' },
@@ -60,7 +63,11 @@ export default function EventsPage({ events = [] }: { events?: PublicEventItem[]
         {featured ? (
           <div className="grid gap-0 overflow-hidden rounded-[2rem] border border-black/5 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="relative min-h-[350px] overflow-hidden">
-              <img src={featured.images?.[0] || '/marketing/images/events/1.JPG'} alt={featured.title} className="h-full w-full object-cover" />
+              <img
+                src={featured.images?.[0] || featured.image || '/marketing/images/events/1.JPG'}
+                alt={featured.title}
+                className="h-full w-full object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 p-6 text-white">
                 <div className="public-chip border-white/20 bg-white/10 text-white">
@@ -77,16 +84,26 @@ export default function EventsPage({ events = [] }: { events?: PublicEventItem[]
               <div className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-300">
                 Featured Event
               </div>
+
               <div className="space-y-3 text-sm text-slate-600 dark:text-slate-300">
                 <div className="inline-flex items-center gap-2">
                   <CalendarDays className="h-4 w-4" />
                   {featured.date}
                 </div>
+
+                {featured.time ? (
+                  <div className="inline-flex items-center gap-2">
+                    <Clock3 className="h-4 w-4" />
+                    {featured.time}
+                  </div>
+                ) : null}
+
                 <div className="inline-flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   {featured.venue}
                 </div>
               </div>
+
               <div className="rounded-[1.5rem] bg-[#f7f4ec] p-4 text-sm leading-7 text-slate-600 dark:bg-slate-900/70 dark:text-slate-300">
                 {featured.note || 'Public details remain subject to final operational confirmation.'}
               </div>
@@ -94,36 +111,58 @@ export default function EventsPage({ events = [] }: { events?: PublicEventItem[]
           </div>
         ) : null}
 
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {visible.map((event, index) => (
-            <article
-              key={`${event.title}-${index}`}
-              className="overflow-hidden rounded-[1.9rem] border border-black/5 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/5"
-            >
-              <div className="relative h-56 overflow-hidden">
-                <img src={event.images?.[0] || '/marketing/images/events/1.JPG'} alt={event.title} className="h-full w-full object-cover" />
-                <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-700">
-                  {event.scope === 'city' ? 'City Event' : 'BCCC Event'}
+        {visible.length === 0 ? (
+          <div className="rounded-[1.9rem] border border-dashed border-black/10 bg-white/70 px-6 py-10 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+            No public events match the selected filter yet.
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {visible.map((event) => (
+              <article
+                key={String(event.id)}
+                className="overflow-hidden rounded-[1.9rem] border border-black/5 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/5"
+              >
+                <div className="relative h-56 overflow-hidden">
+                  <img
+                    src={event.images?.[0] || event.image || '/marketing/images/events/1.JPG'}
+                    alt={event.title}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-700">
+                    {event.scope === 'city' ? 'City Event' : 'BCCC Event'}
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-3 p-5">
-                <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">{event.title}</h3>
-                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
-                  <div className="inline-flex items-center gap-2">
-                    <CalendarDays className="h-4 w-4" />
-                    {event.date}
+                <div className="space-y-3 p-5">
+                  <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">{event.title}</h3>
+
+                  <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                    <div className="inline-flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" />
+                      {event.date}
+                    </div>
+
+                    {event.time ? (
+                      <div className="inline-flex items-center gap-2">
+                        <Clock3 className="h-4 w-4" />
+                        {event.time}
+                      </div>
+                    ) : null}
+
+                    <div className="inline-flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      {event.venue}
+                    </div>
                   </div>
-                  <div className="inline-flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    {event.venue}
-                  </div>
+
+                  <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+                    {event.summary || event.description}
+                  </p>
                 </div>
-                <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">{event.summary || event.description}</p>
-              </div>
-            </article>
-          ))}
-        </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </PublicLayout>
   );

@@ -402,16 +402,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
         ->name('notifications.read-all');
 
-    Route::resource('users', UserController::class)
-        ->middleware('permission:users.manage');
-
-    Route::get('/users/roles', [UserRoleController::class, 'index'])
-        ->middleware('permission:users.manage')
-        ->name('users.roles.index');
-
-    Route::put('/users/{user}/roles', [UserRoleController::class, 'update'])
-        ->middleware('permission:users.manage')
-        ->name('users.roles.update');
         
     Route::get('/users/roles', [UserRoleController::class, 'index'])
                 ->middleware('permission:users.manage')

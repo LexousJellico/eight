@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,15 +30,16 @@ class RegisteredUserController extends Controller
 
         $user = User::create([
             'name' => (string) $request->name,
-            'email' => (string) $request->email,
+            'email' => strtolower(trim((string) $request->email)),
             'password' => Hash::make((string) $request->password),
-            'email_verified_at' => now(),
         ]);
 
         $user->assignRole('user');
 
+        event(new Registered($user));
+
         Auth::login($user);
 
-        return redirect()->route('dashboard');
+        return redirect()->route('verification.notice');
     }
 }

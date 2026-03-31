@@ -491,23 +491,52 @@ public function destroyTourismMember(Request $request, TourismMember $tourismMem
     }
 
     protected function calendarBlocksPayload(): Collection
-    {
-        return \App\Models\CalendarBlock::query()
-            ->orderByDesc('date_from')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (\App\Models\CalendarBlock $block) => [
-                'id' => $block->id,
-                'title' => $block->title,
-                'area' => $block->area ?? '',
-                'block' => $block->block,
-                'dateFrom' => $block->date_from,
-                'dateTo' => $block->date_to,
-                'note' => $block->notes ?? '',
-                'statusColor' => $block->public_status ?? 'red',
-            ])
-            ->values();
+{
+    return \App\Models\CalendarBlock::query()
+        ->orderByDesc('date_from')
+        ->orderByDesc('id')
+        ->get()
+        ->map(fn (\App\Models\CalendarBlock $block) => [
+            'id' => $block->id,
+            'title' => $block->title,
+            'area' => $block->area ?? '',
+            'block' => $block->block,
+            'dateFrom' => $this->normalizeAdminCalendarStartDate($block->date_from),
+            'dateTo' => $this->normalizeAdminCalendarEndDate($block->date_from, $block->date_to),
+            'note' => $block->notes ?? '',
+            'statusColor' => $block->public_status ?? 'red',
+        ])
+        ->values();
+}
+
+protected function normalizeAdminCalendarStartDate(mixed $value): string
+{
+    try {
+        return \Carbon\Carbon::parse($value)->format('Y-m-d');
+    } catch (\Throwable $e) {
+        return substr((string) $value, 0, 10);
     }
+}
+
+protected function normalizeAdminCalendarEndDate(mixed $fromValue, mixed $toValue): string
+{
+    try {
+        $from = \Carbon\Carbon::parse($fromValue);
+        $to = \Carbon\Carbon::parse($toValue);
+
+        if (
+            $to->format('H:i') === '00:00'
+            && $to->copy()->startOfDay()->equalTo($from->copy()->startOfDay()->addDay())
+        ) {
+            return $from->format('Y-m-d');
+        }
+
+        return $to->format('Y-m-d');
+    } catch (\Throwable $e) {
+        return substr((string) $toValue, 0, 10);
+    }
+}
+
 
     protected function spacesPayload(): Collection
     {
@@ -546,21 +575,22 @@ public function destroyTourismMember(Request $request, TourismMember $tourismMem
 
 
     protected function eventRow(PublicEvent $event): array
-    {
-        return [
-            'id' => $event->id,
-            'title' => $event->title,
-            'venue' => $event->venue,
-            'date' => $event->event_date,
-            'time' => $event->event_time,
-            'description' => $event->description,
-            'note' => $event->note ?? '',
-            'highlighted' => (bool) $event->is_highlighted,
-            'images' => is_array($event->images) ? $event->images : [],
-            'scope' => $event->scope,
-            'isPublic' => (bool) $event->is_public,
-        ];
-    }
+{
+    return [
+        'id' => $event->id,
+        'title' => $event->title,
+        'venue' => $event->venue,
+        'date' => $event->event_date?->format('Y-m-d') ?? '',
+        'time' => $event->event_time,
+        'description' => $event->description,
+        'note' => $event->note ?? '',
+        'highlighted' => (bool) $event->is_highlighted,
+        'images' => is_array($event->images) ? array_values($event->images) : [],
+        'scope' => $event->scope,
+        'isPublic' => (bool) $event->is_public,
+    ];
+}
+
 
     protected function packageRow(FeaturePackage $package): array
     {
@@ -573,20 +603,21 @@ public function destroyTourismMember(Request $request, TourismMember $tourismMem
     }
 
     protected function spaceRow(VenueSpace $space): array
-    {
-        return [
-            'id' => $space->id,
-            'title' => $space->title,
-            'category' => $space->category,
-            'capacity' => $space->capacity ?? '',
-            'shortDescription' => $space->short_description,
-            'summary' => $space->summary ?? '',
-            'details' => is_array($space->details) ? $space->details : [],
-            'lightImage' => $space->light_image ?? '',
-            'darkImage' => $space->dark_image ?? '',
-            'homepageVisible' => (bool) $space->homepage_visible,
-        ];
-    }
+{
+    return [
+        'id' => $space->id,
+        'title' => $space->title,
+        'category' => $space->category,
+        'capacity' => $space->capacity ?? '',
+        'shortDescription' => $space->short_description,
+        'summary' => $space->summary ?: $space->short_description,
+        'details' => is_array($space->details) ? array_values($space->details) : [],
+        'lightImage' => $space->light_image ?? '',
+        'darkImage' => $space->dark_image ?? '',
+        'homepageVisible' => (bool) $space->homepage_visible,
+    ];
+}
+
 
     protected function statRow(HomepageStat $stat): array
     {

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { CalendarDays, MapPin } from 'lucide-react';
+import { CalendarDays, Clock3, MapPin } from 'lucide-react';
 import type { PublicEventItem } from '@/types/public-content';
 
 type Props = {
@@ -30,13 +30,17 @@ export default function EventsHighlights({ items = [] }: Props) {
       </div>
 
       <div className="scrollbar-hide mt-6 flex gap-4 overflow-x-auto pb-2">
-        {featured.map((item, index) => (
+        {featured.map((item) => (
           <article
-            key={`${item.scope}-${item.title}-${index}`}
+            key={String(item.id)}
             className="min-w-[310px] max-w-[310px] overflow-hidden rounded-[1.85rem] border border-black/5 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-slate-950/50"
           >
             <div className="relative h-52 overflow-hidden">
-              <img src={item.images?.[0] || '/marketing/images/events/1.JPG'} alt={item.title} className="h-full w-full object-cover" />
+              <img
+                src={item.images?.[0] || item.image || '/marketing/images/events/1.JPG'}
+                alt={item.title}
+                className="h-full w-full object-cover"
+              />
               <div className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-700">
                 {item.scope === 'city' ? 'Baguio City' : 'BCCC'}
               </div>
@@ -44,16 +48,26 @@ export default function EventsHighlights({ items = [] }: Props) {
 
             <div className="space-y-3 p-5">
               <h3 className="line-clamp-2 text-xl font-semibold text-slate-900 dark:text-white">{item.title}</h3>
+
               <div className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                 <div className="inline-flex items-center gap-2">
                   <CalendarDays className="h-4 w-4" />
                   {item.date}
                 </div>
+
+                {item.time ? (
+                  <div className="inline-flex items-center gap-2">
+                    <Clock3 className="h-4 w-4" />
+                    {item.time}
+                  </div>
+                ) : null}
+
                 <div className="inline-flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
                   {item.venue}
                 </div>
               </div>
+
               <p className="line-clamp-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
                 {item.summary || item.description}
               </p>

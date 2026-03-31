@@ -1,8 +1,6 @@
 import { usePage } from '@inertiajs/react';
-import { AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ImageUp, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-
-import { Button } from '@/components/ui/button';
 
 type FlashBag = {
   success?: string | null;
@@ -16,7 +14,7 @@ type SharedPageProps = {
   errors?: PageErrors;
 };
 
-type PopupTone = 'success' | 'error' | 'info';
+type PopupTone = 'success' | 'upload' | 'deleted' | 'error';
 
 type PopupState = {
   key: string;
@@ -43,25 +41,65 @@ function firstErrorMessage(errors: PageErrors | undefined): string | null {
   return null;
 }
 
+function inferSuccessMeta(message: string): { tone: PopupTone; title: string } {
+  const text = message.toLowerCase();
+
+  if (/(delete|deleted|remove|removed|archive|archived|trash|trashed)/i.test(text)) {
+    return { tone: 'deleted', title: 'Deleted' };
+  }
+
+  if (/(upload|uploaded|image|images|photo|file|files|proof)/i.test(text)) {
+    return { tone: 'upload', title: 'Uploaded' };
+  }
+
+  if (/(save|saved|update|updated|create|created|added|changed)/i.test(text)) {
+    return { tone: 'success', title: 'Saved' };
+  }
+
+  return { tone: 'success', title: 'Success' };
+}
+
 function popupMeta(tone: PopupTone) {
   switch (tone) {
     case 'success':
       return {
         icon: CheckCircle2,
-        ring: 'border-emerald-200 bg-emerald-50/95 text-emerald-950 dark:border-emerald-900/60 dark:bg-emerald-950/90 dark:text-emerald-50',
-        iconWrap: 'bg-emerald-600/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-300',
+        shell:
+          'border-emerald-200/70 bg-white text-slate-950 dark:border-emerald-500/20 dark:bg-[#0f172a] dark:text-white',
+        iconWrap:
+          'bg-emerald-500/12 text-emerald-600 dark:bg-emerald-400/12 dark:text-emerald-300',
+        title:
+          'text-emerald-700 dark:text-emerald-300',
       };
-    case 'error':
+    case 'upload':
       return {
-        icon: AlertTriangle,
-        ring: 'border-red-200 bg-red-50/95 text-red-950 dark:border-red-900/60 dark:bg-red-950/90 dark:text-red-50',
-        iconWrap: 'bg-red-600/10 text-red-600 dark:bg-red-400/10 dark:text-red-300',
+        icon: ImageUp,
+        shell:
+          'border-sky-200/70 bg-white text-slate-950 dark:border-sky-500/20 dark:bg-[#0f172a] dark:text-white',
+        iconWrap:
+          'bg-sky-500/12 text-sky-600 dark:bg-sky-400/12 dark:text-sky-300',
+        title:
+          'text-sky-700 dark:text-sky-300',
+      };
+    case 'deleted':
+      return {
+        icon: Trash2,
+        shell:
+          'border-rose-200/70 bg-white text-slate-950 dark:border-rose-500/20 dark:bg-[#0f172a] dark:text-white',
+        iconWrap:
+          'bg-rose-500/12 text-rose-600 dark:bg-rose-400/12 dark:text-rose-300',
+        title:
+          'text-rose-700 dark:text-rose-300',
       };
     default:
       return {
-        icon: Info,
-        ring: 'border-slate-200 bg-white/95 text-slate-950 dark:border-slate-800 dark:bg-slate-950/90 dark:text-slate-50',
-        iconWrap: 'bg-slate-600/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-300',
+        icon: AlertTriangle,
+        shell:
+          'border-amber-200/70 bg-white text-slate-950 dark:border-amber-500/20 dark:bg-[#0f172a] dark:text-white',
+        iconWrap:
+          'bg-amber-500/12 text-amber-600 dark:bg-amber-400/12 dark:text-amber-300',
+        title:
+          'text-amber-700 dark:text-amber-300',
       };
   }
 }
@@ -73,10 +111,12 @@ export default function ActionFeedbackPopup() {
 
   const candidate = useMemo<PopupState | null>(() => {
     if (flash?.success) {
+      const meta = inferSuccessMeta(flash.success);
+
       return {
         key: `success:${flash.success}`,
-        tone: 'success',
-        title: 'Success',
+        tone: meta.tone,
+        title: meta.title,
         message: flash.success,
       };
     }
@@ -123,7 +163,7 @@ export default function ActionFeedbackPopup() {
     timerRef.current = window.setTimeout(() => {
       setPopup(null);
       timerRef.current = null;
-    }, popup.tone === 'error' ? 6000 : 4200);
+    }, 1500);
 
     return () => {
       if (timerRef.current) {
@@ -139,29 +179,33 @@ export default function ActionFeedbackPopup() {
   const Icon = meta.icon;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-4 z-[10000] flex justify-center px-4" role="status" aria-live="polite">
-      <div className={`pointer-events-auto w-full max-w-lg rounded-2xl border shadow-2xl backdrop-blur ${meta.ring}`}>
-        <div className="flex items-start gap-3 p-4">
-          <div className={`mt-0.5 rounded-full p-2 ${meta.iconWrap}`}>
-            <Icon className="h-5 w-5" />
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md" aria-live="polite">
+      <div
+        role="alert"
+        className={`w-full max-w-md rounded-[1.8rem] border shadow-[0_30px_90px_rgba(15,23,42,0.28)] animate-in fade-in zoom-in-95 duration-200 ${meta.shell}`}
+      >
+        <div className="flex items-start gap-4 p-5">
+          <div className={`rounded-2xl p-3 ${meta.iconWrap}`}>
+            <Icon className="h-6 w-6" />
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold uppercase tracking-[0.18em] opacity-80">{popup.title}</div>
-            <div className="mt-1 text-sm leading-6">{popup.message}</div>
+            <div className={`text-xs font-bold uppercase tracking-[0.28em] ${meta.title}`}>
+              {popup.title}
+            </div>
+            <div className="mt-2 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              {popup.message}
+            </div>
           </div>
 
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-full"
             onClick={() => setPopup(null)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-slate-500 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
             aria-label="Close popup"
-            title="Close"
           >
             <X className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
       </div>
     </div>
