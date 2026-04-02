@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\Booking;
 
 class PublicSiteController extends Controller
 {
@@ -130,24 +131,53 @@ class PublicSiteController extends Controller
     }
 
     protected function venueOptionsPayload(): Collection
-    {
-        return collect([
-            [
-                'label' => 'Whole Venue',
-                'value' => 'Whole Venue',
-            ],
-        ])->merge(
-            VenueSpace::query()
-                ->orderBy('sort_order')
-                ->get(['title', 'category', 'capacity'])
-                ->map(fn (VenueSpace $space) => [
-                    'label' => $space->title,
-                    'value' => $space->title,
-                    'category' => $space->category,
-                    'capacity' => $space->capacity,
-                ])
-        )->unique('value')->values();
-    }
+{
+    return collect([
+        [
+            'label' => 'FULL HALL',
+            'value' => 'Full Hall',
+            'category' => 'Whole venue access',
+            'capacity' => 'Layout dependent',
+        ],
+        [
+            'label' => 'MAIN HALL',
+            'value' => 'Main Hall',
+            'category' => 'Primary hall',
+            'capacity' => 'Large-format events',
+        ],
+        [
+            'label' => 'FOYER & LOBBY AREA',
+            'value' => 'Foyer & Lobby Area',
+            'category' => 'Reception space',
+            'capacity' => 'Guest flow area',
+        ],
+        [
+            'label' => 'VIP LOUNGE',
+            'value' => 'VIP Lounge',
+            'category' => 'Executive space',
+            'capacity' => 'VIP holding',
+        ],
+        [
+            'label' => 'BOARD ROOM',
+            'value' => 'Board Room',
+            'category' => 'Meeting space',
+            'capacity' => 'Small-group setup',
+        ],
+        [
+            'label' => 'BASEMENT',
+            'value' => 'Basement',
+            'category' => 'Support / event space',
+            'capacity' => 'Flexible use',
+        ],
+        [
+            'label' => 'GALLERY2600',
+            'value' => 'Gallery2600',
+            'category' => 'Gallery space',
+            'capacity' => 'Exhibit-ready',
+        ],
+    ]);
+}
+
 
     protected function spacesPayload(): Collection
 {
@@ -275,7 +305,7 @@ class PublicSiteController extends Controller
 
     protected function calendarBlocksPayload(): Collection
 {
-    return CalendarBlock::query()
+    $manualBlocks = CalendarBlock::query()
         ->whereNotNull('public_status')
         ->orderBy('date_from')
         ->get()
@@ -302,9 +332,30 @@ class PublicSiteController extends Controller
                 'dateFrom' => $this->normalizePublicCalendarStartDate($block->date_from),
                 'dateTo' => $this->normalizePublicCalendarEndDate($block->date_from, $block->date_to),
             ];
-        })
+        });
+
+    $bookingBlocks = Booking::query()
+        ->with(['bookingServices.service.serviceType', 'service.serviceType'])
+        ->whereIn('booking_status', ['confirmed', 'active'])
+        ->orderBy('booking_date_from')
+        ->get()
+        ->map(function (Booking $booking) {
+            return [
+                'title' => 'Private Booking',
+                'area' => 'Reserved area details are hidden',
+                'notes' => 'Confirmed and active bookings appear as private dates on the public calendar.',
+                'publicStatus' => 'gold',
+                'dateFrom' => $this->normalizePublicCalendarStartDate($booking->booking_date_from),
+                'dateTo' => $this->normalizePublicCalendarEndDate($booking->booking_date_from, $booking->booking_date_to),
+            ];
+        });
+
+    return $manualBlocks
+        ->concat($bookingBlocks)
+        ->sortBy('dateFrom')
         ->values();
 }
+
 
 protected function normalizePublicCalendarStartDate(mixed $value): string
 {

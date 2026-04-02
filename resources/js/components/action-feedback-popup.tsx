@@ -23,6 +23,15 @@ type PopupState = {
   message: string;
 };
 
+type PopupEventDetail = {
+  key?: string;
+  tone?: PopupTone;
+  title?: string;
+  message: string;
+};
+
+const ACTION_FEEDBACK_EVENT = 'bccc:action-feedback';
+
 function firstErrorMessage(errors: PageErrors | undefined): string | null {
   if (!errors) return null;
 
@@ -52,7 +61,7 @@ function inferSuccessMeta(message: string): { tone: PopupTone; title: string } {
     return { tone: 'upload', title: 'Uploaded' };
   }
 
-  if (/(save|saved|update|updated|create|created|added|changed)/i.test(text)) {
+  if (/(save|saved|update|updated|create|created|added|changed|reorder|sorted)/i.test(text)) {
     return { tone: 'success', title: 'Saved' };
   }
 
@@ -68,8 +77,7 @@ function popupMeta(tone: PopupTone) {
           'border-emerald-200/70 bg-white text-slate-950 dark:border-emerald-500/20 dark:bg-[#0f172a] dark:text-white',
         iconWrap:
           'bg-emerald-500/12 text-emerald-600 dark:bg-emerald-400/12 dark:text-emerald-300',
-        title:
-          'text-emerald-700 dark:text-emerald-300',
+        title: 'text-emerald-700 dark:text-emerald-300',
       };
     case 'upload':
       return {
@@ -78,8 +86,7 @@ function popupMeta(tone: PopupTone) {
           'border-sky-200/70 bg-white text-slate-950 dark:border-sky-500/20 dark:bg-[#0f172a] dark:text-white',
         iconWrap:
           'bg-sky-500/12 text-sky-600 dark:bg-sky-400/12 dark:text-sky-300',
-        title:
-          'text-sky-700 dark:text-sky-300',
+        title: 'text-sky-700 dark:text-sky-300',
       };
     case 'deleted':
       return {
@@ -88,8 +95,7 @@ function popupMeta(tone: PopupTone) {
           'border-rose-200/70 bg-white text-slate-950 dark:border-rose-500/20 dark:bg-[#0f172a] dark:text-white',
         iconWrap:
           'bg-rose-500/12 text-rose-600 dark:bg-rose-400/12 dark:text-rose-300',
-        title:
-          'text-rose-700 dark:text-rose-300',
+        title: 'text-rose-700 dark:text-rose-300',
       };
     default:
       return {
@@ -98,10 +104,25 @@ function popupMeta(tone: PopupTone) {
           'border-amber-200/70 bg-white text-slate-950 dark:border-amber-500/20 dark:bg-[#0f172a] dark:text-white',
         iconWrap:
           'bg-amber-500/12 text-amber-600 dark:bg-amber-400/12 dark:text-amber-300',
-        title:
-          'text-amber-700 dark:text-amber-300',
+        title: 'text-amber-700 dark:text-amber-300',
       };
   }
+}
+
+function buildPopupFromEvent(detail: PopupEventDetail): PopupState {
+  const tone = detail.tone ?? inferSuccessMeta(detail.message).tone;
+  const title =
+    detail.title ??
+    (tone === 'error'
+      ? 'Action not completed'
+      : inferSuccessMeta(detail.message).title);
+
+  return {
+    key: detail.key ?? `${tone}:${title}:${detail.message}`,
+    tone,
+    title,
+    message: detail.message,
+  };
 }
 
 export default function ActionFeedbackPopup() {
@@ -153,6 +174,26 @@ export default function ActionFeedbackPopup() {
   }, [candidate]);
 
   useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<PopupEventDetail>).detail;
+      if (!detail?.message) return;
+
+      const next = buildPopupFromEvent(detail);
+
+      setPopup((current) => {
+        if (current?.key === next.key) return current;
+        return next;
+      });
+    };
+
+    window.addEventListener(ACTION_FEEDBACK_EVENT, handler as EventListener);
+
+    return () => {
+      window.removeEventListener(ACTION_FEEDBACK_EVENT, handler as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!popup) return;
 
     if (timerRef.current) {
@@ -179,10 +220,20 @@ export default function ActionFeedbackPopup() {
   const Icon = meta.icon;
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md" aria-live="polite">
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/35 px-4 backdrop-blur-md"
+      aria-live="polite"
+    >
+      <button
+        type="button"
+        className="absolute inset-0"
+        onClick={() => setPopup(null)}
+        aria-label="Close popup"
+      />
+
       <div
         role="alert"
-        className={`w-full max-w-md rounded-[1.8rem] border shadow-[0_30px_90px_rgba(15,23,42,0.28)] animate-in fade-in zoom-in-95 duration-200 ${meta.shell}`}
+        className={`relative w-full max-w-md rounded-[1.8rem] border shadow-[0_30px_90px_rgba(15,23,42,0.28)] animate-in fade-in zoom-in-95 duration-200 ${meta.shell}`}
       >
         <div className="flex items-start gap-4 p-5">
           <div className={`rounded-2xl p-3 ${meta.iconWrap}`}>

@@ -20,7 +20,7 @@ export default function HeroBanner({ venueOptions }: Props) {
   return (
     <section className="relative min-h-screen w-full mt-0 overflow-hidden">
       <img
-        src="/marketing/images/branding/noon.jpg"
+        src="/marketing/images/hero/noon.png"
         alt="Baguio panoramic view"
         className="absolute inset-0 h-full w-full object-cover dark:hidden"
       />

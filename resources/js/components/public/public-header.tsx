@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { CalendarDays, Menu, MessageSquareMore, X } from 'lucide-react';
+import { CalendarDays, Menu, PhoneCall, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import ThemeToggle from '@/components/public/theme-toggle';
 
@@ -12,14 +12,19 @@ type SharedProps = {
   };
 };
 
-const navItems = [
+const leftNavItems = [
   { label: 'Home', href: '/' },
   { label: 'Facilities', href: '/facilities' },
   { label: 'Events', href: '/events' },
   { label: 'Calendar', href: '/calendar' },
-  { label: 'Tourism Office', href: '/tourism-office' },
-  { label: 'Contact Us', href: '/contact' },
 ];
+
+const rightNavItems = [
+  { label: 'Tourism Office', href: '/tourism-office' },
+  { label: 'Contact', href: '/contact' },
+];
+
+const allNavItems = [...leftNavItems, ...rightNavItems];
 
 export default function PublicHeader() {
   const page = usePage<SharedProps>();
@@ -28,92 +33,101 @@ export default function PublicHeader() {
 
   const isActive = (href: string) => {
     if (href === '/') return currentUrl === '/';
-    return currentUrl === href || currentUrl.startsWith(`${href}/`);
+    return currentUrl === href || currentUrl.startsWith('${href}/');
   };
+
+  const navClass = (href: string) =>
+    `rounded-full px-4 py-2.5 text-[13px] lg:text-[14px] font-semibold uppercase tracking-[0.16em] transition ${
+      isActive(href)
+        ? 'bg-white/18 text-white shadow-[0_8px_22px_rgba(15,23,42,0.15)]'
+        : 'text-white/90 hover:bg-white/10 hover:text-white'
+    }`;
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-[90]">
-        <div className="w-full">
-          <div className="w-full border border-white/20 bg-white/22 shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-md dark:border-white/10 dark:bg-slate-950/28 dark:shadow-[0_18px_55px_rgba(2,8,23,0.38)]">
-            <div className="flex min-h-[74px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-              <Link href="/" className="flex items-center gap-3">
+      <header className="fixed inset-x-0 top-0 z-[100]">
+        <div className="w-full border-b border-white/10 bg-[linear-gradient(135deg,rgba(14,26,45,0.82),rgba(15,139,109,0.34))] shadow-[0_24px_70px_rgba(15,23,42,0.26)] backdrop-blur-xl dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(2,6,23,0.92),rgba(41,76,255,0.24))] dark:shadow-[0_24px_70px_rgba(2,8,23,0.48)]">
+          <div className="relative flex min-h-[92px] w-full items-center justify-between gap-4 pl-3 pr-[118px] sm:pl-4 lg:min-h-[100px] lg:pl-5 lg:pr-[134px]">
+            <div className="flex min-w-0 items-center gap-4 lg:gap-6">
+              <Link href="/" className="shrink-0">
                 <img
                   src="/marketing/images/logo/lightlogo.png"
                   alt="BCCC EASE"
-                  className="h-12 w-auto object-contain dark:hidden sm:h-14"
+                  className="h-12 w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.18)] dark:hidden sm:h-14"
                 />
                 <img
                   src="/marketing/images/logo/darklogo.png"
                   alt="BCCC EASE"
-                  className="hidden h-12 w-auto object-contain dark:block sm:h-14"
+                  className="hidden h-12 w-auto object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.28)] dark:block sm:h-14"
                 />
               </Link>
 
               <nav className="hidden items-center gap-1 xl:flex">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`rounded-full px-4 py-2 text-[15px] font-medium uppercase tracking-[0.08em] transition ${
-                      isActive(item.href)
-                        ? 'bg-white/18 text-white'
-                        : 'text-white/92 hover:bg-white/10'
-                    }`}
-                  >
+                {leftNavItems.map((item) => (
+                  <Link key={item.href} href={item.href} className={navClass(item.href)}>
                     {item.label}
                   </Link>
                 ))}
               </nav>
+            </div>
 
-              <div className="hidden items-center gap-2 xl:flex">
-                <ThemeToggle />
-
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15"
-                >
-                  <MessageSquareMore className="h-4 w-4" />
-                  Inquire
+            <div className="hidden items-center pr-8 gap-2 xl:flex">
+              {rightNavItems.map((item) => (
+                <Link key={item.href} href={item.href} className={navClass(item.href)}>
+                  {item.label}
                 </Link>
-              </div>
+              ))}
 
-              <div className="flex items-center gap-2 xl:hidden">
-                <ThemeToggle />
+              <ThemeToggle />
+            </div>
 
-                <button
-                  type="button"
-                  onClick={() => setMobileOpen((prev) => !prev)}
-                  aria-label="Toggle menu"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15"
-                >
-                  {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                </button>
-              </div>
+            <Link
+              href="/bookings/create"
+              className="absolute right-0 top-0 z-[110] hidden h-[120px] w-[118px] flex-col items-center justify-center gap-2 bg-[#0f8b6d] px-4 text-center text-[12px] font-extrabold uppercase tracking-[0.18em] text-white shadow-[0_22px_55px_rgba(15,139,109,0.36)] transition hover:opacity-95 dark:bg-[#294CFF] dark:shadow-[0_22px_55px_rgba(41,76,255,0.34)] xl:flex lg:h-[126px] lg:w-[134px] lg:text-[12.5px]"
+            >
+              <CalendarDays className="h-5 w-5" />
+              <span className="leading-tight">
+                Book
+                <br />
+                Your
+                <br />
+                Event
+              </span>
+            </Link>
+
+            <div className="flex items-center gap-2 pr-3 sm:pr-4 xl:hidden">
+              <ThemeToggle />
+
+              <Link
+                href="/bookings/create"
+                className="hidden items-center gap-2 rounded-full bg-[#0f8b6d] px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.18em] text-white dark:bg-[#294CFF] sm:inline-flex"
+              >
+                <CalendarDays className="h-4 w-4" />
+                Book
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setMobileOpen((prev) => !prev)}
+                aria-label="Toggle menu"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15"
+              >
+                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      <Link
-        href="/bookings/create"
-        className="fixed right-3 top-[86px] z-[85] hidden flex-col items-center gap-2 bg-[#0f8b6d] px-4 py-4 text-center text-[11px] font-bold uppercase tracking-[0.22em] text-white shadow-[0_20px_50px_rgba(15,139,109,0.35)] transition hover:translate-y-0.5 xl:inline-flex dark:bg-[#294CFF] dark:shadow-[0_20px_50px_rgba(41,76,255,0.35)]"
-      >
-        <CalendarDays className="h-5 w-5" />
-        <span className="leading-4">
-          Book
-          <br />
-          Your
-          <br />
-          Event
-        </span>
-      </Link>
-
       {mobileOpen && (
-        <div className="fixed inset-0 z-[100] xl:hidden">
-          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <div className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col bg-[#f7f4ec] p-5 dark:bg-[#0f172a]">
-            <div className="mb-6 flex items-center justify-between">
+        <div className="fixed inset-0 z-[120] xl:hidden">
+          <div
+            className="absolute inset-0 bg-slate-950/68 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+
+          <div className="absolute right-0 top-0 flex h-full w-full max-w-sm flex-col bg-[#f7f4ec] p-5 dark:bg-[#0b1220]">
+            <div className="mb-6 flex items-center justify-between gap-3">
               <img
                 src="/marketing/images/logo/lightlogo.png"
                 alt="BCCC EASE"
@@ -124,6 +138,7 @@ export default function PublicHeader() {
                 alt="BCCC EASE"
                 className="hidden h-12 w-auto object-contain dark:block"
               />
+
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
@@ -135,12 +150,12 @@ export default function PublicHeader() {
             </div>
 
             <div className="space-y-2">
-              {navItems.map((item) => (
+              {allNavItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
                   onClick={() => setMobileOpen(false)}
-                  className={`block rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                  className={`block rounded-[1.2rem] px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] transition ${
                     isActive(item.href)
                       ? 'bg-[#0f8b6d] text-white dark:bg-[#294CFF]'
                       : 'bg-white text-slate-800 dark:bg-white/5 dark:text-white'
@@ -155,18 +170,19 @@ export default function PublicHeader() {
               <Link
                 href="/bookings/create"
                 onClick={() => setMobileOpen(false)}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[#0f8b6d] px-5 py-3 text-sm font-semibold text-white dark:bg-[#294CFF]"
+                className="inline-flex items-center justify-center gap-2 rounded-[1.2rem] bg-[#0f8b6d] px-5 py-4 text-sm font-extrabold uppercase tracking-[0.16em] text-white dark:bg-[#294CFF]"
               >
                 <CalendarDays className="h-4 w-4" />
                 Book Your Event
               </Link>
+
               <Link
                 href="/contact"
                 onClick={() => setMobileOpen(false)}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold dark:border-white/10"
+                className="inline-flex items-center justify-center gap-2 rounded-[1.2rem] border border-black/10 px-5 py-4 text-sm font-semibold uppercase tracking-[0.14em] text-slate-700 dark:border-white/10 dark:text-white"
               >
-                <MessageSquareMore className="h-4 w-4" />
-                Inquire
+                <PhoneCall className="h-4 w-4" />
+                Contact Office
               </Link>
             </div>
           </div>

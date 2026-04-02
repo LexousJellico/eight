@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import { ChevronDown, LogOut } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import NotificationBell from '@/components/layout/NotificationBell';
 
 type AuthUser = {
   name?: string;
@@ -19,6 +20,7 @@ type PageProps = {
 
 type AdminLayoutProps = PropsWithChildren<{
   title?: string;
+  subtitle?: string;
 }>;
 
 const sectionTabs = [
@@ -38,7 +40,7 @@ const mainLinks = [
   { label: 'Booking', href: '/dashboard' },
 ];
 
-export default function AdminLayout({ children, title }: AdminLayoutProps) {
+export default function AdminLayout({ children, title, subtitle }: AdminLayoutProps) {
   const page = usePage<PageProps>();
   const user = page.props.auth?.user;
   const url = page.url;
@@ -58,6 +60,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 BCCC Admin
               </Link>
               {title ? <div className="mt-1 text-sm text-slate-500 dark:text-slate-300">{title}</div> : null}
+              {subtitle ? <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{subtitle}</div> : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -82,6 +85,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   </Link>
                 );
               })}
+
+              <NotificationBell />
 
               <div className="relative">
                 <button

@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { ArrowUp, Mail, MapPin, Phone } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Mail, MapPin, Phone } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { SiteSettings } from '@/layouts/public-layout';
 
@@ -34,11 +34,14 @@ export default function PublicFooter({ siteSettings }: Props) {
     [siteSettings?.openMapUrl],
   );
 
+  const visitaUrl = siteSettings?.visitaUrl || 'https://visita.baguio.gov.ph';
+  const artsUrl = siteSettings?.creativeBaguioUrl || 'https://creativecity.baguio.gov.ph';
+
   return (
     <>
-      <footer className="mt-16 border-t border-black/5 bg-white/70 pb-8 pt-12 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60">
-        <div className="public-container">
-          <div className="grid gap-8 rounded-[2rem] border border-black/5 bg-white/80 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/5 lg:grid-cols-[1.15fr_0.85fr_0.85fr]">
+      <footer className="mt-16 w-full border-t border-black/5 bg-white/70 px-4 pb-8 pt-12 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/60 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-[1600px]">
+          <div className="grid gap-8 rounded-[2.2rem] border border-black/5 bg-white/80 p-6 shadow-[0_20px_70px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-white/5 lg:grid-cols-[1.15fr_0.85fr_0.85fr_0.9fr] lg:p-8">
             <div className="space-y-4">
               <img
                 src="/marketing/images/logo/lightlogo.png"
@@ -57,13 +60,13 @@ export default function PublicFooter({ siteSettings }: Props) {
               <div className="flex flex-wrap gap-3">
                 <Link
                   href="/bookings/create"
-                  className="rounded-full bg-[#0f8b6d] px-5 py-3 text-sm font-semibold text-white dark:bg-[#294CFF]"
+                  className="rounded-full bg-[#0f8b6d] px-5 py-3 text-sm font-extrabold uppercase tracking-[0.14em] text-white dark:bg-[#294CFF]"
                 >
                   Book Your Event
                 </Link>
                 <Link
                   href="/contact"
-                  className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold dark:border-white/10"
+                  className="rounded-full border border-black/10 px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] dark:border-white/10"
                 >
                   Contact Us
                 </Link>
@@ -84,6 +87,32 @@ export default function PublicFooter({ siteSettings }: Props) {
                     {item.label}
                   </Link>
                 ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-4 text-sm font-semibold uppercase tracking-[0.28em] text-slate-500 dark:text-slate-300">
+                Baguio Links
+              </div>
+              <div className="grid gap-3 text-sm text-slate-600 dark:text-slate-300">
+                <a
+                  href={visitaUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 transition hover:text-[#0f8b6d] dark:hover:text-[#9cb6ff]"
+                >
+                  Visita Baguio
+                  <ArrowUpRight className="h-4 w-4" />
+                </a>
+                <a
+                  href={artsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 transition hover:text-[#0f8b6d] dark:hover:text-[#9cb6ff]"
+                >
+                  Arts Website
+                  <ArrowUpRight className="h-4 w-4" />
+                </a>
               </div>
             </div>
 

@@ -198,4 +198,71 @@
     .hero-shadow {
         box-shadow: 0 30px 90px rgba(15, 23, 42, 0.18);
     }
+
+    .sheen-reveal {
+    position: relative;
+    isolation: isolate;
+}
+
+.sheen-reveal::after {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.34) 50%, transparent 70%);
+    transform: translateX(-135%) skewX(-16deg);
+    animation: public-sheen-sweep 1.25s ease-out forwards;
+    pointer-events: none;
+    z-index: 3;
+}
+
+@keyframes public-sheen-sweep {
+    from {
+        transform: translateX(-135%) skewX(-16deg);
+    }
+    to {
+        transform: translateX(135%) skewX(-16deg);
+    }
+}
+
+    .public-hover-card {
+        transition:
+            transform 220ms ease,
+            box-shadow 220ms ease,
+            border-color 220ms ease;
+    }
+
+    .public-hover-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 28px 80px rgba(15, 23, 42, 0.14);
+    }
+
+    .dark .public-hover-card:hover {
+        box-shadow: 0 28px 80px rgba(2, 8, 23, 0.48);
+    }
+
+    .public-image-sheen {
+        position: relative;
+        isolation: isolate;
+    }
+
+    .public-image-sheen::after {
+        content: '';
+        position: absolute;
+        inset: -20%;
+        background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.30) 50%, transparent 70%);
+        transform: translateX(-135%) skewX(-16deg);
+        animation: public-sheen-sweep 1.25s ease-out forwards;
+        pointer-events: none;
+        z-index: 3;
+    }
+
+    @keyframes public-sheen-sweep {
+        from {
+            transform: translateX(-135%) skewX(-16deg);
+        }
+        to {
+            transform: translateX(135%) skewX(-16deg);
+        }
+    }
+
 }

@@ -37,11 +37,11 @@ export default function Home({
       <div className="space-y-0 pb-12">
         <HeroBanner venueOptions={venueOptions} />
         <WelcomeSection />
-        <SpacesGrid items={spaces} />
         <StatsBanner items={stats} />
+        <AmenitiesRow />
+        <SpacesGrid items={spaces} />
         <EventsHighlights items={events} />
         <SpecialOffers items={offers} />
-        <AmenitiesRow />
       </div>
     </PublicLayout>
   );

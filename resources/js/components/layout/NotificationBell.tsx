@@ -1,17 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   Calendar,
-  CreditCard,
-  RefreshCw,
-  Info,
-  CheckCheck,
-  Package,
-  Users,
   CalendarOff,
+  CheckCheck,
+  CreditCard,
+  Info,
+  Package,
+  RefreshCw,
   Shield,
+  Sparkles,
+  Users,
 } from 'lucide-react';
-import { usePage, router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -29,9 +30,7 @@ type NotificationSummary = {
   link: string | null;
   read_at: string | null;
   created_at: string | null;
-
   is_unread?: boolean;
-
   actor_name?: string | null;
   actor_email?: string | null;
   acted_at?: string | null;
@@ -114,6 +113,7 @@ function NotificationIcon({ type }: { type: string | null }) {
   if (!type) return <Info className="h-4 w-4 text-slate-500" />;
 
   if (type === 'booking_status_changed') return <RefreshCw className="h-4 w-4 text-amber-600" />;
+  if (type === 'booking_lifecycle_maintenance') return <Sparkles className="h-4 w-4 text-violet-600" />;
   if (type.startsWith('booking')) return <Calendar className="h-4 w-4 text-emerald-600" />;
   if (type.startsWith('payment')) return <CreditCard className="h-4 w-4 text-blue-600" />;
   if (type.startsWith('calendar_block')) return <CalendarOff className="h-4 w-4 text-rose-600" />;
@@ -127,6 +127,46 @@ function NotificationIcon({ type }: { type: string | null }) {
   return <Info className="h-4 w-4 text-slate-500" />;
 }
 
+function isToday(iso: string | null) {
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+
+  const now = new Date();
+
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function toneClasses(type: string | null, unread: boolean) {
+  const base = unread ? 'border-transparent' : 'border-black/5 dark:border-white/10';
+
+  if (type === 'booking_lifecycle_maintenance') {
+    return `${base} bg-violet-50/90 dark:bg-violet-500/10`;
+  }
+
+  if (type === 'booking_status_changed' || type?.endsWith('_updated')) {
+    return `${base} bg-amber-50/90 dark:bg-amber-500/10`;
+  }
+
+  if (type?.startsWith('payment')) {
+    return `${base} bg-sky-50/90 dark:bg-sky-500/10`;
+  }
+
+  if (type?.startsWith('calendar_block')) {
+    return `${base} bg-rose-50/90 dark:bg-rose-500/10`;
+  }
+
+  if (type?.startsWith('booking')) {
+    return `${base} bg-emerald-50/90 dark:bg-emerald-500/10`;
+  }
+
+  return `${base} bg-white dark:bg-white/5`;
+}
+
 export default function NotificationBell() {
   const page = usePage<SharedProps>();
   const initialUnread = page.props.notifications?.unread_count ?? 0;
@@ -135,12 +175,14 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(initialUnread);
   const [latest, setLatest] = useState<NotificationSummary[]>(initialLatest);
+  const [refreshing, setRefreshing] = useState(false);
 
   const inFlight = useRef(false);
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
+    setRefreshing(true);
 
     try {
       const res = await fetch('/notifications/summary', {
@@ -160,6 +202,7 @@ export default function NotificationBell() {
     } catch {
       // ignore
     } finally {
+      setRefreshing(false);
       inFlight.current = false;
     }
   }, []);
@@ -179,7 +222,6 @@ export default function NotificationBell() {
   const handleOpen = (n: NotificationSummary) => {
     const isUnreadNow = typeof n.is_unread === 'boolean' ? n.is_unread : !n.read_at;
 
-    // optimistic UI
     if (isUnreadNow) {
       setUnreadCount((prev) => Math.max(0, prev - 1));
       setLatest((prev) =>
@@ -195,18 +237,150 @@ export default function NotificationBell() {
   };
 
   const handleMarkAllAsRead = () => {
-    router.post('/notifications/read-all', {}, {
-      preserveScroll: true,
-      onSuccess: () => {
-        const nowIso = new Date().toISOString();
-        setUnreadCount(0);
-        setLatest((prev) => prev.map((x) => (x.read_at ? x : { ...x, read_at: nowIso, is_unread: false })));
-        refresh();
+    router.post(
+      '/notifications/read-all',
+      {},
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          const nowIso = new Date().toISOString();
+          setUnreadCount(0);
+          setLatest((prev) =>
+            prev.map((x) => (x.read_at ? x : { ...x, read_at: nowIso, is_unread: false })),
+          );
+          refresh();
+        },
       },
-    });
+    );
   };
 
-  const isScrollable = latest.length > 5;
+  const grouped = useMemo(() => {
+    const today: NotificationSummary[] = [];
+    const earlier: NotificationSummary[] = [];
+
+    latest.forEach((item) => {
+      if (isToday(item.created_at)) {
+        today.push(item);
+      } else {
+        earlier.push(item);
+      }
+    });
+
+    return { today, earlier };
+  }, [latest]);
+
+  const renderRow = (n: NotificationSummary) => {
+    const isUnread = typeof n.is_unread === 'boolean' ? n.is_unread : !n.read_at;
+    const parsed = parseMetaFromMessage(n.message);
+
+    const meta =
+      parsed.meta ??
+      (n.actor_name || n.actor_email || n.acted_at
+        ? {
+            name: (n.actor_name ?? 'System').trim() || 'System',
+            email: n.actor_email ?? undefined,
+            at: (n.acted_at ?? formatAbsoluteTime(n.created_at)).trim(),
+          }
+        : null);
+
+    const body = parsed.body;
+    const absoluteAt = meta?.at?.trim() || formatAbsoluteTime(n.created_at) || '';
+
+    return (
+      <DropdownMenuItem
+        key={n.id}
+        onClick={() => handleOpen(n)}
+        className="cursor-pointer px-3 py-2 focus:bg-transparent"
+      >
+        <div
+          className={cn(
+            'relative w-full overflow-hidden rounded-[1.25rem] border p-3 transition',
+            toneClasses(n.type, isUnread),
+            isUnread && 'shadow-[0_12px_30px_rgba(15,23,42,0.08)]',
+          )}
+        >
+          {isUnread ? <span className="absolute left-0 top-0 h-full w-1 rounded-r bg-amber-500/85" /> : null}
+
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                'mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border',
+                isUnread
+                  ? 'border-amber-400/30 bg-amber-100/80 dark:border-amber-400/20 dark:bg-amber-500/10'
+                  : 'border-black/10 bg-white/70 dark:border-white/10 dark:bg-white/10',
+              )}
+            >
+              <NotificationIcon type={n.type} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="truncate text-sm font-semibold leading-tight text-slate-900 dark:text-white">
+                      {n.title}
+                    </div>
+
+                    {n.type === 'booking_lifecycle_maintenance' ? (
+                      <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-[2px] text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700 dark:bg-violet-500/10 dark:text-violet-200">
+                        Maintenance
+                      </span>
+                    ) : null}
+
+                    {(n.type === 'booking_status_changed' || (n.type?.endsWith('_updated') ?? false)) ? (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-[2px] text-[10px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:bg-amber-500/10 dark:text-amber-200">
+                        Updated
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {(meta || absoluteAt) ? (
+                    <div className="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                      <span>By </span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                        {meta?.name ?? 'System'}
+                      </span>
+                      {meta?.email ? (
+                        <>
+                          <span> (</span>
+                          <a
+                            href={`mailto:${meta.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="underline decoration-dotted hover:decoration-solid"
+                          >
+                            {meta.email}
+                          </a>
+                          <span>)</span>
+                        </>
+                      ) : null}
+                      {absoluteAt ? <span> • {absoluteAt}</span> : null}
+                    </div>
+                  ) : null}
+
+                  {body ? (
+                    <p className="mt-1 line-clamp-2 text-xs leading-6 text-slate-600 dark:text-slate-300">
+                      {body}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="shrink-0 text-right">
+                  {isUnread ? (
+                    <div className="inline-flex rounded-md bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
+                      New
+                    </div>
+                  ) : null}
+                  <div className="mt-1 text-[10px] text-slate-400">{formatRelativeTime(n.created_at)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DropdownMenuItem>
+    );
+  };
+
+  const hasScrollableList = latest.length > 5;
 
   return (
     <DropdownMenu
@@ -217,156 +391,103 @@ export default function NotificationBell() {
       }}
     >
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative rounded-full border border-black/10 bg-white/80 text-slate-700 shadow-sm hover:bg-white dark:border-white/10 dark:bg-[#171b25] dark:text-white dark:hover:bg-white/10"
+        >
           <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-[10px] text-white flex items-center justify-center px-[5px] shadow-sm">
+          {unreadCount > 0 ? (
+            <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-[10px] font-bold text-white shadow-sm">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
-          )}
+          ) : null}
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" forceMount className="w-[380px] p-0 overflow-hidden shadow-xl">
-        <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-semibold truncate">Notifications</span>
+      <DropdownMenuContent
+        align="end"
+        forceMount
+        className="w-[400px] overflow-hidden rounded-[1.6rem] border border-black/10 p-0 shadow-[0_24px_70px_rgba(15,23,42,0.18)] dark:border-white/10"
+      >
+        <div className="border-b border-black/5 bg-slate-50/90 px-3 py-3 dark:border-white/10 dark:bg-white/5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-sm font-semibold">Notifications</span>
+                {unreadCount > 0 ? (
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-[2px] text-[11px] font-medium text-primary">
+                    {unreadCount} unread
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                Live summary of booking, payment, calendar, and admin actions
+              </div>
+            </div>
 
-            {unreadCount > 0 && (
-              <span className="inline-flex items-center rounded-full bg-primary/10 text-primary text-[11px] px-2 py-[2px] font-medium">
-                {unreadCount} unread
-              </span>
-            )}
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => refresh()}
+                className="h-8 w-8 rounded-full"
+                aria-label="Refresh notifications"
+              >
+                <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+              </Button>
+
+              {unreadCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleMarkAllAsRead}
+                  className="h-8 rounded-full px-3 text-xs"
+                >
+                  <CheckCheck className="mr-1 h-4 w-4" />
+                  Mark all
+                </Button>
+              ) : null}
+            </div>
           </div>
-
-          {unreadCount > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleMarkAllAsRead}
-              className="h-8 px-2 text-xs"
-            >
-              <CheckCheck className="mr-1 h-4 w-4" />
-              Mark all
-            </Button>
-          )}
         </div>
 
         {latest.length === 0 ? (
           <div className="px-4 py-10 text-center">
-            <Bell className="mx-auto h-9 w-9 text-muted-foreground/50" />
+            <Bell className="mx-auto h-9 w-9 text-slate-400/70" />
             <div className="mt-3 text-sm font-medium">No notifications</div>
-            <div className="mt-1 text-xs text-muted-foreground">You’re all caught up.</div>
+            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">You’re all caught up.</div>
           </div>
         ) : (
-          <div className={cn('py-1', isScrollable && 'max-h-[360px] overflow-y-auto')}>
-            {latest.map((n) => {
-              const isUnread = typeof n.is_unread === 'boolean' ? n.is_unread : !n.read_at;
+          <div className={cn('px-2 py-2', hasScrollableList && 'max-h-[430px] overflow-y-auto')}>
+            {grouped.today.length > 0 ? (
+              <div>
+                <div className="px-2 pb-1 pt-1 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  Today
+                </div>
+                <div className="space-y-2">{grouped.today.map(renderRow)}</div>
+              </div>
+            ) : null}
 
-              const isUpdateType =
-                n.type === 'booking_updated' ||
-                n.type === 'payment_updated' ||
-                n.type === 'booking_status_changed' ||
-                (n.type?.endsWith('_updated') ?? false);
-
-              const parsed = parseMetaFromMessage(n.message);
-
-              const meta =
-                parsed.meta ??
-                (n.actor_name || n.actor_email || n.acted_at
-                  ? {
-                      name: (n.actor_name ?? 'System').trim() || 'System',
-                      email: n.actor_email ?? undefined,
-                      at: (n.acted_at ?? formatAbsoluteTime(n.created_at)).trim(),
-                    }
-                  : null);
-
-              const body = parsed.body;
-              const absoluteAt = meta?.at?.trim() || formatAbsoluteTime(n.created_at) || '';
-
-              return (
-                <DropdownMenuItem
-                  key={n.id}
-                  onClick={() => handleOpen(n)}
-                  className={cn(
-                    'relative cursor-pointer px-3 py-3 focus:bg-muted/40',
-                    isUnread && 'bg-amber-50/70 dark:bg-amber-950/25',
-                  )}
-                >
-                  {isUnread && <span className="absolute left-0 top-0 h-full w-1 bg-amber-500/70" />}
-
-                  <div className="flex items-start gap-3 w-full">
-                    <div
-                      className={cn(
-                        'mt-0.5 h-9 w-9 shrink-0 rounded-full border flex items-center justify-center',
-                        isUnread ? 'bg-amber-200/40 border-amber-500/30' : 'bg-muted/40 border-border',
-                      )}
-                    >
-                      <NotificationIcon type={n.type} />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-medium leading-tight truncate">{n.title}</div>
-
-                            {isUpdateType && (
-                              <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[10px] px-2 py-[2px] font-medium">
-                                Updated
-                              </span>
-                            )}
-                          </div>
-
-                          {(meta || absoluteAt) && (
-                            <div className="mt-1 text-[11px] text-muted-foreground leading-snug">
-                              <span>By </span>
-                              <span className="font-medium text-foreground/80">{meta?.name ?? 'System'}</span>
-                              {meta?.email ? (
-                                <>
-                                  <span> (</span>
-                                  <a
-                                    href={`mailto:${meta.email}`}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="underline decoration-dotted hover:decoration-solid"
-                                  >
-                                    {meta.email}
-                                  </a>
-                                  <span>)</span>
-                                </>
-                              ) : null}
-                              {absoluteAt ? <span> • {absoluteAt}</span> : null}
-                            </div>
-                          )}
-
-                          {body && <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{body}</p>}
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isUnread && (
-                            <span className="inline-flex items-center rounded-md bg-amber-200/70 px-2 py-0.5 text-[10px] font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">
-                              NEW
-                            </span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground">{formatRelativeTime(n.created_at)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </DropdownMenuItem>
-              );
-            })}
+            {grouped.earlier.length > 0 ? (
+              <div className={grouped.today.length > 0 ? 'mt-3' : ''}>
+                <div className="px-2 pb-1 pt-1 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                  Earlier
+                </div>
+                <div className="space-y-2">{grouped.earlier.map(renderRow)}</div>
+              </div>
+            ) : null}
           </div>
         )}
 
-        <div className="border-t bg-background p-2">
-          {/* ✅ This ONLY navigates. It must not mark notifications as read. */}
+        <div className="border-t border-black/5 bg-white/90 p-2 dark:border-white/10 dark:bg-[#10141d]">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="w-full justify-center text-xs"
+            className="w-full justify-center rounded-full text-xs"
             onClick={() => {
               setOpen(false);
               router.visit('/notifications');

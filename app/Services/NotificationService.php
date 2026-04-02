@@ -751,6 +751,84 @@ class NotificationService
             $this->safeRouteAny(['dashboard'], '/dashboard')
         );
     }
+        public function bookingLifecycleMaintenanceReport(array $summary): void
+{
+    $changed = (int) ($summary['changed_count'] ?? 0);
+    $deleted = (int) ($summary['deleted_count'] ?? 0);
+
+    if ($changed < 1 && $deleted < 1) {
+        return;
+    }
+
+    $title = 'Booking lifecycle maintenance completed';
+
+    $parts = [];
+
+    if ($changed > 0) {
+        $parts[] = sprintf(
+            '%d booking%s had automatic status updates.',
+            $changed,
+            $changed === 1 ? '' : 's'
+        );
+    }
+
+    if ($deleted > 0) {
+        $parts[] = sprintf(
+            '%d declined/cancelled booking%s were automatically deleted after the cleanup window.',
+            $deleted,
+            $deleted === 1 ? '' : 's'
+        );
+    }
+
+    $syncPreview = collect($summary['synced'] ?? [])
+        ->take(3)
+        ->map(function (array $item) {
+            return sprintf(
+                '#%d %s: %s → %s',
+                (int) ($item['booking_id'] ?? 0),
+                (string) ($item['title'] ?? 'Booking'),
+                ucfirst((string) ($item['from_status'] ?? '—')),
+                ucfirst((string) ($item['to_status'] ?? '—')),
+            );
+        })
+        ->implode('; ');
+
+    $deletePreview = collect($summary['deleted'] ?? [])
+        ->take(3)
+        ->map(function (array $item) {
+            return sprintf(
+                '#%d %s (%s)',
+                (int) ($item['booking_id'] ?? 0),
+                (string) ($item['title'] ?? 'Booking'),
+                ucfirst((string) ($item['status'] ?? '—')),
+            );
+        })
+        ->implode('; ');
+
+    $message = trim(implode(' ', $parts));
+
+    if ($syncPreview !== '') {
+        $message .= ' Updated: ' . $syncPreview . '.';
+    }
+
+    if ($deletePreview !== '') {
+        $message .= ' Deleted: ' . $deletePreview . '.';
+    }
+
+    $recipients = $this->adminRecipients(null)
+        ->merge($this->managerRecipients(null))
+        ->unique('id')
+        ->values();
+
+    $this->notifyMany(
+        $recipients,
+        'booking_lifecycle_maintenance',
+        $title,
+        $message,
+        $this->safeRouteAny(['bookings.index', 'dashboard'], '/dashboard')
+    );
+}
+
 
     /* ============================================================
      | ✅ USERS / ROLES (FIXED)

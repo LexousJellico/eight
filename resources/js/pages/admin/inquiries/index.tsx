@@ -1,4 +1,6 @@
 import { Head, router } from '@inertiajs/react';
+import { useState } from 'react';
+import ConfirmActionDialog from '@/components/confirm-action-dialog';
 import AdminLayout from '@/layouts/admin-layout';
 
 type Inquiry = {
@@ -36,16 +38,25 @@ const statusClasses: Record<Inquiry['status'], string> = {
 };
 
 export default function AdminInquiriesIndex({ inquiries }: Props) {
+  const [deleteTarget, setDeleteTarget] = useState<Inquiry | null>(null);
+  const [processingDelete, setProcessingDelete] = useState(false);
+
   function updateStatus(id: number, status: Inquiry['status']) {
     router.put(`/admin/inquiries/${id}`, { status }, { preserveScroll: true });
   }
 
-  function deleteInquiry(id: number) {
-    if (!window.confirm('Are you sure you want to delete this inquiry? This action cannot be undone.')) {
-      return;
-    }
+  function confirmDeleteInquiry() {
+    if (!deleteTarget) return;
 
-    router.delete(`/admin/inquiries/${id}`, { preserveScroll: true });
+    setProcessingDelete(true);
+
+    router.delete(`/admin/inquiries/${deleteTarget.id}`, {
+      preserveScroll: true,
+      onFinish: () => {
+        setProcessingDelete(false);
+        setDeleteTarget(null);
+      },
+    });
   }
 
   return (
@@ -93,10 +104,33 @@ export default function AdminInquiriesIndex({ inquiries }: Props) {
                 </div>
 
                 <div className="flex flex-wrap gap-2 xl:justify-end">
-                  <button onClick={() => updateStatus(inquiry.id, 'read')} className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold dark:border-white/10">Mark Read</button>
-                  <button onClick={() => updateStatus(inquiry.id, 'replied')} className="rounded-full bg-[#174f40] px-4 py-2 text-sm font-semibold text-white dark:bg-[#2d47ff]">Mark Replied</button>
-                  <button onClick={() => updateStatus(inquiry.id, 'closed')} className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold dark:border-white/10">Close</button>
-                  <button onClick={() => deleteInquiry(inquiry.id)} className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-200">Delete</button>
+                  <button
+                    onClick={() => updateStatus(inquiry.id, 'read')}
+                    className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold dark:border-white/10"
+                  >
+                    Mark Read
+                  </button>
+
+                  <button
+                    onClick={() => updateStatus(inquiry.id, 'replied')}
+                    className="rounded-full bg-[#174f40] px-4 py-2 text-sm font-semibold text-white dark:bg-[#2d47ff]"
+                  >
+                    Mark Replied
+                  </button>
+
+                  <button
+                    onClick={() => updateStatus(inquiry.id, 'closed')}
+                    className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold dark:border-white/10"
+                  >
+                    Close
+                  </button>
+
+                  <button
+                    onClick={() => setDeleteTarget(inquiry)}
+                    className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-200 dark:hover:bg-red-500/15"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
 
@@ -122,6 +156,26 @@ export default function AdminInquiriesIndex({ inquiries }: Props) {
           </div>
         ) : null}
       </div>
+
+      <ConfirmActionDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !processingDelete) {
+            setDeleteTarget(null);
+          }
+        }}
+        title="Delete inquiry"
+        description={
+          deleteTarget
+            ? `This will permanently delete the inquiry from ${deleteTarget.name} about "${deleteTarget.subject}". This action cannot be undone.`
+            : 'This action cannot be undone.'
+        }
+        confirmLabel={processingDelete ? 'Deleting...' : 'Delete permanently'}
+        cancelLabel="Cancel"
+        onConfirm={confirmDeleteInquiry}
+        processing={processingDelete}
+        variant="destructive"
+      />
     </AdminLayout>
   );
 }

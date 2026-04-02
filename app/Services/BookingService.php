@@ -635,7 +635,7 @@ protected function existingItemsForCapacity(Booking $booking): array
         ->orderBy('id')
         ->chunkById(100, function ($bookings) use (&$changed) {
             foreach ($bookings as $booking) {
-                if ($this->syncLifecycleStatus($booking)) {
+                if ($this->syncLifecycleStatusAndReturnChange($booking) !== null) {
                     $changed++;
                 }
             }
@@ -646,25 +646,99 @@ protected function existingItemsForCapacity(Booking $booking): array
 
 public function syncLifecycleStatus(Booking $booking): bool
 {
+    return $this->syncLifecycleStatusAndReturnChange($booking) !== null;
+}
+
+public function runAutomatedLifecycleMaintenance(): array
+{
+    $synced = [];
+
+    Booking::query()
+        ->where('booking_status', '!=', 'cancelled')
+        ->orderBy('id')
+        ->chunkById(100, function ($bookings) use (&$synced) {
+            foreach ($bookings as $booking) {
+                $change = $this->syncLifecycleStatusAndReturnChange($booking);
+
+                if ($change !== null) {
+                    $synced[] = $change;
+                }
+            }
+        });
+
+    $deleted = $this->cleanupAutoDeletedBookings();
+
+    return [
+        'synced' => array_values($synced),
+        'deleted' => array_values($deleted),
+        'changed_count' => count($synced),
+        'deleted_count' => count($deleted),
+    ];
+}
+
+protected function syncLifecycleStatusAndReturnChange(Booking $booking): ?array
+{
     $currentStatus = strtolower((string) ($booking->booking_status ?? ''));
 
     // Cancelled stays manual and is never auto-overwritten.
     if ($currentStatus === 'cancelled') {
-        return false;
+        return null;
     }
 
     $nextStatus = $this->determineAutomaticBookingStatus($booking);
 
     if ($nextStatus === $booking->booking_status) {
-        return false;
+        return null;
     }
+
+    $previousStatus = (string) ($booking->booking_status ?? '');
 
     $booking->forceFill([
         'booking_status' => $nextStatus,
     ])->saveQuietly();
 
-    return true;
+    return [
+        'booking_id' => $booking->id,
+        'title' => (string) ($booking->type_of_event ?: $booking->company_name ?: 'Booking'),
+        'client_name' => (string) ($booking->client_name ?: $booking->company_name ?: $booking->client_email ?: 'Client'),
+        'from_status' => $previousStatus,
+        'to_status' => $nextStatus,
+        'scheduled_at' => optional($booking->booking_date_from)?->format('Y-m-d H:i'),
+    ];
 }
+
+protected function automatedDeletionWindowHours(): int
+{
+    return 24;
+}
+
+protected function cleanupAutoDeletedBookings(): array
+{
+    $cutoff = now()->subHours($this->automatedDeletionWindowHours());
+
+    $targets = Booking::query()
+        ->whereIn('booking_status', ['declined', 'cancelled'])
+        ->where('updated_at', '<=', $cutoff)
+        ->orderBy('id')
+        ->get();
+
+    $deleted = [];
+
+    foreach ($targets as $booking) {
+        $deleted[] = [
+            'booking_id' => $booking->id,
+            'title' => (string) ($booking->type_of_event ?: $booking->company_name ?: 'Booking'),
+            'client_name' => (string) ($booking->client_name ?: $booking->company_name ?: $booking->client_email ?: 'Client'),
+            'status' => (string) ($booking->booking_status ?? ''),
+            'scheduled_at' => optional($booking->booking_date_from)?->format('Y-m-d H:i'),
+        ];
+
+        $booking->delete();
+    }
+
+    return $deleted;
+}
+
 
 protected function determineAutomaticBookingStatus(Booking $booking): string
 {
@@ -884,11 +958,11 @@ protected function determineAutomaticBookingStatus(Booking $booking): string
 
         if ($area) {
             $calendarBlocks = $calendarBlocks
-                ->filter(function (CalendarBlock $block) use ($area) {
-                    return $this->labelMatchesArea((string) ($block->area ?? ''), $area)
-                        || $this->isWholeVenueLabel((string) ($block->area ?? ''));
-                })
-                ->values();
+    ->filter(function (CalendarBlock $block) use ($area) {
+        return $this->areasOverlap((string) ($block->area ?? ''), $area);
+    })
+    ->values();
+
         }
 
         foreach ($calendarBlocks as $blk) {
@@ -989,6 +1063,58 @@ protected function determineAutomaticBookingStatus(Booking $booking): string
         'is_fully_booked' => $isFullyBooked,
     ];
 }
+    
+    public function getDashboardDayStatus(string $date): array
+{
+    $availability = $this->getDailyAvailability($date);
+
+    $publicEventsExist = PublicEvent::query()
+        ->where('is_public', true)
+        ->whereDate('event_date', $date)
+        ->exists();
+
+    $calendarBlocks = CalendarBlock::query()
+        ->whereDate('date_from', '<=', $date)
+        ->whereDate('date_to', '>=', $date)
+        ->get(['public_status']);
+
+    $hasRedBlock = $calendarBlocks->contains(
+        fn (CalendarBlock $block) => strtolower((string) ($block->public_status ?? '')) === 'red'
+    );
+
+    $hasBlueBlock = $calendarBlocks->contains(
+        fn (CalendarBlock $block) => strtolower((string) ($block->public_status ?? '')) === 'blue'
+    );
+
+    $hasGoldBlock = $calendarBlocks->contains(
+        fn (CalendarBlock $block) => strtolower((string) ($block->public_status ?? '')) === 'gold'
+    );
+
+    $status = 'available';
+
+    if ($hasRedBlock) {
+        $status = 'blocked';
+    } elseif ($hasBlueBlock || $publicEventsExist) {
+        $status = 'public_booked';
+    } elseif ($hasGoldBlock || (bool) ($availability['is_fully_booked'] ?? false)) {
+        $status = 'private_booked';
+    } elseif (
+        collect($availability['blocks'] ?? [])
+            ->filter(fn ($block) => (bool) data_get($block, 'is_available', false))
+            ->count() < 3
+    ) {
+        $status = 'limited';
+    }
+
+    return [
+        'date' => $date,
+        'day_status' => $status,
+        'AM' => (bool) data_get($availability, 'blocks.AM.is_available', true),
+        'PM' => (bool) data_get($availability, 'blocks.PM.is_available', true),
+        'EVE' => (bool) data_get($availability, 'blocks.EVE.is_available', true),
+        'is_fully_booked' => (bool) ($availability['is_fully_booked'] ?? false),
+    ];
+}
 
     public function getPublicDayStatus(
     string $date,
@@ -1009,8 +1135,8 @@ protected function determineAutomaticBookingStatus(Booking $booking): string
                 return true;
             }
 
-            return $this->labelMatchesArea((string) ($event->venue ?? ''), $area)
-                || $this->isWholeVenueLabel((string) ($event->venue ?? ''));
+            return $this->areasOverlap((string) ($event->venue ?? ''), $area);
+
         })
         ->values();
 
@@ -1023,8 +1149,8 @@ protected function determineAutomaticBookingStatus(Booking $booking): string
                 return true;
             }
 
-            return $this->labelMatchesArea((string) ($block->area ?? ''), $area)
-                || $this->isWholeVenueLabel((string) ($block->area ?? ''));
+            return $this->areasOverlap((string) ($block->area ?? ''), $area);
+
         })
         ->values();
 
@@ -1177,10 +1303,9 @@ private function summarizePublicCapacityForArea(?string $area, ?int $guestCount)
         ->orderBy('name')
         ->get()
         ->filter(function ($service) use ($area) {
-            return $this->labelMatchesArea((string) ($service->name ?? ''), $area)
-                || $this->labelMatchesArea((string) ($service->serviceType?->name ?? ''), $area)
-                || $this->isWholeVenueLabel((string) ($service->name ?? ''))
-                || $this->isWholeVenueLabel((string) ($service->serviceType?->name ?? ''));
+            return $this->areasOverlap((string) ($service->name ?? ''), $area)
+                || $this->areasOverlap((string) ($service->serviceType?->name ?? ''), $area);
+
         })
         ->values();
 
@@ -1326,27 +1451,57 @@ private function publicCalendarBlockNotes(CalendarBlock $block): string
 
 private function labelMatchesArea(?string $candidate, string $selected): bool
 {
-    $candidateNormalized = $this->normalizeAreaLabel($candidate);
-    $selectedNormalized = $this->normalizeAreaLabel($selected);
+    return $this->areasOverlap($candidate, $selected);
+}
 
-    $candidateCompact = str_replace(' ', '', $candidateNormalized);
-    $selectedCompact = str_replace(' ', '', $selectedNormalized);
+private function canonicalAreaKey(?string $value): string
+{
+    $normalized = str_replace(' ', '', $this->normalizeAreaLabel($value));
 
-    if ($candidateNormalized === '' || $selectedNormalized === '') {
-        return false;
-    }
+    $map = [
+        'fullhall' => 'full_hall',
+        'fullvenue' => 'full_hall',
+        'wholehall' => 'full_hall',
+        'entirehall' => 'full_hall',
 
-    return $candidateNormalized === $selectedNormalized
-        || $candidateCompact === $selectedCompact
-        || str_contains($candidateNormalized, $selectedNormalized)
-        || str_contains($selectedNormalized, $candidateNormalized)
-        || str_contains($candidateCompact, $selectedCompact)
-        || str_contains($selectedCompact, $candidateCompact);
+        'mainhall' => 'main_hall',
+        'mainfunctionhall' => 'main_hall',
+
+        'foyerlobbyarea' => 'foyer_lobby',
+        'foyerandlobbyarea' => 'foyer_lobby',
+        'foyerlobby' => 'foyer_lobby',
+        'foyer' => 'foyer_lobby',
+        'lobbyarea' => 'foyer_lobby',
+        'lobby' => 'foyer_lobby',
+
+        'viplounge' => 'vip_lounge',
+        'viploungearea' => 'vip_lounge',
+
+        'boardroom' => 'board_room',
+        'boardrm' => 'board_room',
+
+        'basement' => 'basement',
+
+        'gallery2600' => 'gallery2600',
+        'gallery' => 'gallery2600',
+
+        'wholevenue' => 'whole_venue',
+        'wholefacility' => 'whole_venue',
+        'entirevenue' => 'whole_venue',
+        'allareas' => 'whole_venue',
+        'allarea' => 'whole_venue',
+        'allspaces' => 'whole_venue',
+        'wholeplace' => 'whole_venue',
+        'whole' => 'whole_venue',
+    ];
+
+    return $map[$normalized] ?? $normalized;
 }
 
 private function normalizeAreaLabel(?string $value): string
 {
     $value = mb_strtolower(trim((string) $value));
+    $value = str_replace(['&', '/'], [' and ', ' '], $value);
     $value = preg_replace('/[^a-z0-9]+/u', ' ', $value) ?? '';
 
     return trim(preg_replace('/\s+/u', ' ', $value) ?? '');
@@ -1354,20 +1509,42 @@ private function normalizeAreaLabel(?string $value): string
 
 private function isWholeVenueLabel(?string $value): bool
 {
-    $normalized = str_replace(' ', '', $this->normalizeAreaLabel($value));
-
-    return in_array($normalized, [
-        'wholevenue',
-        'wholefacility',
-        'entirevenue',
-        'allareas',
-        'allarea',
-        'allspaces',
-        'wholeplace',
-        'whole',
-    ], true);
+    return in_array($this->canonicalAreaKey($value), ['whole_venue', 'full_hall'], true);
 }
 
+private function areaOverlapMatrix(): array
+{
+    return [
+        'whole_venue' => ['whole_venue', 'full_hall', 'main_hall', 'foyer_lobby', 'vip_lounge', 'board_room', 'basement', 'gallery2600'],
+        'full_hall' => ['whole_venue', 'full_hall', 'main_hall', 'foyer_lobby', 'vip_lounge', 'board_room', 'basement', 'gallery2600'],
+
+        'main_hall' => ['whole_venue', 'full_hall', 'main_hall'],
+        'foyer_lobby' => ['whole_venue', 'full_hall', 'foyer_lobby'],
+        'vip_lounge' => ['whole_venue', 'full_hall', 'vip_lounge'],
+        'board_room' => ['whole_venue', 'full_hall', 'board_room'],
+        'basement' => ['whole_venue', 'full_hall', 'basement'],
+        'gallery2600' => ['whole_venue', 'full_hall', 'gallery2600'],
+    ];
+}
+
+private function areasOverlap(?string $candidate, ?string $selected): bool
+{
+    $candidateKey = $this->canonicalAreaKey($candidate);
+    $selectedKey = $this->canonicalAreaKey($selected);
+
+    if ($candidateKey === '' || $selectedKey === '') {
+        return false;
+    }
+
+    if ($candidateKey === $selectedKey) {
+        return true;
+    }
+
+    $matrix = $this->areaOverlapMatrix();
+
+    return in_array($selectedKey, $matrix[$candidateKey] ?? [], true)
+        || in_array($candidateKey, $matrix[$selectedKey] ?? [], true);
+}
 
 private function bookingMatchesArea(Booking $booking, string $area): bool
 {
@@ -1379,8 +1556,8 @@ private function bookingMatchesArea(Booking $booking, string $area): bool
         }
 
         if (
-            $this->labelMatchesArea((string) ($service->name ?? ''), $area) ||
-            $this->labelMatchesArea((string) ($service->serviceType?->name ?? ''), $area)
+            $this->areasOverlap((string) ($service->name ?? ''), $area) ||
+            $this->areasOverlap((string) ($service->serviceType?->name ?? ''), $area)
         ) {
             return true;
         }
@@ -1390,8 +1567,8 @@ private function bookingMatchesArea(Booking $booking, string $area): bool
 
     if ($directService) {
         if (
-            $this->labelMatchesArea((string) ($directService->name ?? ''), $area) ||
-            $this->labelMatchesArea((string) ($directService->serviceType?->name ?? ''), $area)
+            $this->areasOverlap((string) ($directService->name ?? ''), $area) ||
+            $this->areasOverlap((string) ($directService->serviceType?->name ?? ''), $area)
         ) {
             return true;
         }
@@ -1399,6 +1576,7 @@ private function bookingMatchesArea(Booking $booking, string $area): bool
 
     return false;
 }
+
 
     public function getUnavailableDates($excludeBookingId = null): array
 {

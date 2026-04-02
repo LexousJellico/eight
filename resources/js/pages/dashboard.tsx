@@ -20,24 +20,27 @@ type DashboardEvent = {
   start: string;
   end: string;
   status?: string | null;
-  kind?: 'booking' | 'block';
+  kind?: 'booking' | 'block' | 'public_event';
   block_id?: number;
   block?: string;
   area?: string | null;
+  public_status?: 'red' | 'gold' | 'blue' | string | null;
 };
+
 
 type DashboardProps = {
   counts?: Partial<Record<string, number>>;
   month: string;
   monthAvailability: Record<
-    string,
-    {
-      AM: boolean;
-      PM: boolean;
-      EVE: boolean;
-      is_fully_booked?: boolean;
-    }
-  >;
+  string,
+  {
+    AM: boolean;
+    PM: boolean;
+    EVE: boolean;
+    is_fully_booked?: boolean;
+    day_status?: 'available' | 'limited' | 'public_booked' | 'private_booked' | 'blocked' | string;
+  }
+>;
   events: DashboardEvent[];
 };
 
@@ -177,11 +180,17 @@ function statusForDate(
   const day = availability[date];
   const dayEvents = events.filter((event) => eventSpansDate(event, date));
 
-  const hasOwnBooking = dayEvents.some((event) => event.kind !== 'block');
-  const hasBlock = dayEvents.some((event) => event.kind === 'block' || typeof event.block_id === 'number');
+  const hasOwnBooking = dayEvents.some((event) => event.kind === 'booking');
 
   if (isClient && hasOwnBooking) return 'my-booking';
-  if (hasBlock) return 'blocked';
+
+  const dayStatus = String(day?.day_status || '').toLowerCase();
+
+  if (dayStatus === 'blocked') return 'blocked';
+  if (dayStatus === 'public_booked') return 'public';
+  if (dayStatus === 'private_booked') return 'private';
+  if (dayStatus === 'limited') return 'partial';
+
   if (day?.is_fully_booked) return 'full';
 
   const unavailableCount = [day?.AM, day?.PM, day?.EVE].filter((value) => value === false).length;
@@ -191,22 +200,28 @@ function statusForDate(
 }
 
 
+
 function dayStyle(status: string, selected: boolean) {
   const selectedRing = selected ? 'ring-2 ring-offset-2 ring-[#174f40] dark:ring-[#8ea3ff]' : '';
 
   switch (status) {
     case 'my-booking':
       return `border-[#174f40] bg-[#174f40] text-white ${selectedRing}`;
-    case 'blocked':
-      return `border-[#d7b14b] bg-[#f4e2ac] text-[#6a4f00] ${selectedRing}`;
-    case 'full':
-      return `border-[#f1aaaa] bg-[#ffe5e5] text-[#a52a2a] ${selectedRing}`;
-    case 'partial':
+    case 'public':
       return `border-[#8eb2ff] bg-[#e4eeff] text-[#1645ac] ${selectedRing}`;
+    case 'private':
+      return `border-[#d7b14b] bg-[#f4e2ac] text-[#6a4f00] ${selectedRing}`;
+    case 'blocked':
+      return `border-[#f1aaaa] bg-[#ffe5e5] text-[#a52a2a] ${selectedRing}`;
+    case 'full':
+      return `border-[#c9b061] bg-[#f7ebc1] text-[#6a4f00] ${selectedRing}`;
+    case 'partial':
+      return `border-[#bfd2ff] bg-[#eef4ff] text-[#1645ac] ${selectedRing}`;
     default:
       return `border-black/10 bg-white text-[#22221f] dark:border-white/10 dark:bg-[#17181c] dark:text-white ${selectedRing}`;
   }
 }
+
 
 const weekdayLabels = ['Mon', 'Tue', 'Fri', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -334,16 +349,16 @@ const selectedEvents = useMemo(
                   {isClient ? (
                     <>
                       <div>White — Available</div>
-                      <div>Blue — Partly booked</div>
-                      <div>Red — Fully booked</div>
-                      <div>Green — My booking</div>
+                      <div>Blue — Public event / public calendar activity</div>
+                      <div>Gold — Private booking / reserved date</div>
+                      <div>Red — Blocked / unavailable</div>
                     </>
                   ) : (
                     <>
                       <div>White — Available</div>
-                      <div>Blue — Partly booked</div>
-                      <div>Red — Fully booked</div>
-                      <div>Gold — Blocked</div>
+                      <div>Blue — Public event / public calendar activity</div>
+                      <div>Gold — Private booking / reserved date</div>
+                      <div>Red — Blocked / unavailable</div>
                     </>
                   )}
                 </div>
@@ -436,22 +451,35 @@ const selectedEvents = useMemo(
                 )}
 
                 {selectedStatus === 'partial' && (
-                  <div className="rounded-2xl border border-[#8eb2ff] bg-[#e4eeff] px-4 py-4 text-sm text-[#1645ac]">
-                    This date still has available blocks, but some time blocks are already unavailable.
-                  </div>
-                )}
+  <div className="rounded-2xl border border-[#bfd2ff] bg-[#eef4ff] px-4 py-4 text-sm text-[#1645ac]">
+    This date still has available blocks, but some time blocks are already unavailable.
+  </div>
+)}
 
-                {selectedStatus === 'full' && (
-                  <div className="rounded-2xl border border-[#f1aaaa] bg-[#ffe5e5] px-4 py-4 text-sm text-[#a52a2a]">
-                    This date is fully booked.
-                  </div>
-                )}
+{selectedStatus === 'public' && (
+  <div className="rounded-2xl border border-[#8eb2ff] bg-[#e4eeff] px-4 py-4 text-sm text-[#1645ac]">
+    This date already has a public event or visible public calendar activity.
+  </div>
+)}
 
-                {selectedStatus === 'blocked' && (
-                  <div className="rounded-2xl border border-[#d7b14b] bg-[#f4e2ac] px-4 py-4 text-sm text-[#6a4f00]">
-                    This date is blocked for internal schedule control.
-                  </div>
-                )}
+{selectedStatus === 'private' && (
+  <div className="rounded-2xl border border-[#d7b14b] bg-[#f4e2ac] px-4 py-4 text-sm text-[#6a4f00]">
+    This date is already privately booked or reserved.
+  </div>
+)}
+
+{selectedStatus === 'full' && (
+  <div className="rounded-2xl border border-[#c9b061] bg-[#f7ebc1] px-4 py-4 text-sm text-[#6a4f00]">
+    This date is fully occupied for the current schedule logic.
+  </div>
+)}
+
+{selectedStatus === 'blocked' && (
+  <div className="rounded-2xl border border-[#f1aaaa] bg-[#ffe5e5] px-4 py-4 text-sm text-[#a52a2a]">
+    This date is blocked for internal schedule control.
+  </div>
+)}
+
 
                 {selectedStatus === 'my-booking' && (
                   <div className="rounded-2xl border border-[#d9ece6] bg-[#eef7f4] px-4 py-4 text-sm text-[#174f40] dark:border-[#263541] dark:bg-[#16212b] dark:text-[#9dc0ff]">
@@ -470,8 +498,8 @@ const selectedEvents = useMemo(
                       className={cn(
                         'rounded-2xl border px-4 py-4 text-center text-sm font-semibold',
                         available
-                          ? 'border-black/10 bg-white text-[#1f1f1c] dark:border-white/10 dark:bg-[#17181c] dark:text-white'
-                          : 'border-[#8eb2ff] bg-[#e4eeff] text-[#1645ac]',
+  ? 'border-black/10 bg-white text-[#1f1f1c] dark:border-white/10 dark:bg-[#17181c] dark:text-white'
+  : 'border-[#d7b14b] bg-[#f4e2ac] text-[#6a4f00]',
                       )}
                     >
                       <div>{block}</div>
@@ -522,13 +550,27 @@ const selectedEvents = useMemo(
       ) : null}
 
       {event.status ? (
-        <div className="mt-2 inline-flex rounded-full bg-[#eef7f4] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#174f40] dark:bg-[#16212b] dark:text-[#9dc0ff]">
-          {event.status}
-        </div>
-      ) : null}
+  <div
+    className={cn(
+      'mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em]',
+      event.status === 'public_booked'
+        ? 'bg-[#e4eeff] text-[#1645ac]'
+        : event.status === 'private_booked' || event.status === 'confirmed' || event.status === 'active'
+        ? 'bg-[#f4e2ac] text-[#6a4f00]'
+        : event.status === 'blocked'
+        ? 'bg-[#ffe5e5] text-[#a52a2a]'
+        : event.status === 'completed'
+        ? 'bg-[#eef7f4] text-[#174f40] dark:bg-[#16212b] dark:text-[#9dc0ff]'
+        : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+    )}
+  >
+    {event.status.replaceAll('_', ' ')}
+  </div>
+) : null}
+
     </div>
 
-    {event.kind !== 'block' ? (
+    {event.kind === 'booking' ? (
       <Link
         href={`/bookings/${event.id}`}
         className="inline-flex rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold dark:border-white/10 dark:bg-white/5"

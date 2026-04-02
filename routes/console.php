@@ -6,8 +6,7 @@ use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('bookings:sync-lifecycle')
     ->everyFiveMinutes()
-    ->withoutOverlapping()
-    ->runInBackground();
+    ->withoutOverlapping();
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());

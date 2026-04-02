@@ -23,6 +23,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Permission;
+use App\Models\PublicEvent;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -164,18 +166,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         $monthAvailability = [];
 
-        for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
-            $dateKey = $d->format('Y-m-d');
-            $availability = $bookingService->getDailyAvailability($dateKey, null);
-            $blocks = $availability['blocks'] ?? [];
+for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
+    $dateKey = $d->format('Y-m-d');
+    $dayStatus = $bookingService->getDashboardDayStatus($dateKey);
 
-            $monthAvailability[$dateKey] = [
-                'AM' => (bool) data_get($blocks, 'AM.is_available', true),
-                'PM' => (bool) data_get($blocks, 'PM.is_available', true),
-                'EVE' => (bool) data_get($blocks, 'EVE.is_available', true),
-                'is_fully_booked' => (bool) ($availability['is_fully_booked'] ?? false),
-            ];
-        }
+    $monthAvailability[$dateKey] = [
+        'AM' => (bool) ($dayStatus['AM'] ?? true),
+        'PM' => (bool) ($dayStatus['PM'] ?? true),
+        'EVE' => (bool) ($dayStatus['EVE'] ?? true),
+        'is_fully_booked' => (bool) ($dayStatus['is_fully_booked'] ?? false),
+        'day_status' => (string) ($dayStatus['day_status'] ?? 'available'),
+    ];
+}
+
 
         $events = collect();
 
@@ -238,6 +241,40 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     (string) ($booking->company_name ?? ''),
                     (string) ($booking->type_of_event ?? ''),
                 ])));
+                $publicEvents = PublicEvent::query()
+    ->where('is_public', true)
+    ->whereDate('event_date', '>=', $start)
+    ->whereDate('event_date', '<=', $end)
+    ->orderBy('event_date')
+    ->get([
+        'id',
+        'title',
+        'venue',
+        'event_date',
+        'event_time',
+    ]);
+
+$publicEventItems = $publicEvents->map(function (PublicEvent $event) {
+    $time = trim((string) ($event->event_time ?? ''));
+    $startAt = Carbon::parse($event->event_date)->startOfDay();
+    $endAt = Carbon::parse($event->event_date)->endOfDay();
+
+    if (preg_match('/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/', $time, $matches)) {
+        $startAt = Carbon::parse($event->event_date->format('Y-m-d') . ' ' . $matches[1]);
+        $endAt = Carbon::parse($event->event_date->format('Y-m-d') . ' ' . $matches[2]);
+    }
+
+    return [
+        'id' => 'public-event-' . $event->id,
+        'kind' => 'public_event',
+        'title' => 'PUBLIC: ' . $event->title,
+        'start' => $startAt->format('Y-m-d\TH:i'),
+        'end' => $endAt->format('Y-m-d\TH:i'),
+        'status' => 'public_booked',
+        'area' => (string) ($event->venue ?? ''),
+        'groupKey' => substr(hash('sha1', 'public-event|' . $event->id), 0, 16),
+    ];
+});
 
                 return [
                     'id' => $booking->id,
@@ -260,9 +297,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     'title',
                     'area',
                     'block',
+                    'public_status',
                     'date_from',
                     'date_to',
                 ]);
+
 
             $blockEvents = collect();
 
@@ -311,13 +350,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
                             ($calendarBlock->area ? (' – ' . $calendarBlock->area) : ''),
                         'start' => $startDt->format('Y-m-d\TH:i'),
                         'end' => $endDt->format('Y-m-d\TH:i'),
-                        'status' => 'unavailable',
+                        'status' => match (strtolower((string) ($calendarBlock->public_status ?? 'red'))) {
+                        'blue' => 'public_booked',
+                        'gold' => 'private_booked',
+                        default => 'blocked',
+                        },
+                        'public_status' => strtolower((string) ($calendarBlock->public_status ?? 'red')),
                         'groupKey' => substr(hash('sha1', 'block|' . $calendarBlock->id), 0, 16),
                     ]);
                 }
             }
 
-            $events = $bookingEvents->concat($blockEvents)->values();
+            $events = $bookingEvents
+                ->concat($publicEventItems)
+                ->concat($blockEvents)
+                ->values();
         }
 
         return Inertia::render('dashboard', [
