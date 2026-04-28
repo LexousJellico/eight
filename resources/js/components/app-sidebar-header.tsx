@@ -1,42 +1,160 @@
+import AppearanceToggleDropdown from '@/components/appearance-dropdown';
 import { Breadcrumbs } from '@/components/breadcrumbs';
-import { RoleWorkspaceBar } from '@/components/role/role-workspace-bar';
+import NotificationBell from '@/components/layout/NotificationBell';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
-  getRoleFromAuth,
-  getRoleTone,
-} from '@/lib/role-ui';
-import { type BreadcrumbItem as BreadcrumbItemType, type SharedData } from '@/types';
-import { usePage } from '@inertiajs/react';
+  backendBookingCreateHref,
+  backendCalendarHref,
+  backendGuidelinesHref,
+  backendHomeHref,
+  backendRoleEyebrow,
+  backendRoleLabel,
+  getBackendRole,
+} from '@/lib/backend-navigation';
+import type { BreadcrumbItem, SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
+import {
+  CalendarDays,
+  ExternalLink,
+  HelpCircle,
+  LayoutDashboard,
+  Plus,
+  Search,
+} from 'lucide-react';
 
-export function AppSidebarHeader({
-  breadcrumbs = [],
-}: {
-  breadcrumbs?: BreadcrumbItemType[];
-}) {
+type AppSidebarHeaderProps = {
+  breadcrumbs?: BreadcrumbItem[];
+};
+
+function resolveTitle(breadcrumbs: BreadcrumbItem[]) {
+  if (breadcrumbs.length > 0) {
+    return breadcrumbs[breadcrumbs.length - 1]?.title ?? 'Workspace';
+  }
+
+  return 'Workspace';
+}
+
+export function AppSidebarHeader({ breadcrumbs = [] }: AppSidebarHeaderProps) {
   const page = usePage<SharedData>();
-  const role = getRoleFromAuth(page.props.auth);
-  const tone = getRoleTone(role);
+  const role = getBackendRole(page.props.auth as any);
+  const title = resolveTitle(breadcrumbs);
+  const guidelinesHref = backendGuidelinesHref(role);
 
   return (
-    <header
-      className={`sticky top-0 z-30 flex min-h-16 shrink-0 items-center gap-3 border-b px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-14 md:px-5 ${tone.headerClass}`}
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <SidebarTrigger className="-ml-1 rounded-xl text-current hover:bg-white/10 hover:text-current" />
+    <header className="backend-topbar sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur-xl">
+      <div className="flex min-h-16 items-center gap-3 px-3 sm:px-4 lg:px-6">
+        <SidebarTrigger className="backend-sidebar-trigger" />
 
-        <div className="hidden min-w-0 md:block">
-          <Breadcrumbs breadcrumbs={breadcrumbs} />
+        <div className="min-w-0 flex-1">
+          <div className="hidden items-center gap-2 md:flex">
+            <Badge
+              variant="outline"
+              className="border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[10px] font-black uppercase tracking-[0.16em] text-[#8a6b2e] dark:text-[#e8d8b5]"
+            >
+              {backendRoleLabel(role)}
+            </Badge>
+
+            <span className="truncate text-xs font-semibold text-muted-foreground">
+              {backendRoleEyebrow(role)}
+            </span>
+          </div>
+
+          <div className="mt-0 flex min-w-0 items-center gap-3 md:mt-1">
+            <h1 className="truncate text-sm font-black tracking-tight text-foreground sm:text-base">
+              {title}
+            </h1>
+
+            {breadcrumbs.length > 1 ? (
+              <div className="hidden min-w-0 text-xs text-muted-foreground lg:block">
+                <Breadcrumbs breadcrumbs={breadcrumbs} />
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div className="min-w-0 md:hidden">
-          <p className="truncate text-sm font-black">{tone.label}</p>
-          <p className={`truncate text-xs ${tone.mutedTextClass}`}>
-            {tone.eyebrow}
-          </p>
+        <div className="flex shrink-0 items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden h-9 rounded-full border-border/70 bg-background/70 text-xs font-semibold xl:inline-flex"
+            type="button"
+          >
+            <Search className="mr-2 size-4" />
+            Search
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="hidden h-9 rounded-full border-border/70 bg-background/70 text-xs font-semibold lg:inline-flex"
+          >
+            <Link href={backendHomeHref(role)}>
+              <LayoutDashboard className="mr-2 size-4" />
+              Dashboard
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="hidden h-9 rounded-full border-border/70 bg-background/70 text-xs font-semibold xl:inline-flex"
+          >
+            <Link href={backendBookingCreateHref(role)}>
+              <Plus className="mr-2 size-4" />
+              New Booking
+            </Link>
+          </Button>
+
+          {guidelinesHref ? (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="hidden h-9 rounded-full border-border/70 bg-background/70 text-xs font-semibold xl:inline-flex"
+            >
+              <Link href={guidelinesHref}>
+                <HelpCircle className="mr-2 size-4" />
+                Guidelines
+              </Link>
+            </Button>
+          ) : null}
+
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full border-border/70 bg-background/70"
+          >
+            <Link href={backendCalendarHref(role)}>
+              <CalendarDays className="size-4" />
+            </Link>
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full border-border/70 bg-background/70"
+          >
+            <Link href="/" target="_blank">
+              <ExternalLink className="size-4" />
+            </Link>
+          </Button>
+
+          <NotificationBell />
+          <AppearanceToggleDropdown />
         </div>
       </div>
 
-      <RoleWorkspaceBar />
+      {breadcrumbs.length > 1 ? (
+        <div className="border-t border-border/45 px-4 py-2 lg:hidden">
+          <Breadcrumbs breadcrumbs={breadcrumbs} />
+        </div>
+      ) : null}
     </header>
   );
 }

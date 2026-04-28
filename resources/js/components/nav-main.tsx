@@ -1,72 +1,69 @@
 import {
+    isBackendActive,
+    userHasPermission,
+    type BackendNavItem,
+  } from '@/lib/backend-navigation';
+  import {
     SidebarGroup,
+    SidebarGroupContent,
     SidebarGroupLabel,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
   } from '@/components/ui/sidebar';
-  import {
-    hasNavPermission,
-    hrefToString,
-    isHrefActive,
-  } from '@/lib/role-ui';
-  import { type NavItem, type SharedData } from '@/types';
+  import type { SharedData } from '@/types';
   import { Link, usePage } from '@inertiajs/react';
 
-  export function NavMain({
-    items = [],
-    title = 'Platform',
-    activeClassName,
-  }: {
-    items: NavItem[];
-    title?: string;
-    activeClassName?: string;
-  }) {
-    const page = usePage<SharedData>();
-    const permissions = page.props.auth?.permissions ?? [];
+  type NavMainProps = {
+    label: string;
+    items?: BackendNavItem[];
+  };
 
-    const visibleItems = items.filter((item) => hasNavPermission(item, permissions));
+  export function NavMain({ label, items = [] }: NavMainProps) {
+    const page = usePage<SharedData>();
+    const permissions = [
+      ...((page.props.auth?.permissions ?? []) as string[]),
+      ...(((page.props.auth?.user as any)?.permissions ?? []) as string[]),
+    ];
+
+    const visibleItems = items.filter((item) =>
+      userHasPermission(permissions, item.permission),
+    );
 
     if (visibleItems.length === 0) {
       return null;
     }
 
     return (
-      <SidebarGroup className="px-2 py-0">
-        <SidebarGroupLabel>{title}</SidebarGroupLabel>
+      <SidebarGroup className="backend-sidebar-group">
+        <SidebarGroupLabel className="backend-sidebar-group-label">
+          {label}
+        </SidebarGroupLabel>
 
-        <SidebarMenu>
-          {visibleItems.map((item) => {
-            const href = hrefToString(item.href);
-            const active = isHrefActive(page.url, item.href);
-            const Icon = item.icon;
+        <SidebarGroupContent>
+          <SidebarMenu className="gap-1">
+            {visibleItems.map((item) => {
+              const Icon = item.icon;
+              const active = isBackendActive(page.url, item.href, item.exact);
 
-            return (
-              <SidebarMenuItem key={`${item.title}-${href}`}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={active}
-                  tooltip={{ children: item.title }}
-                  className={
-                    active
-                      ? activeClassName
-                      : 'text-current/75 hover:bg-white/10 hover:text-current'
-                  }
-                >
-                  <Link href={item.href} prefetch>
-                    {Icon ? <Icon /> : null}
-                    <span>{item.title}</span>
-                    {item.badge ? (
-                      <span className="ml-auto rounded-full border border-current/10 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] opacity-70 group-data-[collapsible=icon]:hidden">
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
+              return (
+                <SidebarMenuItem key={`${label}-${item.href}`}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={active}
+                    tooltip={item.title}
+                    className="backend-sidebar-menu-button"
+                  >
+                    <Link href={item.href} prefetch>
+                      {Icon ? <Icon className="size-4 shrink-0" /> : null}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroupContent>
       </SidebarGroup>
     );
   }

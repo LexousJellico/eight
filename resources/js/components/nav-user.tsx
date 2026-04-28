@@ -1,33 +1,44 @@
 import {
+    ChevronsUpDown,
+    LogOut,
+    Settings,
+    User2,
+  } from 'lucide-react';
+  import { Link, usePage } from '@inertiajs/react';
+  import type { SharedData } from '@/types';
+  import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
   } from '@/components/ui/dropdown-menu';
   import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-    useSidebar,
   } from '@/components/ui/sidebar';
-  import { UserInfo } from '@/components/user-info';
-  import { UserMenuContent } from '@/components/user-menu-content';
-  import { useIsMobile } from '@/hooks/use-mobile';
-  import {
-    getRoleFromAuth,
-    getRoleInitials,
-    getRoleTone,
-  } from '@/lib/role-ui';
-  import { type SharedData } from '@/types';
-  import { usePage } from '@inertiajs/react';
-  import { ChevronsUpDown } from 'lucide-react';
+
+  function initialsFromName(name?: string) {
+    if (!name) return 'U';
+
+    const parts = name.trim().split(/\s+/).slice(0, 2);
+    return parts.map((part) => part.charAt(0).toUpperCase()).join('') || 'U';
+  }
 
   export function NavUser() {
-    const { auth } = usePage<SharedData>().props;
-    const { state } = useSidebar();
-    const isMobile = useIsMobile();
-    const role = getRoleFromAuth(auth);
-    const tone = getRoleTone(role);
-    const initials = getRoleInitials(auth);
+    const page = usePage<SharedData>();
+    const user = page.props.auth?.user;
+
+    const name = user?.name ?? 'BCCC User';
+    const email = user?.email ?? 'user@bccc-ease.local';
+    const role =
+      (user as any)?.role_name ??
+      (user as any)?.role ??
+      'User';
+
+    const initials = initialsFromName(name);
 
     return (
       <SidebarMenu>
@@ -36,30 +47,65 @@ import {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
-                className={`group h-auto rounded-2xl border px-3 py-3 data-[state=open]:bg-white/10 ${tone.brandClass}`}
-                data-test="sidebar-menu-button"
+                className="backend-user-menu-button"
+                tooltip={name}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/15 text-xs font-black tracking-[0.18em]">
+                <div className="backend-user-avatar">
                   {initials}
-                </span>
-
-                <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
-                  <UserInfo user={auth.user} />
-                  <p className={`mt-0.5 truncate text-[11px] font-bold uppercase tracking-[0.16em] ${tone.mutedTextClass}`}>
-                    {tone.label}
-                  </p>
                 </div>
 
-                <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+                <div className="grid min-w-0 flex-1 text-left leading-tight">
+                  <span className="truncate text-sm font-black">{name}</span>
+                  <span className="truncate text-[11px] font-semibold text-sidebar-foreground/60">
+                    {String(role).toUpperCase()}
+                  </span>
+                </div>
+
+                <ChevronsUpDown className="ml-auto size-4 opacity-70" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
 
             <DropdownMenuContent
-              className="w-(--radix-dropdown-menu-trigger-width) min-w-64 rounded-2xl p-2"
+              side="top"
               align="end"
-              side={isMobile ? 'bottom' : state === 'collapsed' ? 'left' : 'bottom'}
+              className="w-64 rounded-2xl"
             >
-              <UserMenuContent user={auth.user} />
+              <div className="px-3 py-2">
+                <p className="truncate text-sm font-black">{name}</p>
+                <p className="truncate text-xs text-muted-foreground">{email}</p>
+              </div>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuGroup>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings/profile">
+                    <User2 className="mr-2 size-4" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem asChild>
+                  <Link href="/settings/profile">
+                    <Settings className="mr-2 size-4" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem asChild>
+                <Link
+                  href="/logout"
+                  method="post"
+                  as="button"
+                  className="w-full text-left"
+                >
+                  <LogOut className="mr-2 size-4" />
+                  Log out
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>

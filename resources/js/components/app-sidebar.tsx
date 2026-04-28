@@ -1,136 +1,112 @@
-import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
+import { Badge } from '@/components/ui/badge';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarRail,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import {
-  getRoleDescription,
-  getRoleFromAuth,
-  getRoleInitials,
-  getRoleMenuGroups,
-  getRoleQuickActions,
-  getRoleTone,
-  hrefToString,
-  isHrefActive,
-} from '@/lib/role-ui';
+  backendAdminConfigNav,
+  backendExternalNav,
+  backendHomeHref,
+  backendMainNav,
+  backendRoleEyebrow,
+  backendRoleLabel,
+  getBackendRole,
+} from '@/lib/backend-navigation';
 import type { SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowUpRight, ShieldCheck } from 'lucide-react';
+import { Building2, Sparkles } from 'lucide-react';
 
 export function AppSidebar() {
   const page = usePage<SharedData>();
-  const auth = page.props.auth;
-  const role = getRoleFromAuth(auth);
-  const tone = getRoleTone(role);
-  const initials = getRoleInitials(auth);
-  const groups = getRoleMenuGroups(role);
-  const quickActions = getRoleQuickActions(role);
+  const role = getBackendRole(page.props.auth as any);
+  const configNav = backendAdminConfigNav(role);
+  const quickLinks = backendExternalNav(role);
 
   return (
     <Sidebar
       collapsible="icon"
       variant="inset"
-      className={tone.sidebarClass}
+      className="backend-sidebar"
     >
-      <SidebarHeader className="gap-3 p-3">
+      <SidebarHeader className="backend-sidebar-header">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              size="lg"
               asChild
-              className={`h-auto min-h-14 rounded-2xl border px-3 py-3 ${tone.brandClass}`}
-              tooltip={{ children: 'BCCC EASE' }}
+              size="lg"
+              className="backend-sidebar-brand"
+              tooltip="BCCC EASE"
             >
-              <Link href={tone.homeHref} prefetch>
-                <AppLogo />
+              <Link href={backendHomeHref(role)} prefetch>
+                <div className="backend-sidebar-logo">
+                  <Building2 className="size-5" />
+                </div>
+
+                <div className="grid min-w-0 flex-1 text-left leading-tight">
+                  <span className="truncate text-sm font-black tracking-[-0.03em]">
+                    BCCC EASE
+                  </span>
+                  <span className="truncate text-[11px] font-semibold text-sidebar-foreground/60">
+                    Events Access & Scheduling
+                  </span>
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <div className="group-data-[collapsible=icon]:hidden">
-          <div className={`relative overflow-hidden rounded-3xl border p-4 ${tone.brandClass}`}>
-            <div className={`absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl ${tone.glowClass}`} />
+        <div className="backend-sidebar-role-card group-data-[collapsible=icon]:hidden">
+          <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-[#c9a96a]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[#c9a96a]">
+              {backendRoleEyebrow(role)}
+            </span>
+          </div>
 
-            <div className="relative flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-black/15 text-xs font-black tracking-[0.18em]">
-                {initials}
-              </div>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="truncate text-sm font-black text-sidebar-foreground">
+              {backendRoleLabel(role)}
+            </p>
 
-              <div className="min-w-0">
-                <p className="truncate text-xs font-black uppercase tracking-[0.22em]">
-                  {tone.eyebrow}
-                </p>
-
-                <p className="mt-1 truncate text-sm font-bold">
-                  {tone.label}
-                </p>
-
-                <p className={`mt-1 line-clamp-2 text-xs leading-relaxed ${tone.mutedTextClass}`}>
-                  {getRoleDescription(role)}
-                </p>
-              </div>
-            </div>
+            <Badge
+              variant="outline"
+              className="border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[10px] font-black uppercase tracking-[0.16em] text-[#c9a96a]"
+            >
+              Active
+            </Badge>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="gap-3 px-2">
-        {groups.map((group) => (
-          <NavMain
-            key={group.title}
-            title={group.title}
-            items={group.items}
-            activeClassName={tone.activeClass}
-          />
-        ))}
+      <SidebarContent className="backend-sidebar-content backend-sidebar-scroll">
+        <NavMain label="Workspace" items={backendMainNav(role)} />
 
-        <SidebarGroup className="px-2 py-0">
-          <SidebarGroupLabel>Quick Access</SidebarGroupLabel>
-          <SidebarMenu>
-            {quickActions.map((item) => {
-              const href = hrefToString(item.href);
-              const active = isHrefActive(page.url, item.href);
-              const Icon = item.icon ?? ShieldCheck;
+        {configNav.length > 0 ? (
+          <>
+            <SidebarSeparator className="backend-sidebar-separator" />
+            <NavMain label="Configuration" items={configNav} />
+          </>
+        ) : null}
 
-              return (
-                <SidebarMenuItem key={`${item.title}-${href}`}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={active}
-                    tooltip={{ children: item.title }}
-                    className={active ? tone.activeClass : 'hover:bg-white/10 hover:text-current'}
-                  >
-                    <Link href={item.href} prefetch>
-                      <Icon />
-                      <span>{item.title}</span>
-                      {href === '/' ? (
-                        <ArrowUpRight className="ml-auto h-3.5 w-3.5 opacity-60 group-data-[collapsible=icon]:hidden" />
-                      ) : null}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })}
-          </SidebarMenu>
-        </SidebarGroup>
+        {quickLinks.length > 0 ? (
+          <>
+            <SidebarSeparator className="backend-sidebar-separator" />
+            <NavMain label="Quick Links" items={quickLinks} />
+          </>
+        ) : null}
       </SidebarContent>
 
-      <SidebarFooter className="p-3">
+      <SidebarFooter className="backend-sidebar-footer">
         <NavUser />
       </SidebarFooter>
-
-      <SidebarRail />
     </Sidebar>
   );
 }

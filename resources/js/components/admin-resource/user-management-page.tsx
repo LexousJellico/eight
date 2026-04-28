@@ -5,6 +5,16 @@ import {
   extractCollection,
   extractLinks,
 } from '@/lib/admin-resource-ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
   Edit3,
@@ -45,24 +55,22 @@ function roleNames(user: UserRecord): string[] {
 }
 
 export function UserManagementPage() {
-  const { props } = usePage<PageProps>();
+  const { props } = usePage() as unknown as { props: PageProps };
   const users = useMemo(() => extractCollection<UserRecord>(props.users), [props.users]);
-  const links = extractLinks(props.users);
+  const pageLinks = extractLinks(props.users);
   const [q, setQ] = useState(String(props.filters?.q ?? ''));
 
   function destroy(user: UserRecord) {
-    const confirmed = window.confirm(
-      `Delete user "${user.name || user.email}"? This cannot be undone.`,
-    );
-
-    if (!confirmed) return;
+    if (!window.confirm(`Delete user "${user.name || user.email}"? This cannot be undone.`)) {
+      return;
+    }
 
     router.delete(`/admin/users/${user.id}`, {
       preserveScroll: true,
     });
   }
 
-  function search(event: FormEvent<HTMLFormElement>) {
+  function search(event: FormEvent) {
     event.preventDefault();
 
     router.get(
@@ -79,163 +87,176 @@ export function UserManagementPage() {
   return (
     <ResourcePageShell
       role={props.workspaceRole}
-      title="Users & Roles"
       current="Users"
-      description="Manage account access for administrators, managers, staff, and client users. Keep this page restricted to administrators only."
+      eyebrow="Access Configuration"
+      title="User Management"
+      description="Manage administrator, manager, staff, and client accounts using the same backend workspace style."
       actions={
         <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin/users/create"
-            className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New User
-          </Link>
+          <Button asChild className="rounded-full">
+            <Link href="/admin/users/create">
+              <Plus className="mr-2 h-4 w-4" />
+              New User
+            </Link>
+          </Button>
 
-          <Link
-            href="/admin/users/roles"
-            className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-          >
-            <ShieldCheck className="mr-2 h-4 w-4" />
-            Role Matrix
-          </Link>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href="/admin/users/roles">
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Role Matrix
+            </Link>
+          </Button>
         </div>
       }
     >
-      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-sm backdrop-blur">
-        <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
+      <Card className="backend-admin-card overflow-hidden">
+        <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-              System Accounts
-            </p>
-            <h3 className="mt-1 text-xl font-black">
+            <CardTitle className="text-2xl font-black tracking-[-0.04em]">
               {users.length} user{users.length === 1 ? '' : 's'}
-            </h3>
+            </CardTitle>
+
+            <CardDescription>
+              Manage backend access, roles, account status, and user information.
+            </CardDescription>
           </div>
 
           <form onSubmit={search} className="relative w-full md:max-w-xs">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={q}
               onChange={(event) => setQ(event.target.value)}
-              className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 pl-11 pr-4 text-sm outline-none focus:border-white/25"
+              className="backend-admin-input pl-11"
               placeholder="Search users..."
             />
           </form>
-        </div>
+        </CardHeader>
 
-        {users.length > 0 ? (
-          <div className="divide-y divide-white/10">
-            {users.map((user) => {
-              const roles = roleNames(user);
+        <Separator />
 
-              return (
-                <div
-                  key={user.id}
-                  className="grid gap-4 p-5 transition hover:bg-white/[0.05] lg:grid-cols-[1fr_auto]"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/15">
-                        <UserRound className="h-5 w-5 opacity-70" />
-                      </div>
+        <CardContent className="p-0">
+          {users.length > 0 ? (
+            <div className="divide-y">
+              {users.map((user) => {
+                const roles = roleNames(user);
 
-                      <div className="min-w-0">
-                        <p className="text-lg font-black">{user.name || 'Unnamed User'}</p>
-                        <p className="mt-1 text-sm opacity-65">{user.email}</p>
+                return (
+                  <div
+                    key={user.id}
+                    className="grid gap-4 p-5 transition hover:bg-muted/35 md:grid-cols-[1fr_auto]"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <div className="backend-admin-icon">
+                          <UserRound className="h-5 w-5" />
+                        </div>
 
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {roles.length > 0 ? (
-                            roles.map((role) => (
-                              <span
-                                key={role}
-                                className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-80"
-                              >
-                                {cleanLabel(role)}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-amber-100">
-                              No role
-                            </span>
-                          )}
-
-                          <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-70">
-                            Created {compactDate(user.created_at)}
-                          </span>
-
-                          {user.email_verified_at ? (
-                            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-100">
-                              Verified
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-red-300/20 bg-red-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-red-100">
-                              Unverified
-                            </span>
-                          )}
+                        <div className="min-w-0">
+                          <p className="truncate text-lg font-black">
+                            {user.name || 'Unnamed User'}
+                          </p>
+                          <p className="truncate text-sm text-muted-foreground">
+                            {user.email}
+                          </p>
                         </div>
                       </div>
+
+                      <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                        {user.organization_name || 'No organization'} · {user.position_title || 'No position title'}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {roles.length > 0 ? (
+                          roles.map((role) => (
+                            <Badge
+                              key={role}
+                              variant="outline"
+                              className="border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]"
+                            >
+                              {cleanLabel(role)}
+                            </Badge>
+                          ))
+                        ) : (
+                          <Badge variant="outline">No role</Badge>
+                        )}
+
+                        <Badge variant="outline">
+                          Created {compactDate(user.created_at)}
+                        </Badge>
+
+                        <Badge
+                          variant="outline"
+                          className={
+                            user.email_verified_at
+                              ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+                              : 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-200'
+                          }
+                        >
+                          {user.email_verified_at ? 'Verified' : 'Unverified'}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 md:justify-end">
+                      <Button asChild variant="outline" size="sm" className="rounded-full">
+                        <Link href={`/admin/users/${user.id}/edit`}>
+                          <Edit3 className="mr-2 h-4 w-4" />
+                          Edit
+                        </Link>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => destroy(user)}
+                        className="rounded-full border-red-500/25 bg-red-500/10 text-red-700 hover:bg-red-500/15 dark:text-red-200"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-10 text-center">
+              <UserRound className="mx-auto h-10 w-10 text-muted-foreground/45" />
+              <h3 className="mt-4 text-xl font-black">No users found</h3>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                Create administrator, manager, staff, or client user accounts from here.
+              </p>
+            </div>
+          )}
 
-                  <div className="flex items-start gap-2 lg:justify-end">
-                    <Link
-                      href={`/admin/users/${user.id}/edit`}
-                      className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-black transition hover:bg-white/15"
-                    >
-                      <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                      Edit
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => destroy(user)}
-                      className="inline-flex items-center rounded-full border border-red-300/20 bg-red-400/10 px-3 py-2 text-xs font-black text-red-100 transition hover:bg-red-400/15"
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-10 text-center">
-            <UserRound className="mx-auto h-10 w-10 opacity-40" />
-            <h3 className="mt-4 text-xl font-black">No users found</h3>
-            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 opacity-65">
-              Create administrator, manager, staff, or client user accounts from here.
-            </p>
-          </div>
-        )}
-
-        {links.length > 0 ? (
-          <div className="flex flex-wrap gap-2 border-t border-white/10 p-5">
-            {links.map((link, index) =>
-              link.url ? (
-                <Link
-                  key={`${link.label}-${index}`}
-                  href={link.url}
-                  preserveScroll
-                  className={`rounded-xl border px-3 py-2 text-xs font-bold ${
-                    link.active
-                      ? 'border-white/20 bg-white/15'
-                      : 'border-white/10 bg-black/10 hover:bg-white/10'
-                  }`}
-                  dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                />
-              ) : (
-                <span
-                  key={`${link.label}-${index}`}
-                  className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs font-bold opacity-40"
-                  dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                />
-              ),
-            )}
-          </div>
-        ) : null}
-      </section>
+          {pageLinks.length > 0 ? (
+            <div className="flex flex-wrap gap-2 border-t p-5">
+              {pageLinks.map((link, index) =>
+                link.url ? (
+                  <Link
+                    key={`${link.label}-${index}`}
+                    href={link.url}
+                    preserveScroll
+                    className={`rounded-full border px-3 py-2 text-xs font-bold ${
+                      link.active
+                        ? 'border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]'
+                        : 'border-border bg-background text-muted-foreground hover:bg-muted'
+                    }`}
+                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                  />
+                ) : (
+                  <span
+                    key={`${link.label}-${index}`}
+                    className="rounded-full border bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground/50"
+                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                  />
+                ),
+              )}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </ResourcePageShell>
   );
 }

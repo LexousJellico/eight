@@ -1,1 +1,5 @@
-export { default } from '../../../reports/mice-registry';
+import { MiceRegistryPage } from '@/components/admin-resource/mice-registry-page';
+
+export default function ManagerMiceRegistryIndex() {
+  return <MiceRegistryPage />;
+}

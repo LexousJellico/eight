@@ -6,7 +6,19 @@ import {
   extractCollection,
   extractLinks,
   normalizeAdminResourceRole,
+  yesNo,
+  booleanBadgeTone,
 } from '@/lib/admin-resource-ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
   Download,
@@ -31,8 +43,6 @@ type MiceRecord = {
   year_recorded?: number | string | null;
   month_added?: string | null;
   total_employees?: number | string | null;
-  male_employees?: number | string | null;
-  female_employees?: number | string | null;
   permit_to_engage?: boolean | number | string | null;
   dot_accredited?: boolean | number | string | null;
   active_member?: boolean | number | string | null;
@@ -42,6 +52,7 @@ type MiceRecord = {
 type PageProps = {
   workspaceRole?: string;
   records?: unknown;
+  rows?: unknown;
   miceRecords?: unknown;
   registry?: unknown;
   filters?: {
@@ -51,26 +62,44 @@ type PageProps = {
 
 function basePath(role: string) {
   if (role === 'manager') return '/manager/reports/mice-registry';
+
   return '/admin/reports/mice-registry';
 }
 
-function yesNo(value: unknown) {
-  return value === true || value === 1 || value === '1' || value === 'true' ? 'Yes' : 'No';
+function SummaryCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <Card className="backend-admin-card">
+      <CardContent className="p-5">
+        <p className="backend-admin-label">{label}</p>
+        <p className="mt-3 text-3xl font-black tracking-[-0.04em]">
+          {value}
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 export function MiceRegistryPage() {
-  const { props } = usePage<PageProps>();
+  const { props } = usePage() as unknown as { props: PageProps };
   const role = normalizeAdminResourceRole(props.workspaceRole ?? currentWorkspaceRole());
+
   const records = useMemo(
-    () => extractCollection<MiceRecord>(props.records ?? props.miceRecords ?? props.registry),
-    [props.records, props.miceRecords, props.registry],
+    () => extractCollection<MiceRecord>(props.records ?? props.rows ?? props.miceRecords ?? props.registry),
+    [props.records, props.rows, props.miceRecords, props.registry],
   );
-  const links = extractLinks(props.records ?? props.miceRecords ?? props.registry);
+
+  const pageLinks = extractLinks(props.records ?? props.rows ?? props.miceRecords ?? props.registry);
   const [q, setQ] = useState(String(props.filters?.q ?? ''));
   const path = basePath(role);
   const canMutate = role === 'admin';
 
-  function search(event: FormEvent<HTMLFormElement>) {
+  function search(event: FormEvent) {
     event.preventDefault();
 
     router.get(
@@ -85,11 +114,9 @@ export function MiceRegistryPage() {
   }
 
   function destroy(record: MiceRecord) {
-    const confirmed = window.confirm(
-      `Delete MICE registry record "${record.establishment_name || record.id}"?`,
-    );
-
-    if (!confirmed) return;
+    if (!window.confirm(`Delete MICE registry record "${record.establishment_name || record.id}"?`)) {
+      return;
+    }
 
     router.delete(`${path}/${record.id}`, {
       preserveScroll: true,
@@ -98,204 +125,175 @@ export function MiceRegistryPage() {
 
   return (
     <ResourcePageShell
-      role={role}
+      role={props.workspaceRole}
+      current="MICE Registry"
+      eyebrow="MICE Report"
       title="MICE Registry"
-      current="Reports"
-      eyebrow={role === 'manager' ? 'Management Report Review' : 'Executive MICE Reporting'}
-      description="Review and manage MICE registry records, establishment details, employee counts, accreditation status, and reporting outputs."
+      description="Review tourism and convention registry records using the same backend workspace style."
       actions={
         <div className="flex flex-wrap gap-2">
           {canMutate ? (
-            <Link
-              href={`${path}/create`}
-              className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Record
-            </Link>
+            <Button asChild className="rounded-full">
+              <Link href={`${path}/create`}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Record
+              </Link>
+            </Button>
           ) : null}
 
-          <Link
-            href={`${path}/print`}
-            className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-          >
-            <Printer className="mr-2 h-4 w-4" />
-            Print
-          </Link>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href={`${path}/print`}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print
+            </Link>
+          </Button>
 
-          <Link
-            href={`${path}/export`}
-            className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Link>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href={`${path}/export`}>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </Link>
+          </Button>
         </div>
       }
     >
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            Records
-          </p>
-          <p className="mt-3 text-3xl font-black">{records.length}</p>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            DOT Accredited
-          </p>
-          <p className="mt-3 text-3xl font-black">
-            {records.filter((record) => yesNo(record.dot_accredited) === 'Yes').length}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            Active Members
-          </p>
-          <p className="mt-3 text-3xl font-black">
-            {records.filter((record) => yesNo(record.active_member) === 'Yes').length}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            Employees
-          </p>
-          <p className="mt-3 text-3xl font-black">
-            {records.reduce((sum, record) => sum + Number(record.total_employees ?? 0), 0)}
-          </p>
-        </div>
+      <section className="grid gap-4 md:grid-cols-4">
+        <SummaryCard label="Records" value={records.length} />
+        <SummaryCard
+          label="DOT Accredited"
+          value={records.filter((record) => yesNo(record.dot_accredited) === 'Yes').length}
+        />
+        <SummaryCard
+          label="Active Members"
+          value={records.filter((record) => yesNo(record.active_member) === 'Yes').length}
+        />
+        <SummaryCard
+          label="Employees"
+          value={records.reduce((sum, record) => sum + Number(record.total_employees ?? 0), 0)}
+        />
       </section>
 
-      <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-sm backdrop-blur">
-        <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
+      <Card className="backend-admin-card overflow-hidden">
+        <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-              Registry Records
-            </p>
-            <h3 className="mt-1 text-xl font-black">
+            <CardTitle className="text-2xl font-black tracking-[-0.04em]">
               MICE report table
-            </h3>
+            </CardTitle>
+
+            <CardDescription>
+              Registry data for convention, tourism, and MICE reporting.
+            </CardDescription>
           </div>
 
           <form onSubmit={search} className="relative w-full md:max-w-xs">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={q}
               onChange={(event) => setQ(event.target.value)}
-              className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 pl-11 pr-4 text-sm outline-none focus:border-white/25"
+              className="backend-admin-input pl-11"
               placeholder="Search registry..."
             />
           </form>
-        </div>
+        </CardHeader>
 
-        {records.length > 0 ? (
-          <div className="divide-y divide-white/10">
-            {records.map((record) => (
-              <div
-                key={record.id}
-                className="grid gap-4 p-5 transition hover:bg-white/[0.05] xl:grid-cols-[1fr_auto]"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/15">
-                      <FileBarChart className="h-5 w-5 opacity-70" />
-                    </div>
+        <Separator />
 
-                    <div className="min-w-0">
-                      <p className="text-lg font-black">
-                        {record.establishment_name || `Record #${record.id}`}
-                      </p>
-                      <p className="mt-1 text-sm opacity-65">
-                        {record.business_type || 'No business type'} · {record.city_municipality || 'No city'}
-                      </p>
+        <CardContent className="p-0">
+          {records.length > 0 ? (
+            <div className="divide-y">
+              {records.map((record) => (
+                <div
+                  key={record.id}
+                  className="grid gap-4 p-5 transition hover:bg-muted/35 md:grid-cols-[1fr_auto]"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
+                      <div className="backend-admin-icon">
+                        <FileBarChart className="h-5 w-5" />
+                      </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-75">
-                          {cleanLabel(record.classification)}
-                        </span>
-
-                        <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-75">
-                          {record.year_recorded || 'No year'}
-                        </span>
-
-                        <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-75">
-                          Employees {record.total_employees ?? 0}
-                        </span>
-
-                        <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-100">
-                          DOT {yesNo(record.dot_accredited)}
-                        </span>
-
-                        <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-75">
-                          Created {compactDate(record.created_at)}
-                        </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-black">
+                          {record.establishment_name || `Record #${record.id}`}
+                        </p>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {record.business_type || 'No business type'} · {record.city_municipality || 'No city'}
+                        </p>
                       </div>
                     </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Badge variant="outline">{cleanLabel(record.classification)}</Badge>
+                      <Badge variant="outline">{record.year_recorded || 'No year'}</Badge>
+                      <Badge variant="outline">Employees {record.total_employees ?? 0}</Badge>
+                      <Badge variant="outline" className={booleanBadgeTone(record.dot_accredited)}>
+                        DOT {yesNo(record.dot_accredited)}
+                      </Badge>
+                      <Badge variant="outline">Created {compactDate(record.created_at)}</Badge>
+                    </div>
                   </div>
+
+                  {canMutate ? (
+                    <div className="flex items-start gap-2 md:justify-end">
+                      <Button asChild variant="outline" size="sm" className="rounded-full">
+                        <Link href={`${path}/${record.id}/edit`}>
+                          <Edit3 className="mr-2 h-4 w-4" />
+                          Edit
+                        </Link>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => destroy(record)}
+                        className="rounded-full border-red-500/25 bg-red-500/10 text-red-700 hover:bg-red-500/15 dark:text-red-200"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-10 text-center">
+              <FileBarChart className="mx-auto h-10 w-10 text-muted-foreground/45" />
+              <h3 className="mt-4 text-xl font-black">No MICE records found</h3>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                Registry entries will appear here after records are created or imported.
+              </p>
+            </div>
+          )}
 
-                {canMutate ? (
-                  <div className="flex items-start gap-2 xl:justify-end">
-                    <Link
-                      href={`${path}/${record.id}/edit`}
-                      className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-black transition hover:bg-white/15"
-                    >
-                      <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                      Edit
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => destroy(record)}
-                      className="inline-flex items-center rounded-full border border-red-300/20 bg-red-400/10 px-3 py-2 text-xs font-black text-red-100 transition hover:bg-red-400/15"
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-10 text-center">
-            <FileBarChart className="mx-auto h-10 w-10 opacity-40" />
-            <h3 className="mt-4 text-xl font-black">No MICE records found</h3>
-            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 opacity-65">
-              Registry entries will appear here after records are created or imported.
-            </p>
-          </div>
-        )}
-
-        {links.length > 0 ? (
-          <div className="flex flex-wrap gap-2 border-t border-white/10 p-5">
-            {links.map((link, index) =>
-              link.url ? (
-                <Link
-                  key={`${link.label}-${index}`}
-                  href={link.url}
-                  preserveScroll
-                  className={`rounded-xl border px-3 py-2 text-xs font-bold ${
-                    link.active
-                      ? 'border-white/20 bg-white/15'
-                      : 'border-white/10 bg-black/10 hover:bg-white/10'
-                  }`}
-                  dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                />
-              ) : (
-                <span
-                  key={`${link.label}-${index}`}
-                  className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs font-bold opacity-40"
-                  dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                />
-              ),
-            )}
-          </div>
-        ) : null}
-      </section>
+          {pageLinks.length > 0 ? (
+            <div className="flex flex-wrap gap-2 border-t p-5">
+              {pageLinks.map((link, index) =>
+                link.url ? (
+                  <Link
+                    key={`${link.label}-${index}`}
+                    href={link.url}
+                    preserveScroll
+                    className={`rounded-full border px-3 py-2 text-xs font-bold ${
+                      link.active
+                        ? 'border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]'
+                        : 'border-border bg-background text-muted-foreground hover:bg-muted'
+                    }`}
+                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                  />
+                ) : (
+                  <span
+                    key={`${link.label}-${index}`}
+                    className="rounded-full border bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground/50"
+                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                  />
+                ),
+              )}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
     </ResourcePageShell>
   );
 }

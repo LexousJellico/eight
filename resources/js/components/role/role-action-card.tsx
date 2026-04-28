@@ -1,6 +1,11 @@
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+} from '@/components/ui/card';
 import { Link } from '@inertiajs/react';
-import type { LucideIcon } from 'lucide-react';
 import { ArrowUpRight } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 type RoleActionCardProps = {
   title: string;
@@ -8,43 +13,7 @@ type RoleActionCardProps = {
   href: string;
   icon: LucideIcon;
   tone?: 'admin' | 'manager' | 'staff' | 'user' | 'neutral';
-};
-
-const toneClasses = {
-  admin: {
-    shell:
-      'border-slate-800 bg-slate-900/75 text-slate-100 hover:border-amber-300/40 hover:bg-slate-900',
-    icon: 'bg-amber-300/10 text-amber-200',
-    arrow: 'text-amber-200',
-    description: 'text-slate-400',
-  },
-  manager: {
-    shell:
-      'border-blue-800 bg-blue-900/75 text-blue-50 hover:border-sky-300/40 hover:bg-blue-900',
-    icon: 'bg-sky-300/10 text-sky-200',
-    arrow: 'text-sky-200',
-    description: 'text-blue-200/70',
-  },
-  staff: {
-    shell:
-      'border-emerald-800 bg-emerald-900/75 text-emerald-50 hover:border-emerald-300/40 hover:bg-emerald-900',
-    icon: 'bg-emerald-300/10 text-emerald-200',
-    arrow: 'text-emerald-200',
-    description: 'text-emerald-100/70',
-  },
-  user: {
-    shell:
-      'border-stone-200 bg-white text-stone-950 hover:border-yellow-700/30 hover:bg-yellow-50/40 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-50 dark:hover:border-yellow-300/30',
-    icon: 'bg-yellow-600/10 text-yellow-800 dark:text-yellow-200',
-    arrow: 'text-yellow-800 dark:text-yellow-200',
-    description: 'text-stone-600 dark:text-stone-400',
-  },
-  neutral: {
-    shell: 'border-border bg-card text-card-foreground hover:bg-muted/30',
-    icon: 'bg-muted text-muted-foreground',
-    arrow: 'text-muted-foreground',
-    description: 'text-muted-foreground',
-  },
+  cta?: string;
 };
 
 export function RoleActionCard({
@@ -52,33 +21,43 @@ export function RoleActionCard({
   description,
   href,
   icon: Icon,
-  tone = 'neutral',
+  cta = 'Open',
 }: RoleActionCardProps) {
-  const classes = toneClasses[tone];
-
   return (
-    <Link
-      href={href}
-      className={`group relative overflow-hidden rounded-3xl border p-5 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-xl ${classes.shell}`}
-    >
-      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-current opacity-[0.035] transition group-hover:scale-125" />
+    <Card className="backend-action-card group overflow-hidden">
+      <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#c9a96a]/10 blur-2xl transition duration-500 group-hover:scale-125" />
 
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="flex min-w-0 gap-4">
-          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${classes.icon}`}>
+      <CardContent className="relative flex h-full flex-col p-5">
+        <div className="flex items-start gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#c9a96a]/20 bg-[#c9a96a]/10 text-[#8a6b2e] dark:text-[#e8d8b5]">
             <Icon className="h-5 w-5" />
           </div>
 
-          <div className="min-w-0 space-y-1">
-            <h3 className="text-base font-bold tracking-tight">{title}</h3>
-            <p className={`text-sm leading-relaxed ${classes.description}`}>
+          <div className="min-w-0">
+            <h3 className="text-lg font-black tracking-[-0.025em] text-foreground">
+              {title}
+            </h3>
+
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
               {description}
             </p>
           </div>
         </div>
 
-        <ArrowUpRight className={`h-4 w-4 shrink-0 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ${classes.arrow}`} />
-      </div>
-    </Link>
+        <div className="mt-auto pt-5">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="rounded-full border-[#c9a96a]/25 bg-[#c9a96a]/10 font-black text-[#7a5c21] hover:bg-[#c9a96a]/15 dark:text-[#e8d8b5]"
+          >
+            <Link href={href}>
+              {cta}
+              <ArrowUpRight className="ml-1.5 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

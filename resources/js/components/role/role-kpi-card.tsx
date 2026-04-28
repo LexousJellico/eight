@@ -1,3 +1,9 @@
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+} from '@/components/ui/card';
 import type { LucideIcon } from 'lucide-react';
 
 type RoleKpiCardProps = {
@@ -8,39 +14,14 @@ type RoleKpiCardProps = {
   tone?: 'admin' | 'manager' | 'staff' | 'user' | 'neutral';
 };
 
-const toneClasses = {
-  admin: {
-    shell: 'border-amber-300/20 bg-amber-300/[0.07] text-amber-100',
-    icon: 'bg-amber-300/12 text-amber-100',
-    value: 'text-amber-50',
-    description: 'text-amber-100/65',
-  },
-  manager: {
-    shell: 'border-sky-300/20 bg-sky-300/[0.07] text-sky-100',
-    icon: 'bg-sky-300/12 text-sky-100',
-    value: 'text-sky-50',
-    description: 'text-sky-100/65',
-  },
-  staff: {
-    shell: 'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100',
-    icon: 'bg-emerald-300/12 text-emerald-100',
-    value: 'text-emerald-50',
-    description: 'text-emerald-100/65',
-  },
-  user: {
-    shell:
-      'border-yellow-700/20 bg-yellow-600/[0.07] text-stone-900 dark:border-yellow-300/20 dark:text-yellow-100',
-    icon: 'bg-yellow-600/12 text-yellow-800 dark:text-yellow-100',
-    value: 'text-stone-950 dark:text-yellow-50',
-    description: 'text-stone-600 dark:text-yellow-100/65',
-  },
-  neutral: {
-    shell: 'border-border bg-card text-card-foreground',
-    icon: 'bg-muted text-muted-foreground',
-    value: 'text-foreground',
-    description: 'text-muted-foreground',
-  },
-};
+function trendLabel(tone?: RoleKpiCardProps['tone']): string {
+  if (tone === 'admin') return 'Executive';
+  if (tone === 'manager') return 'Review';
+  if (tone === 'staff') return 'Ops';
+  if (tone === 'user') return 'Client';
+
+  return 'Workspace';
+}
 
 export function RoleKpiCard({
   title,
@@ -49,34 +30,42 @@ export function RoleKpiCard({
   icon: Icon,
   tone = 'neutral',
 }: RoleKpiCardProps) {
-  const classes = toneClasses[tone];
-
   return (
-    <div className={`bccc-hover-lift group relative overflow-hidden rounded-3xl border p-5 shadow-sm backdrop-blur transition duration-300 ${classes.shell}`}>
-      <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-current opacity-[0.055] blur-2xl transition duration-500 group-hover:scale-125" />
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-current/25 to-transparent" />
+    <Card className="backend-kpi-card group overflow-hidden">
+      <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#c9a96a]/10 blur-2xl transition duration-500 group-hover:scale-125" />
 
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-2">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-75">
+      <CardHeader className="relative flex flex-row items-start justify-between space-y-0 p-5 pb-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
             {title}
           </p>
+        </div>
 
-          <p className={`text-3xl font-black tracking-tight sm:text-4xl ${classes.value}`}>
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#c9a96a]/20 bg-[#c9a96a]/10 text-[#8a6b2e] dark:text-[#e8d8b5]">
+          <Icon className="h-5 w-5" />
+        </div>
+      </CardHeader>
+
+      <CardContent className="relative p-5 pt-0">
+        <div className="flex items-end justify-between gap-3">
+          <p className="text-3xl font-black tracking-[-0.05em] text-foreground sm:text-4xl">
             {value}
           </p>
 
-          {description ? (
-            <p className={`max-w-xs text-sm leading-relaxed ${classes.description}`}>
-              {description}
-            </p>
-          ) : null}
+          <Badge
+            variant="outline"
+            className="border-[#c9a96a]/25 bg-[#c9a96a]/10 text-[10px] font-black uppercase tracking-[0.14em] text-[#8a6b2e] dark:text-[#e8d8b5]"
+          >
+            {trendLabel(tone)}
+          </Badge>
         </div>
 
-        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-inner ${classes.icon}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-    </div>
+        {description ? (
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

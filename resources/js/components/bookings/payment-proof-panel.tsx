@@ -7,17 +7,25 @@ import {
   normalizeWorkspaceRole,
   type BookingLike,
 } from '@/lib/booking-role-ui';
-import type { RoleKey } from '@/lib/role-workspaces';
+import { type RoleThemeKey } from '@/lib/role-theme';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { router, useForm } from '@inertiajs/react';
 import {
-  Banknote,
   CheckCircle2,
   CreditCard,
   ExternalLink,
   FileImage,
   Loader2,
   ReceiptText,
-  ShieldCheck,
   UploadCloud,
   XCircle,
 } from 'lucide-react';
@@ -27,6 +35,19 @@ type PaymentProofPanelProps = {
   role?: string | null;
   booking: BookingLike;
   canManagePayments?: boolean;
+};
+
+type PaymentRecord = {
+  id: number | string;
+  amount?: number | string | null;
+  status?: string | null;
+  payment_method?: string | null;
+  payment_gateway?: string | null;
+  payment_type?: string | null;
+  transaction_reference?: string | null;
+  proof_image_url?: string | null;
+  created_at?: string | null;
+  remarks?: string | null;
 };
 
 type PaymentFormData = {
@@ -39,30 +60,47 @@ type PaymentFormData = {
   proof_image: File | null;
   remarks: string;
   status: string;
-  marketing_consent: boolean;
-  card_holder_name: string;
-  card_number: string;
-  card_expiration: string;
-  card_cvc: string;
 };
 
-function gatewayLabel(value: string) {
-  if (value === 'gcash') return 'GCash';
-  if (value === 'paypal') return 'PayPal';
-  if (value === 'bank') return 'Bank Transfer';
-  if (value === 'cash') return 'Cash';
-  if (value === 'card') return 'Card';
-  return 'Manual';
+function totalValue(booking: BookingLike, key: string): number | string | null {
+  const totals = booking.totals as Record<string, number | string | null | undefined> | null | undefined;
+
+  return totals?.[key] ?? null;
 }
 
-function paymentProofPath(role: RoleKey, bookingId: number | string, paymentId: number | string): string {
-  const base = bookingPaymentPath(role, bookingId);
-  return `${base}/${paymentId}/proof`;
+function gatewayLabel(value?: string | null) {
+  return cleanLabel(value || 'Manual');
 }
 
-function paymentUpdatePath(role: RoleKey, bookingId: number | string, paymentId: number | string): string {
-  const base = bookingPaymentPath(role, bookingId);
-  return `${base}/${paymentId}`;
+function proofPath(role: RoleThemeKey, bookingId: number | string, paymentId: number | string): string {
+  return `${bookingPaymentPath(role, bookingId)}/${paymentId}/proof`;
+}
+
+function updatePath(role: RoleThemeKey, bookingId: number | string, paymentId: number | string): string {
+  return `${bookingPaymentPath(role, bookingId)}/${paymentId}`;
+}
+
+function Field({
+  label,
+  error,
+  required,
+  children,
+}: {
+  label: string;
+  error?: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="backend-booking-label">
+        {label}
+        {required ? <span className="ml-1 text-red-500">*</span> : null}
+      </span>
+      {children}
+      {error ? <span className="text-xs font-semibold text-red-500">{error}</span> : null}
+    </label>
+  );
 }
 
 export function PaymentProofPanel({
@@ -70,20 +108,28 @@ export function PaymentProofPanel({
   booking,
   canManagePayments = false,
 }: PaymentProofPanelProps) {
-  const normalizedRole = normalizeWorkspaceRole(role);
+  const normalizedRole = normalizeWorkspaceRole(role) as RoleThemeKey;
   const isClient = normalizedRole === 'user';
-  const payments = Array.isArray(booking.payments) ? booking.payments : [];
+  const payments = Array.isArray(booking.payments) ? (booking.payments as PaymentRecord[]) : [];
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const remainingBalance = useMemo(() => {
-    const total = Number(booking.totals?.items_total ?? 0);
-    const confirmed = Number(booking.totals?.confirmed_payments_total ?? booking.totals?.payments_total ?? 0);
+    const direct = Number(totalValue(booking, 'remaining_balance'));
+
+    if (Number.isFinite(direct) && direct > 0) return String(direct.toFixed(2));
+
+    const total = Number(totalValue(booking, 'items_total') ?? 0);
+    const confirmed = Number(
+      totalValue(booking, 'confirmed_payments_total') ??
+        totalValue(booking, 'payments_total') ??
+        0,
+    );
     const remaining = total - confirmed;
 
     if (!Number.isFinite(remaining) || remaining <= 0) return '';
 
     return String(remaining.toFixed(2));
-  }, [booking.totals?.confirmed_payments_total, booking.totals?.items_total, booking.totals?.payments_total]);
+  }, [booking]);
 
   const { data, setData, post, processing, errors, reset } = useForm<PaymentFormData>({
     payment_method: 'online',
@@ -95,11 +141,6 @@ export function PaymentProofPanel({
     proof_image: null,
     remarks: '',
     status: canManagePayments ? 'confirmed' : 'pending',
-    marketing_consent: false,
-    card_holder_name: '',
-    card_number: '',
-    card_expiration: '',
-    card_cvc: '',
   });
 
   useEffect(() => {
@@ -114,25 +155,16 @@ export function PaymentProofPanel({
     return () => URL.revokeObjectURL(objectUrl);
   }, [data.proof_image]);
 
-  const gatewayNeedsProof = ['gcash', 'paypal'].includes(data.payment_gateway);
-  const isCard = data.payment_gateway === 'card';
+  const gatewayNeedsProof = ['gcash', 'paypal', 'bank'].includes(data.payment_gateway);
 
-  function submitPayment(event: FormEvent<HTMLFormElement>) {
+  function submitPayment(event: FormEvent) {
     event.preventDefault();
 
     post(bookingPaymentPath(normalizedRole, booking.id), {
       forceFormData: true,
       preserveScroll: true,
       onSuccess: () => {
-        reset(
-          'transaction_reference',
-          'proof_image',
-          'remarks',
-          'card_holder_name',
-          'card_number',
-          'card_expiration',
-          'card_cvc',
-        );
+        reset('transaction_reference', 'proof_image', 'remarks');
         setData('amount', remainingBalance);
         setData('status', canManagePayments ? 'confirmed' : 'pending');
       },
@@ -143,12 +175,12 @@ export function PaymentProofPanel({
     const payment = payments.find((item) => String(item.id) === String(paymentId));
 
     router.put(
-      paymentUpdatePath(normalizedRole, booking.id, paymentId),
+      updatePath(normalizedRole, booking.id, paymentId),
       {
         status,
         payment_method: payment?.payment_method || 'manual',
-        payment_gateway: 'manual',
-        payment_type: 'down',
+        payment_gateway: payment?.payment_gateway || 'manual',
+        payment_type: payment?.payment_type || 'down',
         amount: payment?.amount || 0,
         transaction_reference: payment?.transaction_reference || '',
         payer_name: '',
@@ -166,64 +198,60 @@ export function PaymentProofPanel({
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-        <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-start">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-              Payment Compliance
-            </p>
-            <h3 className="mt-1 text-xl font-black">
-              {isClient ? 'Submit payment proof' : 'Record or review payment'}
-            </h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 opacity-65">
-              {isClient
-                ? 'Upload your payment screenshot and transaction reference. Staff will review it before marking the payment as confirmed.'
-                : 'Record a payment, attach proof when available, and review submitted client payment records.'}
-            </p>
+    <Card className="backend-booking-card">
+      <CardHeader className="gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="backend-booking-icon">
+            <CreditCard className="h-5 w-5" />
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <BookingStatusBadge value={booking.payment_status} />
-            <span className="inline-flex items-center rounded-full border border-white/10 bg-black/[0.08] px-3 py-1 text-xs font-black uppercase tracking-[0.12em]">
-              Balance {formatMoney(booking.totals?.remaining_balance)}
-            </span>
+          <div>
+            <Badge
+              variant="outline"
+              className="border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]"
+            >
+              Payment Compliance
+            </Badge>
+            <CardTitle className="mt-3 text-xl font-black">
+              {isClient ? 'Submit payment proof' : 'Record or review payment'}
+            </CardTitle>
+            <CardDescription className="mt-2">
+              Upload proof, save manual records, and review submitted payments.
+            </CardDescription>
           </div>
         </div>
 
-        <form onSubmit={submitPayment} className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Payer Name
-              </span>
+        <div className="rounded-2xl border bg-muted/35 px-4 py-3">
+          <p className="backend-booking-label">Balance</p>
+          <p className="mt-1 text-xl font-black">
+            {formatMoney(totalValue(booking, 'remaining_balance') ?? remainingBalance)}
+          </p>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-6">
+        <form onSubmit={submitPayment} className="grid gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Payer Name" error={errors.payer_name}>
               <input
                 value={data.payer_name}
                 onChange={(event) => setData('payer_name', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none transition focus:border-white/25"
+                className="backend-booking-input"
                 placeholder="Name of payer"
               />
-              {errors.payer_name ? <p className="text-xs font-bold text-red-300">{errors.payer_name}</p> : null}
-            </label>
+            </Field>
 
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Amount
-              </span>
+            <Field label="Amount" error={errors.amount}>
               <input
                 value={data.amount}
                 onChange={(event) => setData('amount', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none transition focus:border-white/25"
+                className="backend-booking-input"
                 placeholder="0.00"
                 inputMode="decimal"
               />
-              {errors.amount ? <p className="text-xs font-bold text-red-300">{errors.amount}</p> : null}
-            </label>
+            </Field>
 
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Gateway
-              </span>
+            <Field label="Gateway" error={errors.payment_gateway}>
               <select
                 value={data.payment_gateway}
                 onChange={(event) => {
@@ -231,295 +259,214 @@ export function PaymentProofPanel({
                   setData('payment_gateway', gateway);
                   setData('payment_method', gateway === 'cash' ? 'cash' : 'online');
                 }}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none transition focus:border-white/25"
+                className="backend-booking-input"
               >
                 <option value="gcash">GCash</option>
                 <option value="paypal">PayPal</option>
                 <option value="bank">Bank Transfer</option>
                 <option value="cash">Cash</option>
-                <option value="card">Card</option>
                 <option value="manual">Manual</option>
               </select>
-              {errors.payment_gateway ? <p className="text-xs font-bold text-red-300">{errors.payment_gateway}</p> : null}
-            </label>
+            </Field>
 
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Payment Type
-              </span>
+            <Field label="Payment Type" error={errors.payment_type}>
               <select
                 value={data.payment_type}
                 onChange={(event) => setData('payment_type', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none transition focus:border-white/25"
+                className="backend-booking-input"
               >
                 <option value="down">Down Payment</option>
                 <option value="full">Full Payment</option>
               </select>
-              {errors.payment_type ? <p className="text-xs font-bold text-red-300">{errors.payment_type}</p> : null}
-            </label>
-          </div>
+            </Field>
 
-          {canManagePayments ? (
-            <label className="block space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Review Status
-              </span>
-              <select
-                value={data.status}
-                onChange={(event) => setData('status', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none transition focus:border-white/25 md:max-w-sm"
-              >
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="failed">Failed</option>
-                <option value="declined">Declined</option>
-                <option value="refunded">Refunded</option>
-              </select>
-              {errors.status ? <p className="text-xs font-bold text-red-300">{errors.status}</p> : null}
-            </label>
-          ) : null}
+            {canManagePayments ? (
+              <Field label="Review Status" error={errors.status}>
+                <select
+                  value={data.status}
+                  onChange={(event) => setData('status', event.target.value)}
+                  className="backend-booking-input"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="failed">Failed</option>
+                  <option value="declined">Declined</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+              </Field>
+            ) : null}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Transaction Reference
-                {gatewayNeedsProof ? <span className="ml-1 text-red-300">*</span> : null}
-              </span>
+            <Field
+              label="Transaction Reference"
+              required={gatewayNeedsProof}
+              error={errors.transaction_reference}
+            >
               <input
                 value={data.transaction_reference}
                 onChange={(event) => setData('transaction_reference', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none transition focus:border-white/25"
+                className="backend-booking-input"
                 placeholder="Reference number / confirmation code"
               />
-              {errors.transaction_reference ? (
-                <p className="text-xs font-bold text-red-300">{errors.transaction_reference}</p>
-              ) : null}
-            </label>
+            </Field>
 
-            <label className="space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Proof Image
-                {gatewayNeedsProof ? <span className="ml-1 text-red-300">*</span> : null}
-              </span>
+            <Field
+              label="Proof Image"
+              required={gatewayNeedsProof}
+              error={errors.proof_image}
+            >
               <input
                 type="file"
-                accept="image/png,image/jpeg,image/jpg,image/webp"
+                accept="image/*"
                 onChange={(event) => setData('proof_image', event.target.files?.[0] ?? null)}
-                className="block h-11 w-full cursor-pointer rounded-2xl border border-white/10 bg-black/10 text-sm file:mr-4 file:h-full file:border-0 file:bg-white/10 file:px-4 file:text-sm file:font-bold file:text-current hover:file:bg-white/15"
+                className="backend-booking-file"
               />
-              {errors.proof_image ? <p className="text-xs font-bold text-red-300">{errors.proof_image}</p> : null}
-            </label>
+            </Field>
           </div>
 
-          {isCard ? (
-            <div className="grid gap-4 rounded-3xl border border-white/10 bg-black/[0.08] p-4 md:grid-cols-2 xl:grid-cols-4">
-              <label className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  Card Holder
-                </span>
-                <input
-                  value={data.card_holder_name}
-                  onChange={(event) => setData('card_holder_name', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none"
-                />
-                {errors.card_holder_name ? <p className="text-xs font-bold text-red-300">{errors.card_holder_name}</p> : null}
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  Card Number
-                </span>
-                <input
-                  value={data.card_number}
-                  onChange={(event) => setData('card_number', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none"
-                  inputMode="numeric"
-                />
-                {errors.card_number ? <p className="text-xs font-bold text-red-300">{errors.card_number}</p> : null}
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  Expiration
-                </span>
-                <input
-                  value={data.card_expiration}
-                  onChange={(event) => setData('card_expiration', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none"
-                  placeholder="MM/YY"
-                />
-                {errors.card_expiration ? <p className="text-xs font-bold text-red-300">{errors.card_expiration}</p> : null}
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  CVC
-                </span>
-                <input
-                  value={data.card_cvc}
-                  onChange={(event) => setData('card_cvc', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none"
-                  inputMode="numeric"
-                />
-                {errors.card_cvc ? <p className="text-xs font-bold text-red-300">{errors.card_cvc}</p> : null}
-              </label>
-            </div>
-          ) : null}
-
-          <label className="space-y-2 block">
-            <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-              Remarks
-            </span>
+          <Field label="Remarks" error={errors.remarks}>
             <textarea
               value={data.remarks}
               onChange={(event) => setData('remarks', event.target.value)}
-              rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm outline-none transition focus:border-white/25"
-              placeholder={isClient ? 'Optional note for BCCC staff...' : 'Internal remarks or review notes...'}
+              rows={3}
+              className="backend-booking-input min-h-[100px] py-3"
+              placeholder="Optional notes"
             />
-            {errors.remarks ? <p className="text-xs font-bold text-red-300">{errors.remarks}</p> : null}
-          </label>
+          </Field>
 
           {previewUrl ? (
-            <div className="rounded-3xl border border-white/10 bg-black/[0.08] p-4">
-              <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Proof preview
-              </p>
+            <div className="overflow-hidden rounded-2xl border bg-muted/35">
               <img
                 src={previewUrl}
                 alt="Payment proof preview"
-                className="max-h-80 w-full rounded-2xl object-contain"
+                className="max-h-80 w-full object-contain"
               />
             </div>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={processing}
-            className="inline-flex h-12 items-center justify-center rounded-full border border-white/15 bg-white/12 px-6 text-sm font-black transition hover:bg-white/18 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {processing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <UploadCloud className="mr-2 h-4 w-4" />
-            )}
-            {isClient ? 'Submit Payment Proof' : 'Save Payment Record'}
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-              Payment History
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs leading-5 text-muted-foreground">
+              {gatewayNeedsProof
+                ? 'Proof image and transaction reference are required for this gateway.'
+                : 'Cash/manual records may be added by authorized internal users.'}
             </p>
-            <h3 className="mt-1 text-xl font-black">
-              Submitted payments
-            </h3>
+
+            <Button type="submit" disabled={processing} className="rounded-full">
+              {processing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <UploadCloud className="mr-2 h-4 w-4" />
+              )}
+              {isClient ? 'Submit Payment Proof' : 'Save Payment Record'}
+            </Button>
+          </div>
+        </form>
+
+        <Separator />
+
+        <div>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="backend-booking-label">Payment History</p>
+              <h4 className="text-lg font-black">
+                {payments.length} record{payments.length === 1 ? '' : 's'}
+              </h4>
+            </div>
+            <ReceiptText className="h-5 w-5 text-muted-foreground" />
           </div>
 
-          <ReceiptText className="h-5 w-5 opacity-60" />
-        </div>
-
-        {payments.length > 0 ? (
-          <div className="space-y-3">
-            {payments.map((payment) => {
-              const proofUrl = payment.proof_image_url || paymentProofPath(normalizedRole, booking.id, payment.id);
-
-              return (
+          {payments.length > 0 ? (
+            <div className="grid gap-3">
+              {payments.map((payment) => (
                 <div
                   key={payment.id}
-                  className="rounded-3xl border border-white/10 bg-black/[0.08] p-4"
+                  className="rounded-2xl border bg-muted/30 p-4"
                 >
-                  <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap gap-2">
                         <BookingStatusBadge value={payment.status} />
-                        <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em]">
-                          {gatewayLabel(String(payment.payment_gateway || payment.payment_method || 'manual'))}
-                        </span>
+                        <Badge variant="outline">
+                          {gatewayLabel(payment.payment_gateway ?? payment.payment_method)}
+                        </Badge>
                       </div>
 
-                      <p className="mt-3 text-lg font-black">
+                      <p className="mt-3 text-xl font-black">
                         {formatMoney(payment.amount)}
                       </p>
 
-                      <p className="mt-1 text-sm opacity-65">
-                        Reference: {payment.transaction_reference || 'No reference'}
-                      </p>
-
-                      <p className="mt-1 text-xs opacity-50">
-                        Submitted {formatDateTime(payment.created_at)}
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Ref: {payment.transaction_reference || 'No reference'} · {formatDateTime(payment.created_at)}
                       </p>
 
                       {payment.remarks ? (
-                        <p className="mt-3 rounded-2xl border border-white/10 bg-black/10 p-3 text-sm leading-6 opacity-75">
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
                           {payment.remarks}
                         </p>
                       ) : null}
                     </div>
 
-                    <div className="flex shrink-0 flex-wrap gap-2 md:justify-end">
+                    <div className="flex flex-wrap gap-2">
                       {payment.proof_image_url ? (
-                        <a
-                          href={proofUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-black transition hover:bg-white/15"
-                        >
-                          <FileImage className="mr-1.5 h-3.5 w-3.5" />
-                          View Proof
-                          <ExternalLink className="ml-1.5 h-3.5 w-3.5 opacity-60" />
-                        </a>
-                      ) : null}
+                        <Button asChild variant="outline" size="sm" className="rounded-full">
+                          <a
+                            href={proofPath(normalizedRole, booking.id, payment.id)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Proof
+                          </a>
+                        </Button>
+                      ) : (
+                        <Badge variant="outline" className="gap-1.5">
+                          <FileImage className="h-3.5 w-3.5" />
+                          No Proof
+                        </Badge>
+                      )}
 
                       {canManagePayments ? (
                         <>
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full border-emerald-500/25 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-200"
                             onClick={() => updatePaymentStatus(payment.id, 'confirmed')}
-                            className="inline-flex items-center rounded-full border border-emerald-300/20 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-100 transition hover:bg-emerald-400/15"
                           >
-                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
                             Confirm
-                          </button>
+                          </Button>
 
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full border-red-500/25 bg-red-500/10 text-red-700 hover:bg-red-500/15 dark:text-red-200"
                             onClick={() => updatePaymentStatus(payment.id, 'declined')}
-                            className="inline-flex items-center rounded-full border border-red-300/20 bg-red-400/10 px-3 py-2 text-xs font-black text-red-100 transition hover:bg-red-400/15"
                           >
-                            <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                            <XCircle className="mr-2 h-4 w-4" />
                             Decline
-                          </button>
+                          </Button>
                         </>
                       ) : null}
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-3xl border border-white/10 bg-black/[0.08] p-6 text-center">
-            <Banknote className="mx-auto h-8 w-8 opacity-50" />
-            <h4 className="mt-3 font-black">No payment submitted yet</h4>
-            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 opacity-65">
-              {isClient
-                ? 'Submit a payment proof above after completing your transaction.'
-                : 'Payment records submitted by the client or encoded by staff will appear here.'}
-            </p>
-          </div>
-        )}
-
-        {isClient ? (
-          <div className="mt-4 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm leading-6 text-amber-100">
-            <ShieldCheck className="mb-2 h-5 w-5" />
-            Submitted payment proof is for review only. Your payment status changes after BCCC validates the transaction.
-          </div>
-        ) : null}
-      </section>
-    </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed bg-muted/25 p-8 text-center">
+              <ReceiptText className="mx-auto h-10 w-10 text-muted-foreground/45" />
+              <h4 className="mt-4 text-lg font-black">
+                No payment records yet
+              </h4>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                Payment submissions and staff-recorded payments will appear here.
+              </p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

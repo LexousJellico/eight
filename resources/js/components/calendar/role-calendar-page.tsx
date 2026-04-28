@@ -16,25 +16,31 @@ import {
   roleBookingShowPath,
   roleCalendarBasePath,
   roleCalendarManagePath,
-  type CalendarAvailabilityDay,
   type CalendarBlockKey,
   type CalendarDayCell,
   type CalendarEventItem,
 } from '@/lib/calendar-role-ui';
-import type { RoleKey } from '@/lib/role-workspaces';
+import { getRoleTheme, roleDashboardHref, type RoleThemeKey } from '@/lib/role-theme';
 import type { BreadcrumbItem } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
   ArrowLeft,
   ArrowRight,
   BarChart3,
   CalendarDays,
-  CheckCircle2,
-  ClipboardList,
   Clock3,
   ExternalLink,
   ListFilter,
-  LockKeyhole,
   Plus,
   ShieldCheck,
   SlidersHorizontal,
@@ -46,45 +52,33 @@ type RoleCalendarPageProps = {
   counts?: Record<string, number>;
   events?: CalendarEventItem[];
   month?: string;
-  monthAvailability?: Record<string, CalendarAvailabilityDay>;
+  monthAvailability?: Record<string, any>;
   areaOptions?: string[];
 };
 
 const weekLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function calendarBreadcrumbs(role: RoleKey): BreadcrumbItem[] {
-  if (role === 'admin') {
-    return [
-      { title: 'Admin', href: '/admin/dashboard' },
-      { title: 'Booking Calendar', href: '/admin/calendar' },
-    ];
-  }
-
-  if (role === 'manager') {
-    return [
-      { title: 'Manager', href: '/manager/dashboard' },
-      { title: 'Calendar Monitoring', href: '/manager/calendar' },
-    ];
-  }
-
-  if (role === 'staff') {
-    return [
-      { title: 'Staff', href: '/staff/dashboard' },
-      { title: 'Daily Calendar', href: '/staff/calendar' },
-    ];
-  }
-
+function calendarBreadcrumbs(role: RoleThemeKey): BreadcrumbItem[] {
   return [
-    { title: 'Account', href: '/my-dashboard' },
-    { title: 'Calendar', href: '/my-dashboard' },
+    {
+      title:
+        role === 'admin'
+          ? 'Admin'
+          : role === 'manager'
+            ? 'Manager'
+            : role === 'staff'
+              ? 'Staff'
+              : 'Account',
+      href: roleDashboardHref(role),
+    },
+    {
+      title: 'Calendar',
+      href: roleCalendarBasePath(role),
+    },
   ];
 }
 
-function eventHref(role: RoleKey, event: CalendarEventItem): string | null {
-  if (event.kind === 'booking' && typeof event.id !== 'string') {
-    return roleBookingShowPath(role, event.id);
-  }
-
+function eventHref(role: RoleThemeKey, event: CalendarEventItem): string | null {
   if (event.kind === 'booking' && /^\d+$/.test(String(event.id))) {
     return roleBookingShowPath(role, event.id);
   }
@@ -104,15 +98,35 @@ function AvailabilityPill({
   open?: boolean;
 }) {
   return (
-    <span
-      className={`rounded-full border px-2 py-0.5 text-[10px] font-black tracking-[0.12em] ${
+    <Badge
+      variant="outline"
+      className={
         open
-          ? 'border-emerald-300/25 bg-emerald-400/10 text-emerald-100'
-          : 'border-red-300/25 bg-red-400/10 text-red-100'
-      }`}
+          ? 'border-emerald-500/25 bg-emerald-500/10 text-[10px] font-black text-emerald-700 dark:text-emerald-200'
+          : 'border-red-500/25 bg-red-500/10 text-[10px] font-black text-red-700 dark:text-red-200'
+      }
     >
       {blockLabel(block)}
-    </span>
+    </Badge>
+  );
+}
+
+function CountCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | string;
+}) {
+  return (
+    <Card className="backend-admin-card">
+      <CardContent className="p-5">
+        <p className="backend-admin-label">{label}</p>
+        <p className="mt-3 text-3xl font-black tracking-[-0.04em]">
+          {value}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -122,7 +136,7 @@ function CalendarDay({
   selected,
   onSelect,
 }: {
-  role: RoleKey;
+  role: RoleThemeKey;
   day: CalendarDayCell;
   selected: boolean;
   onSelect: (day: CalendarDayCell) => void;
@@ -136,68 +150,66 @@ function CalendarDay({
     <button
       type="button"
       onClick={() => onSelect(day)}
-      className={`group min-h-[9.5rem] rounded-3xl border p-3 text-left transition hover:-translate-y-0.5 hover:bg-white/[0.08] ${
-        selected
-          ? 'border-white/30 bg-white/[0.12] shadow-lg shadow-black/10'
-          : `${availabilityTone(day.availability)}`
-      } ${day.isCurrentMonth ? '' : 'opacity-45'}`}
+      className={`backend-calendar-day ${selected ? 'is-selected' : ''} ${
+        day.isCurrentMonth ? '' : 'opacity-45'
+      } ${availabilityTone(day.availability)}`}
     >
-      <div className="mb-2 flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <span
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-2xl text-sm font-black ${
-              day.isToday
-                ? 'bg-white text-black'
-                : 'bg-black/15 text-current'
-            }`}
-          >
+          <p className="text-2xl font-black tracking-[-0.04em]">
             {day.dayNumber}
-          </span>
+          </p>
+          <p className="backend-admin-label">
+            {availabilityLabel(day.availability)}
+          </p>
         </div>
 
-        <span className="rounded-full border border-white/10 bg-black/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] opacity-70">
-          {availabilityLabel(day.availability)}
-        </span>
+        {day.isToday ? (
+          <Badge
+            variant="outline"
+            className="border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]"
+          >
+            Today
+          </Badge>
+        ) : null}
       </div>
 
-      <div className="mb-2 flex flex-wrap gap-1">
+      <div className="mt-3 flex flex-wrap gap-1">
         <AvailabilityPill block="AM" open={day.availability?.AM} />
         <AvailabilityPill block="PM" open={day.availability?.PM} />
         <AvailabilityPill block="EVE" open={day.availability?.EVE} />
       </div>
 
-      <div className="space-y-1">
+      <div className="mt-3 space-y-1.5">
         {visibleEvents.map((event) => (
           <div
-            key={`${event.kind}-${event.id}-${event.start}-${event.title}`}
-            className={`truncate rounded-xl border px-2 py-1 text-[11px] font-bold ${eventTone(event)}`}
-            title={event.title}
+            key={`${event.kind}-${event.id}-${event.start}`}
+            className={`truncate rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${eventTone(event)}`}
           >
             {cleanCalendarLabel(event.title)}
           </div>
         ))}
 
         {overflow > 0 ? (
-          <div className="rounded-xl border border-white/10 bg-black/10 px-2 py-1 text-[11px] font-bold opacity-70">
+          <div className="rounded-full border bg-muted/40 px-2.5 py-1 text-[10px] font-black text-muted-foreground">
             +{overflow} more
           </div>
         ) : null}
 
         {day.events.length === 0 ? (
-          <div className="rounded-xl border border-white/10 bg-black/10 px-2 py-1 text-[11px] opacity-45">
+          <p className="text-xs font-bold text-muted-foreground">
             No scheduled item
-          </div>
+          </p>
         ) : null}
       </div>
 
-      <div className="mt-3 hidden gap-1 group-hover:flex">
+      <div className="mt-auto flex flex-wrap gap-1.5 pt-3">
         {canCreate ? (
           <Link
             href={roleBookingCreatePath(role, day.key)}
             onClick={(event) => event.stopPropagation()}
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-black transition hover:bg-white/15"
+            className="backend-calendar-mini-action"
           >
-            <Plus className="mr-1 h-3 w-3" />
             Book
           </Link>
         ) : null}
@@ -206,9 +218,8 @@ function CalendarDay({
           <Link
             href={roleCalendarManagePath(role, day.key)}
             onClick={(event) => event.stopPropagation()}
-            className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-2 py-1 text-[10px] font-black transition hover:bg-white/15"
+            className="backend-calendar-mini-action"
           >
-            <LockKeyhole className="mr-1 h-3 w-3" />
             Block
           </Link>
         ) : null}
@@ -221,14 +232,18 @@ function SelectedDayPanel({
   role,
   day,
 }: {
-  role: RoleKey;
+  role: RoleThemeKey;
   day?: CalendarDayCell;
 }) {
   if (!day) {
     return (
-      <aside className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-        <p className="text-sm opacity-70">Select a date to view details.</p>
-      </aside>
+      <Card className="backend-admin-card">
+        <CardContent className="p-6">
+          <p className="text-sm text-muted-foreground">
+            Select a date to view details.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
@@ -243,122 +258,119 @@ function SelectedDayPanel({
   const canBlock = role === 'admin' || role === 'manager';
 
   return (
-    <aside className="space-y-4">
-      <section className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-        <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
+    <Card className="backend-admin-card sticky top-24">
+      <CardHeader>
+        <Badge
+          variant="outline"
+          className="w-fit border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]"
+        >
           Selected Date
-        </p>
+        </Badge>
 
-        <h3 className="mt-2 text-xl font-black">{formattedDate}</h3>
+        <CardTitle className="mt-3 text-2xl font-black tracking-[-0.04em]">
+          {formattedDate}
+        </CardTitle>
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <CardDescription>
+          Availability, blocks, bookings, and public event items for this day.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-5">
+        <div className="flex flex-wrap gap-2">
           <AvailabilityPill block="AM" open={day.availability?.AM} />
           <AvailabilityPill block="PM" open={day.availability?.PM} />
           <AvailabilityPill block="EVE" open={day.availability?.EVE} />
         </div>
 
-        <div className="mt-4 rounded-2xl border border-white/10 bg-black/[0.08] p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] opacity-50">
-            Day Status
-          </p>
-          <p className="mt-2 text-sm font-bold">
+        <div className="rounded-2xl border bg-muted/35 p-4">
+          <p className="backend-admin-label">Day Status</p>
+          <p className="mt-2 text-sm font-black">
             {availabilityLabel(day.availability)}
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           {canCreate ? (
-            <Link
-              href={roleBookingCreatePath(role, day.key)}
-              className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-black transition hover:bg-white/15"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Create Booking
-            </Link>
+            <Button asChild className="rounded-full">
+              <Link href={roleBookingCreatePath(role, day.key)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Booking
+              </Link>
+            </Button>
           ) : null}
 
           {canBlock ? (
-            <Link
-              href={roleCalendarManagePath(role, day.key)}
-              className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-black transition hover:bg-white/15"
-            >
-              <ShieldCheck className="mr-2 h-4 w-4" />
-              Manage Blocks
-            </Link>
+            <Button asChild variant="outline" className="rounded-full">
+              <Link href={roleCalendarManagePath(role, day.key)}>
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Manage Blocks
+              </Link>
+            </Button>
           ) : null}
         </div>
-      </section>
 
-      <section className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-        <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-          Schedule Items
-        </p>
+        <Separator />
 
-        <h3 className="mt-2 text-xl font-black">
-          {day.events.length} item{day.events.length === 1 ? '' : 's'}
-        </h3>
+        <div>
+          <p className="backend-admin-label">Schedule Items</p>
+          <h4 className="mt-1 text-lg font-black">
+            {day.events.length} item{day.events.length === 1 ? '' : 's'}
+          </h4>
 
-        <div className="mt-4 space-y-3">
-          {day.events.length > 0 ? (
-            day.events.map((event) => {
-              const href = eventHref(role, event);
+          <div className="mt-4 grid gap-2">
+            {day.events.length > 0 ? (
+              day.events.map((event) => {
+                const href = eventHref(role, event);
 
-              const content = (
-                <div
-                  className={`rounded-2xl border p-4 transition ${eventTone(event)} ${
-                    href ? 'hover:bg-white/15' : ''
-                  }`}
-                >
-                  <div className="flex justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-black">
-                        {cleanCalendarLabel(event.title)}
-                      </p>
-                      <p className="mt-1 truncate text-xs opacity-70">
-                        {event.area || event.block || event.kind || 'Calendar item'}
-                      </p>
-                    </div>
-
-                    {href ? <ExternalLink className="h-4 w-4 shrink-0 opacity-70" /> : null}
+                const content = (
+                  <div className={`rounded-2xl border p-3 ${eventTone(event)}`}>
+                    <p className="text-sm font-black">
+                      {cleanCalendarLabel(event.title)}
+                    </p>
+                    <p className="mt-1 text-xs opacity-70">
+                      {event.area || event.block || event.kind || 'Calendar item'}
+                    </p>
+                    {href ? (
+                      <span className="mt-2 inline-flex items-center text-xs font-black">
+                        Open <ExternalLink className="ml-1 h-3 w-3" />
+                      </span>
+                    ) : null}
                   </div>
-                </div>
-              );
+                );
 
-              return href ? (
-                <Link
-                  href={href}
-                  key={`${event.kind}-${event.id}-${event.start}-${event.title}`}
-                >
-                  {content}
-                </Link>
-              ) : (
-                <div key={`${event.kind}-${event.id}-${event.start}-${event.title}`}>
-                  {content}
-                </div>
-              );
-            })
-          ) : (
-            <div className="rounded-2xl border border-white/10 bg-black/[0.08] p-4 text-sm opacity-70">
-              No booking, block, or public event is attached to this date.
-            </div>
-          )}
+                return href ? (
+                  <Link key={`${event.kind}-${event.id}-${event.start}`} href={href}>
+                    {content}
+                  </Link>
+                ) : (
+                  <div key={`${event.kind}-${event.id}-${event.start}`}>
+                    {content}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="rounded-2xl border border-dashed bg-muted/25 p-4 text-sm leading-6 text-muted-foreground">
+                No booking, block, or public event is attached to this date.
+              </p>
+            )}
+          </div>
         </div>
-      </section>
-    </aside>
+      </CardContent>
+    </Card>
   );
 }
 
 export function RoleCalendarPage() {
   const { props } = usePage<RoleCalendarPageProps>();
-  const role = normalizeCalendarRole(props.workspaceRole);
+  const role = normalizeCalendarRole(props.workspaceRole) as RoleThemeKey;
+  const theme = getRoleTheme(role);
   const copy = calendarRoleCopy(role);
-
   const month = props.month || formatDateKey(new Date()).slice(0, 7);
   const availability = props.monthAvailability || {};
   const events = Array.isArray(props.events) ? props.events : [];
   const counts = props.counts || {};
-
-  const [selectedKey, setSelectedKey] = useState<string>(() => formatDateKey(new Date()));
+  const [selectedKey, setSelectedKey] = useState(() => formatDateKey(new Date()));
 
   const grid = useMemo(
     () => buildMonthGrid(month, availability, events),
@@ -395,161 +407,148 @@ export function RoleCalendarPage() {
       breadcrumbs={calendarBreadcrumbs(role)}
       actions={
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={copy.manageHref}
-            className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/15"
-          >
-            <SlidersHorizontal className="mr-2 h-4 w-4" />
-            {copy.primaryAction}
-          </Link>
+          <Button asChild className="rounded-full">
+            <Link href={copy.manageHref}>
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              {copy.primaryAction}
+            </Link>
+          </Button>
 
-          <Link
-            href={copy.createHref}
-            className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/15"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            {copy.secondaryAction}
-          </Link>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href={copy.createHref}>
+              <Plus className="mr-2 h-4 w-4" />
+              {copy.secondaryAction}
+            </Link>
+          </Button>
 
-          <Link
-            href={copy.analyticsHref}
-            className="inline-flex items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white shadow-sm backdrop-blur transition hover:bg-white/15"
-          >
-            <BarChart3 className="mr-2 h-4 w-4" />
-            {copy.tertiaryAction}
-          </Link>
+          <Button asChild variant="outline" className="rounded-full">
+            <Link href={copy.analyticsHref}>
+              <BarChart3 className="mr-2 h-4 w-4" />
+              {copy.tertiaryAction}
+            </Link>
+          </Button>
         </div>
       }
     >
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            Pending
-          </p>
-          <p className="mt-3 text-3xl font-black">{counts.pending ?? 0}</p>
-        </div>
+      <div className="backend-admin-page">
+        <section className="grid gap-4 md:grid-cols-4">
+          <CountCard label="Pending" value={counts.pending ?? 0} />
+          <CountCard label="Confirmed" value={counts.confirmed ?? 0} />
+          <CountCard label="Active" value={counts.active ?? 0} />
+          <CountCard label="Completed" value={counts.completed ?? 0} />
+        </section>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            Confirmed
-          </p>
-          <p className="mt-3 text-3xl font-black">{counts.confirmed ?? 0}</p>
-        </div>
+        <section className="grid gap-6 xl:grid-cols-[1fr_420px]">
+          <div className="space-y-6">
+            <Card className="backend-admin-card">
+              <CardHeader className="gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <Badge
+                    variant="outline"
+                    className="border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]"
+                  >
+                    Calendar Month
+                  </Badge>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            Active
-          </p>
-          <p className="mt-3 text-3xl font-black">{counts.active ?? 0}</p>
-        </div>
+                  <CardTitle className="mt-3 text-3xl font-black tracking-[-0.05em]">
+                    {monthLabel(month)}
+                  </CardTitle>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-            Completed
-          </p>
-          <p className="mt-3 text-3xl font-black">{counts.completed ?? 0}</p>
-        </div>
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-[1fr_390px]">
-        <div className="space-y-4">
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-4 shadow-sm backdrop-blur sm:p-5">
-            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-                  Calendar Month
-                </p>
-                <h2 className="mt-1 text-2xl font-black">
-                  {monthLabel(month)}
-                </h2>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => goToMonth(previousMonth)}
-                  className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-black transition hover:bg-white/15"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Previous
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => goToMonth(formatDateKey(new Date()).slice(0, 7))}
-                  className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-black transition hover:bg-white/15"
-                >
-                  <Clock3 className="mr-2 h-4 w-4" />
-                  Today
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => goToMonth(nextMonth)}
-                  className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm font-black transition hover:bg-white/15"
-                >
-                  Next
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-3 shadow-sm backdrop-blur sm:p-4">
-            <div className="grid grid-cols-7 gap-2 pb-2">
-              {weekLabels.map((label) => (
-                <div
-                  key={label}
-                  className="rounded-2xl border border-white/10 bg-black/[0.08] px-2 py-2 text-center text-xs font-black uppercase tracking-[0.18em] opacity-70"
-                >
-                  {label}
+                  <CardDescription>
+                    View bookings, public events, blocked dates, and time-block availability.
+                  </CardDescription>
                 </div>
-              ))}
-            </div>
 
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
-              {grid.map((day) => (
-                <CalendarDay
-                  key={day.key}
-                  role={role}
-                  day={day}
-                  selected={selectedDay?.key === day.key}
-                  onSelect={(nextDay) => setSelectedKey(nextDay.key)}
-                />
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => goToMonth(previousMonth)}
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Previous
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => goToMonth(formatDateKey(new Date()).slice(0, 7))}
+                  >
+                    <Clock3 className="mr-2 h-4 w-4" />
+                    Today
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => goToMonth(nextMonth)}
+                  >
+                    Next
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+            </Card>
+
+            <Card className="backend-admin-card overflow-hidden">
+              <CardContent className="p-4">
+                <div className="grid grid-cols-7 gap-2">
+                  {weekLabels.map((label) => (
+                    <div
+                      key={label}
+                      className="rounded-2xl border bg-muted/35 py-3 text-center text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground"
+                    >
+                      {label}
+                    </div>
+                  ))}
+
+                  {grid.map((day) => (
+                    <CalendarDay
+                      key={day.key}
+                      role={role}
+                      day={day}
+                      selected={selectedDay?.key === day.key}
+                      onSelect={(nextDay) => setSelectedKey(nextDay.key)}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="backend-admin-card">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <ListFilter className="h-5 w-5 text-[#8a6b2e] dark:text-[#e8d8b5]" />
+                  <div>
+                    <CardTitle className="text-xl font-black">Legend</CardTitle>
+                    <CardDescription>Calendar color meanings</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-3 text-sm font-bold text-emerald-700 dark:text-emerald-200">
+                  Confirmed / Active Booking
+                </div>
+                <div className="rounded-2xl border border-amber-500/25 bg-amber-500/10 p-3 text-sm font-bold text-amber-700 dark:text-amber-200">
+                  Pending / Partial
+                </div>
+                <div className="rounded-2xl border border-red-500/25 bg-red-500/10 p-3 text-sm font-bold text-red-700 dark:text-red-200">
+                  Blocked / Unavailable
+                </div>
+                <div className="rounded-2xl border border-sky-500/25 bg-sky-500/10 p-3 text-sm font-bold text-sky-700 dark:text-sky-200">
+                  Public Event
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur">
-            <div className="mb-4 flex items-center gap-3">
-              <ListFilter className="h-5 w-5 opacity-70" />
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-                  Legend
-                </p>
-                <h3 className="text-lg font-black">Calendar colors</h3>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-emerald-300/25 bg-emerald-300/10 p-4 text-sm font-bold text-emerald-100">
-                Confirmed / Active Booking
-              </div>
-              <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm font-bold text-amber-100">
-                Pending / Private / Partial
-              </div>
-              <div className="rounded-2xl border border-red-300/25 bg-red-300/10 p-4 text-sm font-bold text-red-100">
-                Blocked / Unavailable
-              </div>
-              <div className="rounded-2xl border border-sky-300/25 bg-sky-300/10 p-4 text-sm font-bold text-sky-100">
-                Public Event
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <SelectedDayPanel role={role} day={selectedDay} />
-      </section>
+          <SelectedDayPanel role={role} day={selectedDay} />
+        </section>
+      </div>
     </RoleWorkspaceShell>
   );
 }

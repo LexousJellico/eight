@@ -1,15 +1,25 @@
 import { ResourcePageShell } from '@/components/admin-resource/resource-page-shell';
 import {
-  cleanLabel,
   compactDate,
   extractCollection,
   extractLinks,
   textValue,
 } from '@/lib/admin-resource-ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import {
   Building2,
   Edit3,
+  Layers3,
   Loader2,
   Plus,
   Search,
@@ -35,13 +45,35 @@ type PageProps = {
   };
 };
 
+const recommendedAreas = ['FULL HALL', 'MAIN HALL', 'LED WALL', 'VIP LOUNGE', 'BOARD ROOM'];
+
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="backend-admin-label">{label}</span>
+      {children}
+      {error ? <p className="text-xs font-bold text-red-500">{error}</p> : null}
+    </label>
+  );
+}
+
 export function VenueAreasPage() {
-  const { props } = usePage<PageProps>();
+  const { props } = usePage() as unknown as { props: PageProps };
+
   const areas = useMemo(
     () => extractCollection<VenueArea>(props.venueAreas ?? props.serviceTypes),
     [props.venueAreas, props.serviceTypes],
   );
-  const links = extractLinks(props.venueAreas ?? props.serviceTypes);
+
+  const pageLinks = extractLinks(props.venueAreas ?? props.serviceTypes);
   const [editing, setEditing] = useState<VenueArea | null>(null);
   const [q, setQ] = useState(String(props.filters?.q ?? ''));
 
@@ -63,7 +95,7 @@ export function VenueAreasPage() {
     });
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent) {
     event.preventDefault();
 
     if (editing) {
@@ -85,18 +117,16 @@ export function VenueAreasPage() {
   }
 
   function destroy(area: VenueArea) {
-    const confirmed = window.confirm(
-      `Delete "${area.name}"? This may affect rental options connected to this area.`,
-    );
-
-    if (!confirmed) return;
+    if (!window.confirm(`Delete "${area.name}"? Rental options connected to this area may be affected.`)) {
+      return;
+    }
 
     router.delete(`/admin/venue-areas/${area.id}`, {
       preserveScroll: true,
     });
   }
 
-  function search(event: FormEvent<HTMLFormElement>) {
+  function search(event: FormEvent) {
     event.preventDefault();
 
     router.get(
@@ -113,197 +143,203 @@ export function VenueAreasPage() {
   return (
     <ResourcePageShell
       role={props.workspaceRole}
-      title="Venue Areas"
       current="Venue Areas"
-      description="Manage the main rentable areas of Baguio Convention and Cultural Center. These replace the confusing old “Service Types” label in the interface."
+      eyebrow="Venue Configuration"
+      title="Venue Areas"
+      description="Maintain rentable BCCC spaces used by booking forms, calendar availability, and reservation workflows."
       actions={
-        <button
-          type="button"
-          onClick={startCreate}
-          className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-        >
+        <Button type="button" onClick={startCreate} className="rounded-full">
           <Plus className="mr-2 h-4 w-4" />
           New Venue Area
-        </button>
+        </Button>
       }
     >
-      <section className="grid gap-4 xl:grid-cols-[390px_1fr]">
-        <form
-          onSubmit={submit}
-          className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-black/15">
-              <Building2 className="h-5 w-5 opacity-75" />
+      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+        <Card className="backend-admin-card h-fit">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="backend-admin-icon">
+                <Building2 className="h-5 w-5" />
+              </div>
+
+              <div>
+                <Badge variant="outline">
+                  {editing ? 'Edit Area' : 'Create Area'}
+                </Badge>
+
+                <CardTitle className="mt-2 text-xl font-black">
+                  {editing ? editing.name : 'Area Details'}
+                </CardTitle>
+              </div>
             </div>
+          </CardHeader>
+
+          <CardContent>
+            <form onSubmit={submit} className="grid gap-4">
+              <Field label="Area Name" error={errors.name}>
+                <input
+                  value={data.name}
+                  onChange={(event) => setData('name', event.target.value)}
+                  className="backend-admin-input"
+                  placeholder="FULL HALL, MAIN HALL, VIP LOUNGE..."
+                />
+              </Field>
+
+              <Field label="Description" error={errors.description}>
+                <textarea
+                  value={data.description}
+                  onChange={(event) => setData('description', event.target.value)}
+                  rows={5}
+                  className="backend-admin-input min-h-[130px] py-3"
+                  placeholder="Short internal description or public context..."
+                />
+              </Field>
+
+              <div className="rounded-2xl border bg-muted/35 p-4">
+                <p className="backend-admin-label">Recommended booking categories</p>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {recommendedAreas.map((area) => (
+                    <Badge key={area} variant="outline">
+                      {area}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button type="submit" disabled={processing} className="flex-1 rounded-full">
+                  {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {editing ? 'Update Area' : 'Save Area'}
+                </Button>
+
+                {editing ? (
+                  <Button type="button" variant="outline" onClick={startCreate} className="rounded-full">
+                    Cancel
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="backend-admin-card overflow-hidden">
+          <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-                {editing ? 'Edit Area' : 'Create Area'}
-              </p>
-              <h3 className="text-xl font-black">
-                {editing ? editing.name : 'Venue Area Details'}
-              </h3>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <label className="block space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Area Name
-              </span>
-              <input
-                value={data.name}
-                onChange={(event) => setData('name', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                placeholder="MAIN HALL, VIP LOUNGE, BOARD ROOM..."
-              />
-              {errors.name ? <p className="text-xs font-bold text-red-300">{errors.name}</p> : null}
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Description
-              </span>
-              <textarea
-                value={data.description}
-                onChange={(event) => setData('description', event.target.value)}
-                rows={5}
-                className="w-full rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm outline-none focus:border-white/25"
-                placeholder="Short internal description or public context..."
-              />
-              {errors.description ? (
-                <p className="text-xs font-bold text-red-300">{errors.description}</p>
-              ) : null}
-            </label>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={processing}
-                className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-white/15 bg-white/12 px-5 text-sm font-black transition hover:bg-white/18 disabled:opacity-60"
-              >
-                {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {editing ? 'Update Area' : 'Save Area'}
-              </button>
-
-              {editing ? (
-                <button
-                  type="button"
-                  onClick={startCreate}
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-white/10 bg-black/10 px-5 text-sm font-black transition hover:bg-white/10"
-                >
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </form>
-
-        <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-sm backdrop-blur">
-          <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-                Rentable Areas
-              </p>
-              <h3 className="mt-1 text-xl font-black">
+              <CardTitle className="text-2xl font-black tracking-[-0.04em]">
                 {areas.length} area{areas.length === 1 ? '' : 's'}
-              </h3>
+              </CardTitle>
+
+              <CardDescription>
+                These areas appear in reservation and availability workflows.
+              </CardDescription>
             </div>
 
             <form onSubmit={search} className="relative w-full md:max-w-xs">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={q}
                 onChange={(event) => setQ(event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 pl-11 pr-4 text-sm outline-none focus:border-white/25"
+                className="backend-admin-input pl-11"
                 placeholder="Search areas..."
               />
             </form>
-          </div>
+          </CardHeader>
 
-          {areas.length > 0 ? (
-            <div className="divide-y divide-white/10">
-              {areas.map((area) => (
-                <div
-                  key={area.id}
-                  className="grid gap-4 p-5 transition hover:bg-white/[0.05] md:grid-cols-[1fr_auto]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-lg font-black">{area.name}</p>
-                    <p className="mt-1 max-w-3xl text-sm leading-6 opacity-65">
-                      {area.description || 'No description provided.'}
-                    </p>
+          <Separator />
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-70">
-                        {Number(area.services_count ?? area.services?.length ?? 0)} rental option(s)
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-70">
-                        Created {compactDate(area.created_at)}
-                      </span>
+          <CardContent className="p-0">
+            {areas.length > 0 ? (
+              <div className="divide-y">
+                {areas.map((area) => (
+                  <div
+                    key={area.id}
+                    className="grid gap-4 p-5 transition hover:bg-muted/35 md:grid-cols-[1fr_auto]"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-lg font-black">
+                        {area.name}
+                      </p>
+
+                      <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                        {area.description || 'No description provided.'}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge variant="outline" className="gap-1.5">
+                          <Layers3 className="h-3.5 w-3.5" />
+                          {Number(area.services_count ?? area.services?.length ?? 0)} rental option(s)
+                        </Badge>
+                        <Badge variant="outline">
+                          Created {compactDate(area.created_at)}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 md:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEdit(area)}
+                        className="rounded-full"
+                      >
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => destroy(area)}
+                        className="rounded-full border-red-500/25 bg-red-500/10 text-red-700 hover:bg-red-500/15 dark:text-red-200"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-10 text-center">
+                <Building2 className="mx-auto h-10 w-10 text-muted-foreground/45" />
+                <h3 className="mt-4 text-xl font-black">No venue areas yet</h3>
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                  Add rentable areas such as FULL HALL, MAIN HALL, LED WALL, VIP LOUNGE, and BOARD ROOM.
+                </p>
+              </div>
+            )}
 
-                  <div className="flex items-start gap-2 md:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(area)}
-                      className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-black transition hover:bg-white/15"
-                    >
-                      <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => destroy(area)}
-                      className="inline-flex items-center rounded-full border border-red-300/20 bg-red-400/10 px-3 py-2 text-xs font-black text-red-100 transition hover:bg-red-400/15"
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-10 text-center">
-              <Building2 className="mx-auto h-10 w-10 opacity-40" />
-              <h3 className="mt-4 text-xl font-black">No venue areas yet</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 opacity-65">
-                Add areas like MAIN HALL, FOYER & LOBBY AREA, VIP LOUNGE, BOARD ROOM,
-                BASEMENT, or GALLERY2600.
-              </p>
-            </div>
-          )}
-
-          {links.length > 0 ? (
-            <div className="flex flex-wrap gap-2 border-t border-white/10 p-5">
-              {links.map((link, index) =>
-                link.url ? (
-                  <Link
-                    key={`${link.label}-${index}`}
-                    href={link.url}
-                    preserveScroll
-                    className={`rounded-xl border px-3 py-2 text-xs font-bold ${
-                      link.active
-                        ? 'border-white/20 bg-white/15'
-                        : 'border-white/10 bg-black/10 hover:bg-white/10'
-                    }`}
-                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                  />
-                ) : (
-                  <span
-                    key={`${link.label}-${index}`}
-                    className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs font-bold opacity-40"
-                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                  />
-                ),
-              )}
-            </div>
-          ) : null}
-        </section>
-      </section>
+            {pageLinks.length > 0 ? (
+              <div className="flex flex-wrap gap-2 border-t p-5">
+                {pageLinks.map((link, index) =>
+                  link.url ? (
+                    <Link
+                      key={`${link.label}-${index}`}
+                      href={link.url}
+                      preserveScroll
+                      className={`rounded-full border px-3 py-2 text-xs font-bold ${
+                        link.active
+                          ? 'border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]'
+                          : 'border-border bg-background text-muted-foreground hover:bg-muted'
+                      }`}
+                      dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                    />
+                  ) : (
+                    <span
+                      key={`${link.label}-${index}`}
+                      className="rounded-full border bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground/50"
+                      dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                    />
+                  ),
+                )}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
     </ResourcePageShell>
   );
 }

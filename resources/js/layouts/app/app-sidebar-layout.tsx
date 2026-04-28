@@ -3,8 +3,9 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
 import { GlobalFeedbackLayer } from '@/components/ui/global-feedback-layer';
-import { type BreadcrumbItem } from '@/types';
-import { type PropsWithChildren } from 'react';
+import { BackendRouteLoader } from '@/components/ui/backend-route-loader';
+import type { BreadcrumbItem } from '@/types';
+import type { PropsWithChildren } from 'react';
 
 export default function AppSidebarLayout({
   children,
@@ -12,17 +13,19 @@ export default function AppSidebarLayout({
 }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
   return (
     <AppShell variant="sidebar">
+      <BackendRouteLoader />
+
       <AppSidebar />
 
       <AppContent
         variant="sidebar"
-        className="min-w-0 overflow-x-hidden bg-background"
+        className="backend-app-content min-w-0 overflow-x-hidden bg-muted/30"
       >
         <AppSidebarHeader breadcrumbs={breadcrumbs} />
 
-        <div className="min-w-0">
+        <main className="backend-page-frame min-w-0 overflow-x-hidden">
           {children}
-        </div>
+        </main>
       </AppContent>
 
       <GlobalFeedbackLayer />

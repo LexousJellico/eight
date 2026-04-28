@@ -7,6 +7,16 @@ import {
   numberText,
   textValue,
 } from '@/lib/admin-resource-ui';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import {
   Banknote,
@@ -52,17 +62,38 @@ type PageProps = {
   };
 };
 
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="backend-admin-label">{label}</span>
+      {children}
+      {error ? <p className="text-xs font-bold text-red-500">{error}</p> : null}
+    </label>
+  );
+}
+
 export function RentalOptionsPage() {
-  const { props } = usePage<PageProps>();
+  const { props } = usePage() as unknown as { props: PageProps };
+
   const options = useMemo(
     () => extractCollection<RentalOption>(props.rentalOptions ?? props.services),
     [props.rentalOptions, props.services],
   );
+
   const areas = useMemo(
     () => extractCollection<VenueArea>(props.venueAreas ?? props.serviceTypes),
     [props.venueAreas, props.serviceTypes],
   );
-  const links = extractLinks(props.rentalOptions ?? props.services);
+
+  const pageLinks = extractLinks(props.rentalOptions ?? props.services);
   const [editing, setEditing] = useState<RentalOption | null>(null);
   const [q, setQ] = useState(String(props.filters?.q ?? ''));
 
@@ -100,7 +131,7 @@ export function RentalOptionsPage() {
     });
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent) {
     event.preventDefault();
 
     if (editing) {
@@ -122,18 +153,16 @@ export function RentalOptionsPage() {
   }
 
   function destroy(option: RentalOption) {
-    const confirmed = window.confirm(
-      `Delete "${option.name}"? Existing bookings may still keep historical records.`,
-    );
-
-    if (!confirmed) return;
+    if (!window.confirm(`Delete "${option.name}"? Existing bookings may still keep historical records.`)) {
+      return;
+    }
 
     router.delete(`/admin/rental-options/${option.id}`, {
       preserveScroll: true,
     });
   }
 
-  function search(event: FormEvent<HTMLFormElement>) {
+  function search(event: FormEvent) {
     event.preventDefault();
 
     router.get(
@@ -150,294 +179,271 @@ export function RentalOptionsPage() {
   return (
     <ResourcePageShell
       role={props.workspaceRole}
-      title="Rental Options"
       current="Rental Options"
-      description="Manage rates, time blocks, rental services, and pricing options under each venue area. This replaces the confusing old “Services” label."
+      eyebrow="Rate Configuration"
+      title="Rental Options"
+      description="Configure rentable items, rates, quantity, units, and guest limits used by BCCC booking workflows."
       actions={
-        <button
-          type="button"
-          onClick={startCreate}
-          className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-black text-white transition hover:bg-white/15"
-        >
+        <Button type="button" onClick={startCreate} className="rounded-full">
           <Plus className="mr-2 h-4 w-4" />
           New Rental Option
-        </button>
+        </Button>
       }
     >
-      <section className="grid gap-4 xl:grid-cols-[430px_1fr]">
-        <form
-          onSubmit={submit}
-          className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-5 shadow-sm backdrop-blur"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-black/15">
-              <Banknote className="h-5 w-5 opacity-75" />
+      <div className="grid gap-6 xl:grid-cols-[460px_1fr]">
+        <Card className="backend-admin-card h-fit">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="backend-admin-icon">
+                <Banknote className="h-5 w-5" />
+              </div>
+
+              <div>
+                <Badge variant="outline">
+                  {editing ? 'Edit Option' : 'Create Option'}
+                </Badge>
+
+                <CardTitle className="mt-2 text-xl font-black">
+                  {editing ? editing.name : 'Rental Details'}
+                </CardTitle>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-                {editing ? 'Edit Option' : 'Create Option'}
-              </p>
-              <h3 className="text-xl font-black">
-                {editing ? editing.name : 'Rental Option Details'}
-              </h3>
-            </div>
-          </div>
+          </CardHeader>
 
-          <div className="space-y-4">
-            <label className="block space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Venue Area
-              </span>
-              <select
-                value={data.service_type_id}
-                onChange={(event) => setData('service_type_id', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-              >
-                <option value="">Select venue area</option>
-                {areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
-              {errors.service_type_id ? (
-                <p className="text-xs font-bold text-red-300">{errors.service_type_id}</p>
-              ) : null}
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Option Name
-              </span>
-              <input
-                value={data.name}
-                onChange={(event) => setData('name', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                placeholder="Half Day AM, Whole Day, Additional Hour..."
-              />
-              {errors.name ? <p className="text-xs font-bold text-red-300">{errors.name}</p> : null}
-            </label>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  UOM
-                </span>
-                <input
-                  value={data.uom}
-                  onChange={(event) => setData('uom', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                />
-              </label>
-
-              <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  Price
-                </span>
-                <input
-                  value={data.price}
-                  onChange={(event) => setData('price', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                  inputMode="decimal"
-                />
-              </label>
-
-              <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  Qty
-                </span>
-                <input
-                  value={data.quantity}
-                  onChange={(event) => setData('quantity', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                  inputMode="numeric"
-                />
-              </label>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  Min Guests
-                </span>
-                <input
-                  value={data.min_guests}
-                  onChange={(event) => setData('min_guests', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                  inputMode="numeric"
-                />
-              </label>
-
-              <label className="block space-y-2">
-                <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                  Max Guests
-                </span>
-                <input
-                  value={data.max_guests}
-                  onChange={(event) => setData('max_guests', event.target.value)}
-                  className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                  inputMode="numeric"
-                />
-              </label>
-            </div>
-
-            <label className="block space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Capacity Note
-              </span>
-              <input
-                value={data.capacity_note}
-                onChange={(event) => setData('capacity_note', event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 px-4 text-sm outline-none focus:border-white/25"
-                placeholder="Optional"
-              />
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-xs font-black uppercase tracking-[0.18em] opacity-60">
-                Description
-              </span>
-              <textarea
-                value={data.description}
-                onChange={(event) => setData('description', event.target.value)}
-                rows={4}
-                className="w-full rounded-2xl border border-white/10 bg-black/10 px-4 py-3 text-sm outline-none focus:border-white/25"
-              />
-            </label>
-
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={processing}
-                className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-white/15 bg-white/12 px-5 text-sm font-black transition hover:bg-white/18 disabled:opacity-60"
-              >
-                {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {editing ? 'Update Option' : 'Save Option'}
-              </button>
-
-              {editing ? (
-                <button
-                  type="button"
-                  onClick={startCreate}
-                  className="inline-flex h-11 items-center justify-center rounded-full border border-white/10 bg-black/10 px-5 text-sm font-black transition hover:bg-white/10"
+          <CardContent>
+            <form onSubmit={submit} className="grid gap-4">
+              <Field label="Venue Area" error={errors.service_type_id}>
+                <select
+                  value={data.service_type_id}
+                  onChange={(event) => setData('service_type_id', event.target.value)}
+                  className="backend-admin-input"
                 >
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </form>
+                  <option value="">Select venue area</option>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
 
-        <section className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-sm backdrop-blur">
-          <div className="flex flex-col justify-between gap-3 border-b border-white/10 p-5 md:flex-row md:items-center">
+              <Field label="Option Name" error={errors.name}>
+                <input
+                  value={data.name}
+                  onChange={(event) => setData('name', event.target.value)}
+                  className="backend-admin-input"
+                  placeholder="FULL HALL, MAIN HALL, LED WALL..."
+                />
+              </Field>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="UOM" error={errors.uom}>
+                  <input
+                    value={data.uom}
+                    onChange={(event) => setData('uom', event.target.value)}
+                    className="backend-admin-input"
+                  />
+                </Field>
+
+                <Field label="Price" error={errors.price}>
+                  <input
+                    value={data.price}
+                    onChange={(event) => setData('price', event.target.value)}
+                    className="backend-admin-input"
+                    inputMode="decimal"
+                  />
+                </Field>
+
+                <Field label="Qty" error={errors.quantity}>
+                  <input
+                    value={data.quantity}
+                    onChange={(event) => setData('quantity', event.target.value)}
+                    className="backend-admin-input"
+                    inputMode="numeric"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Min Guests" error={errors.min_guests}>
+                  <input
+                    value={data.min_guests}
+                    onChange={(event) => setData('min_guests', event.target.value)}
+                    className="backend-admin-input"
+                    inputMode="numeric"
+                  />
+                </Field>
+
+                <Field label="Max Guests" error={errors.max_guests}>
+                  <input
+                    value={data.max_guests}
+                    onChange={(event) => setData('max_guests', event.target.value)}
+                    className="backend-admin-input"
+                    inputMode="numeric"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Capacity Note" error={errors.capacity_note}>
+                <input
+                  value={data.capacity_note}
+                  onChange={(event) => setData('capacity_note', event.target.value)}
+                  className="backend-admin-input"
+                  placeholder="Optional"
+                />
+              </Field>
+
+              <Field label="Description" error={errors.description}>
+                <textarea
+                  value={data.description}
+                  onChange={(event) => setData('description', event.target.value)}
+                  rows={4}
+                  className="backend-admin-input min-h-[120px] py-3"
+                />
+              </Field>
+
+              <div className="flex gap-2">
+                <Button type="submit" disabled={processing} className="flex-1 rounded-full">
+                  {processing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {editing ? 'Update Option' : 'Save Option'}
+                </Button>
+
+                {editing ? (
+                  <Button type="button" variant="outline" onClick={startCreate} className="rounded-full">
+                    Cancel
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="backend-admin-card overflow-hidden">
+          <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] opacity-60">
-                Rates and Services
-              </p>
-              <h3 className="mt-1 text-xl font-black">
+              <CardTitle className="text-2xl font-black tracking-[-0.04em]">
                 {options.length} option{options.length === 1 ? '' : 's'}
-              </h3>
+              </CardTitle>
+
+              <CardDescription>
+                Rental options connect booking choices to prices and availability logic.
+              </CardDescription>
             </div>
 
             <form onSubmit={search} className="relative w-full md:max-w-xs">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={q}
                 onChange={(event) => setQ(event.target.value)}
-                className="h-11 w-full rounded-2xl border border-white/10 bg-black/10 pl-11 pr-4 text-sm outline-none focus:border-white/25"
+                className="backend-admin-input pl-11"
                 placeholder="Search options..."
               />
             </form>
-          </div>
+          </CardHeader>
 
-          {options.length > 0 ? (
-            <div className="divide-y divide-white/10">
-              {options.map((option) => (
-                <div
-                  key={option.id}
-                  className="grid gap-4 p-5 transition hover:bg-white/[0.05] md:grid-cols-[1fr_auto]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-lg font-black">{option.name}</p>
-                    <p className="mt-1 text-sm opacity-65">
-                      {option.service_type?.name || 'No venue area assigned'} · {option.uom || 'unit'}
-                    </p>
-                    <p className="mt-2 max-w-3xl text-sm leading-6 opacity-65">
-                      {option.description || 'No description provided.'}
-                    </p>
+          <Separator />
 
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-100">
-                        {money(option.price)}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-70">
-                        Qty {option.quantity ?? 1}
-                      </span>
-                      <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] opacity-70">
-                        Created {compactDate(option.created_at)}
-                      </span>
+          <CardContent className="p-0">
+            {options.length > 0 ? (
+              <div className="divide-y">
+                {options.map((option) => (
+                  <div
+                    key={option.id}
+                    className="grid gap-4 p-5 transition hover:bg-muted/35 md:grid-cols-[1fr_auto]"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-lg font-black">
+                        {option.name}
+                      </p>
+
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {option.service_type?.name || 'No venue area assigned'} · {option.uom || 'unit'}
+                      </p>
+
+                      <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                        {option.description || 'No description provided.'}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
+                        >
+                          {money(option.price)}
+                        </Badge>
+                        <Badge variant="outline">
+                          Qty {option.quantity ?? 1}
+                        </Badge>
+                        <Badge variant="outline">
+                          Created {compactDate(option.created_at)}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 md:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEdit(option)}
+                        className="rounded-full"
+                      >
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        Edit
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => destroy(option)}
+                        className="rounded-full border-red-500/25 bg-red-500/10 text-red-700 hover:bg-red-500/15 dark:text-red-200"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-10 text-center">
+                <Banknote className="mx-auto h-10 w-10 text-muted-foreground/45" />
+                <h3 className="mt-4 text-xl font-black">No rental options yet</h3>
+                <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+                  Add rental options for FULL HALL, MAIN HALL, LED WALL, VIP LOUNGE, and BOARD ROOM.
+                </p>
+              </div>
+            )}
 
-                  <div className="flex items-start gap-2 md:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(option)}
-                      className="inline-flex items-center rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-black transition hover:bg-white/15"
-                    >
-                      <Edit3 className="mr-1.5 h-3.5 w-3.5" />
-                      Edit
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => destroy(option)}
-                      className="inline-flex items-center rounded-full border border-red-300/20 bg-red-400/10 px-3 py-2 text-xs font-black text-red-100 transition hover:bg-red-400/15"
-                    >
-                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-10 text-center">
-              <Banknote className="mx-auto h-10 w-10 opacity-40" />
-              <h3 className="mt-4 text-xl font-black">No rental options yet</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 opacity-65">
-                Add rental options such as Half Day AM, Half Day PM, Whole Day, or Additional Hour.
-              </p>
-            </div>
-          )}
-
-          {links.length > 0 ? (
-            <div className="flex flex-wrap gap-2 border-t border-white/10 p-5">
-              {links.map((link, index) =>
-                link.url ? (
-                  <Link
-                    key={`${link.label}-${index}`}
-                    href={link.url}
-                    preserveScroll
-                    className={`rounded-xl border px-3 py-2 text-xs font-bold ${
-                      link.active
-                        ? 'border-white/20 bg-white/15'
-                        : 'border-white/10 bg-black/10 hover:bg-white/10'
-                    }`}
-                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                  />
-                ) : (
-                  <span
-                    key={`${link.label}-${index}`}
-                    className="rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-xs font-bold opacity-40"
-                    dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
-                  />
-                ),
-              )}
-            </div>
-          ) : null}
-        </section>
-      </section>
+            {pageLinks.length > 0 ? (
+              <div className="flex flex-wrap gap-2 border-t p-5">
+                {pageLinks.map((link, index) =>
+                  link.url ? (
+                    <Link
+                      key={`${link.label}-${index}`}
+                      href={link.url}
+                      preserveScroll
+                      className={`rounded-full border px-3 py-2 text-xs font-bold ${
+                        link.active
+                          ? 'border-[#c9a96a]/30 bg-[#c9a96a]/10 text-[#7a5c21] dark:text-[#e8d8b5]'
+                          : 'border-border bg-background text-muted-foreground hover:bg-muted'
+                      }`}
+                      dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                    />
+                  ) : (
+                    <span
+                      key={`${link.label}-${index}`}
+                      className="rounded-full border bg-muted/40 px-3 py-2 text-xs font-bold text-muted-foreground/50"
+                      dangerouslySetInnerHTML={{ __html: link.label ?? '' }}
+                    />
+                  ),
+                )}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
     </ResourcePageShell>
   );
 }
