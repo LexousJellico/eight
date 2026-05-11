@@ -13,7 +13,7 @@ export function AppContent({ children, className = '', ...props }: AppContentPro
         <main
             {...props}
             className={cx(
-                'relative z-10 min-h-[calc(100vh-4.75rem)] w-full px-3 pb-8 pt-3 sm:px-4 lg:px-6 xl:px-7',
+                'relative z-10 min-h-[calc(100vh-4.5rem)] w-full px-3 pb-6 pt-3 sm:px-4 lg:px-5 xl:px-6',
                 'motion-safe:animate-[bcccBackendContentIn_0.28s_ease-out_both]',
                 className,
             )}
@@ -35,7 +35,7 @@ export function AppContent({ children, className = '', ...props }: AppContentPro
                 `}
             </style>
 
-            <div className="mx-auto w-full max-w-[1920px]">
+            <div className="mx-auto w-full max-w-[1760px]">
                 {children}
             </div>
         </main>

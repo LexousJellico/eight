@@ -10,17 +10,17 @@ export default function AppSidebarLayout({
     breadcrumbs = [],
 }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     return (
-        <div className="min-h-screen bg-[#f7f3ea] text-[#21180d] antialiased dark:bg-[#0c0f14] dark:text-white">
+        <div className="min-h-screen bg-[#f6f0e4] text-[#21180d] antialiased dark:bg-[#0c0f14] dark:text-white">
             <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-                <div className="absolute left-[-12rem] top-[-12rem] h-[32rem] w-[32rem] rounded-full bg-[#d8b56d]/18 blur-3xl dark:bg-[#d8b56d]/8" />
-                <div className="absolute bottom-[-16rem] right-[-10rem] h-[36rem] w-[36rem] rounded-full bg-[#7a5a24]/12 blur-3xl dark:bg-white/5" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.82),transparent_38%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.06),transparent_38%)]" />
+                <div className="absolute left-[-14rem] top-[-14rem] h-[34rem] w-[34rem] rounded-full bg-[#d8b56d]/16 blur-3xl dark:bg-[#d8b56d]/7" />
+                <div className="absolute bottom-[-18rem] right-[-12rem] h-[38rem] w-[38rem] rounded-full bg-[#7a5a24]/10 blur-3xl dark:bg-white/4" />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.70),rgba(246,240,228,0.82))] dark:bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(12,15,20,0.96))]" />
             </div>
 
             <div className="relative z-10 flex min-h-screen">
                 <AppSidebar />
 
-                <div className="flex min-w-0 flex-1 flex-col lg:pl-[18.5rem]">
+                <div className="flex min-w-0 flex-1 flex-col lg:pl-[17.25rem]">
                     <AppSidebarHeader breadcrumbs={breadcrumbs} />
 
                     <AppContent>

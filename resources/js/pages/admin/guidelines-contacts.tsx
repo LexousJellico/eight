@@ -1,20 +1,22 @@
-import AdminLayout from '@/layouts/admin-layout';
-import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
-    ArrowRight,
+    ResourceActionLink,
+    ResourcePageShell,
+    ResourceSection,
+    ResourceStatCard,
+} from '@/components/admin-resource/resource-page-shell';
+import type { BreadcrumbItem } from '@/types';
+import { router, usePage } from '@inertiajs/react';
+import {
     BookOpen,
-    Building2,
-    CalendarDays,
-    ExternalLink,
+    FileText,
+    Globe2,
     Mail,
     MapPin,
     Phone,
     Save,
     ShieldCheck,
-    SquareStack,
-    Users2,
 } from 'lucide-react';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 
 type SiteSettings = {
     mapEmbedUrl?: string | null;
@@ -49,25 +51,23 @@ type RentalArea = {
     }>;
 };
 
-type Signatory = {
-    label: string;
-    name: string;
-    role: string;
-};
-
 type Props = {
     siteSettings: SiteSettings;
     guidelinesSections: GuidelineSection[];
     contactCards: ContactCard[];
     rentalAreas: RentalArea[];
     reservationNotes: string[];
-    signatories: Signatory[];
-    operationalNotes: string[];
 };
 
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Admin', href: '/admin/dashboard' },
+    { title: 'Guidelines & Contacts', href: '/admin/guidelines-contacts' },
+];
+
 function currentBasePath() {
-    if (window.location.pathname.startsWith('/manager'))
+    if (window.location.pathname.startsWith('/manager')) {
         return '/manager/guidelines-contacts';
+    }
 
     return '/admin/guidelines-contacts';
 }
@@ -86,12 +86,8 @@ export default function AdminGuidelinesContactsPage({
     contactCards,
     rentalAreas,
     reservationNotes,
-    signatories,
-    operationalNotes,
 }: Props) {
-    const { props } = usePage<{
-        flash?: { success?: string; error?: string };
-    }>();
+    const { props } = usePage<{ flash?: { success?: string; error?: string } }>();
     const flash = props.flash ?? {};
     const basePath = currentBasePath();
 
@@ -106,32 +102,8 @@ export default function AdminGuidelinesContactsPage({
         footer_description: siteSettings?.footerDescription ?? '',
         footer_copyright: siteSettings?.footerCopyright ?? '',
     });
-    const [saving, setSaving] = useState(false);
 
-    const quickLinks = useMemo(
-        () => [
-            {
-                label: 'Backend Dashboard',
-                href: window.location.pathname.startsWith('/manager')
-                    ? '/manager/dashboard'
-                    : '/admin/dashboard',
-            },
-            {
-                label: 'Calendar Manage',
-                href: window.location.pathname.startsWith('/manager')
-                    ? '/manager/calendar/manage'
-                    : '/admin/calendar/manage',
-            },
-            {
-                label: 'MICE Registry',
-                href: window.location.pathname.startsWith('/manager')
-                    ? '/manager/reports/mice-registry'
-                    : '/admin/reports/mice-registry',
-            },
-            { label: 'Public Contact', href: '/contact' },
-        ],
-        [],
-    );
+    const [saving, setSaving] = useState(false);
 
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -144,512 +116,183 @@ export default function AdminGuidelinesContactsPage({
     }
 
     return (
-        <AdminLayout
-            title="Backend Guidelines & Contacts"
-            eyebrow="Operations Reference"
-            description="Staff-only reference for BCCC rules, rates, contact persons, signatories, reservation notes, and frontend contact settings."
+        <ResourcePageShell
+            title="Guidelines & Contacts"
+            eyebrow="Public Website"
+            icon={ShieldCheck}
+            breadcrumbs={breadcrumbs}
+            subtitle="Keep public policy reminders, office contact details, public website footer links, and BCCC reference information in one clean admin workspace."
             actions={
-                <div className="flex flex-wrap gap-2">
-                    {quickLinks.slice(0, 2).map((link) => (
-                        <Link
-                            key={link.href}
-                            href={link.href}
-                            className="alh-secondary-button"
-                        >
-                            {link.label}
-                        </Link>
-                    ))}
-                </div>
+                <>
+                    <ResourceActionLink href="/admin/content" variant="secondary">
+                        Content Manager
+                    </ResourceActionLink>
+                    <ResourceActionLink href="/" variant="primary">
+                        Open Public Site
+                    </ResourceActionLink>
+                </>
             }
         >
-            <Head title="Guidelines & Contacts" />
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <ResourceStatCard label="Guideline Groups" value={safeArray(guidelinesSections).length} description="Operational reminder sections." icon={FileText} />
+                <ResourceStatCard label="Contact Cards" value={safeArray(contactCards).length} description="Official contact references." icon={Mail} />
+                <ResourceStatCard label="Rental Areas" value={safeArray(rentalAreas).length} description="Reference rate sections." icon={BookOpen} />
+                <ResourceStatCard label="Reservation Notes" value={safeArray(reservationNotes).length} description="Client-facing reminders." icon={ShieldCheck} />
+            </div>
 
-            <div className="space-y-5">
-                <section className="guidelines-hero">
-                    <div>
-                        <p className="backend-booking-label">
-                            Guidelines & Contacts
-                        </p>
-                        <h1>
-                            Operational rules, rates, contacts, and public
-                            contact settings.
-                        </h1>
-                        <span>
-                            This page keeps the backend team aligned with the
-                            booking rules, official contact details, public
-                            website footer/contact links, and BCCC reference
-                            information.
-                        </span>
-                    </div>
+            {flash.success ? (
+                <div className="mt-5 rounded-[1.2rem] border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+                    {flash.success}
+                </div>
+            ) : null}
 
-                    <div className="grid gap-2 sm:grid-cols-2">
-                        {quickLinks.map((link) => (
-                            <Link
-                                key={link.href}
-                                href={link.href}
-                                className="guidelines-quick-link"
+            <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+                <ResourceSection
+                    title="Official operational reminders"
+                    eyebrow="Booking Rules"
+                    description="Rules are grouped by section so staff do not need to read a crowded long page."
+                >
+                    <div className="grid gap-3">
+                        {safeArray(guidelinesSections).map((section) => (
+                            <article
+                                key={section.title}
+                                className="rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 p-4 dark:border-white/10 dark:bg-white/[0.035]"
                             >
-                                <span>{link.label}</span>
-                                <ArrowRight className="h-4 w-4" />
-                            </Link>
+                                <h3 className="text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">
+                                    {section.title}
+                                </h3>
+
+                                <ul className="mt-3 grid gap-2">
+                                    {safeArray(section.items).map((item, index) => (
+                                        <li key={`${section.title}-${index}`} className="flex gap-3 text-sm leading-7 text-[#6e604c] dark:text-white/56">
+                                            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#b08d48]" />
+                                            <span>{item}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </article>
                         ))}
                     </div>
-                </section>
+                </ResourceSection>
 
-                {flash.success ? (
-                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300">
-                        {flash.success}
-                    </div>
-                ) : null}
+                <ResourceSection
+                    title="Public contact settings"
+                    eyebrow="Editable Site Settings"
+                    description="These fields update the public contact/footer settings used by frontend pages."
+                >
+                    <form onSubmit={submit} className="grid gap-3">
+                        <Field label="Address" value={form.address} onChange={(value) => setForm((current) => ({ ...current, address: value }))} icon={MapPin} />
+                        <Field label="Phone" value={form.phone} onChange={(value) => setForm((current) => ({ ...current, phone: value }))} icon={Phone} />
+                        <Field label="Email" value={form.email} onChange={(value) => setForm((current) => ({ ...current, email: value }))} icon={Mail} />
+                        <Field label="VISITA URL" value={form.visita_url} onChange={(value) => setForm((current) => ({ ...current, visita_url: value }))} icon={Globe2} />
+                        <Field label="Creative Baguio URL" value={form.creative_baguio_url} onChange={(value) => setForm((current) => ({ ...current, creative_baguio_url: value }))} icon={Globe2} />
 
-                <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-                    <main className="space-y-5">
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Booking Rules
-                                    </p>
-                                    <h2>Official operational reminders</h2>
-                                    <span>
-                                        Rules are compressed by section so staff
-                                        do not need to read a crowded long page.
-                                    </span>
-                                </div>
-                                <BookOpen className="h-5 w-5 text-slate-400" />
-                            </div>
+                        <label className="grid gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                Footer Description
+                            </span>
+                            <textarea
+                                value={form.footer_description}
+                                onChange={(event) => setForm((current) => ({ ...current, footer_description: event.target.value }))}
+                                rows={4}
+                                className="rounded-[1.1rem] border border-[#d9c7a6]/70 bg-white px-4 py-3 text-sm text-[#21180d] outline-none transition focus:border-[#b08d48] dark:border-white/10 dark:bg-white/7 dark:text-white"
+                            />
+                        </label>
 
-                            <div className="grid gap-4 p-5 md:grid-cols-2">
-                                {safeArray(guidelinesSections).map(
-                                    (section) => (
-                                        <article
-                                            key={section.title}
-                                            className="guidelines-section-card"
-                                        >
-                                            <h3>{section.title}</h3>
-                                            <ul>
-                                                {safeArray(section.items).map(
-                                                    (item, index) => (
-                                                        <li
-                                                            key={`${section.title}-${index}`}
-                                                        >
-                                                            <ShieldCheck className="h-4 w-4" />
-                                                            <span>{item}</span>
-                                                        </li>
-                                                    ),
-                                                )}
-                                            </ul>
-                                        </article>
-                                    ),
-                                )}
-                            </div>
-                        </section>
-
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Rental Areas
-                                    </p>
-                                    <h2>Venue rate references</h2>
-                                </div>
-                                <Building2 className="h-5 w-5 text-slate-400" />
-                            </div>
-
-                            <div className="divide-y divide-slate-200 dark:divide-slate-800">
-                                {safeArray(rentalAreas).map((area) => (
-                                    <article
-                                        key={area.area}
-                                        className="guidelines-rental-row"
-                                    >
-                                        <div>
-                                            <h3>{area.area}</h3>
-                                            <p>
-                                                Rental options and reference
-                                                rates.
-                                            </p>
-                                        </div>
-
-                                        <div className="guidelines-rate-grid">
-                                            {safeArray(area.rates).map(
-                                                (rate) => (
-                                                    <div
-                                                        key={`${area.area}-${rate.usage}`}
-                                                        className="alh-admin-mini-box"
-                                                    >
-                                                        <span>
-                                                            {rate.usage}
-                                                        </span>
-                                                        <strong>
-                                                            {rate.rate}
-                                                        </strong>
-                                                    </div>
-                                                ),
-                                            )}
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
-                        </section>
-
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Reservation Notes
-                                    </p>
-                                    <h2>Client-facing reminders</h2>
-                                </div>
-                                <SquareStack className="h-5 w-5 text-slate-400" />
-                            </div>
-
-                            <div className="grid gap-3 p-5">
-                                {safeArray(reservationNotes).map(
-                                    (note, index) => (
-                                        <div
-                                            key={index}
-                                            className="guidelines-note-row"
-                                        >
-                                            <span>{index + 1}</span>
-                                            <p>{note}</p>
-                                        </div>
-                                    ),
-                                )}
-                            </div>
-                        </section>
-
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Signatories
-                                    </p>
-                                    <h2>Approval chain</h2>
-                                </div>
-                                <Users2 className="h-5 w-5 text-slate-400" />
-                            </div>
-
-                            <div className="grid gap-4 p-5 md:grid-cols-2">
-                                {safeArray(signatories).map((person) => (
-                                    <article
-                                        key={`${person.label}-${person.name}`}
-                                        className="guidelines-contact-card"
-                                    >
-                                        <p className="backend-booking-label">
-                                            {person.label}
-                                        </p>
-                                        <h3>{person.name}</h3>
-                                        <span>{person.role}</span>
-                                    </article>
-                                ))}
-                            </div>
-                        </section>
-                    </main>
-
-                    <aside className="space-y-5">
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Contact Settings
-                                    </p>
-                                    <h2>Public contact/footer data</h2>
-                                </div>
-                                <Save className="h-5 w-5 text-slate-400" />
-                            </div>
-
-                            <form onSubmit={submit} className="grid gap-4 p-5">
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Address
-                                    </span>
-                                    <textarea
-                                        rows={3}
-                                        value={form.address}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                address: event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input min-h-[90px] py-3"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Phone
-                                    </span>
-                                    <input
-                                        value={form.phone}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                phone: event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Email
-                                    </span>
-                                    <input
-                                        value={form.email}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                email: event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Google Map Embed URL
-                                    </span>
-                                    <textarea
-                                        rows={3}
-                                        value={form.map_embed_url}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                map_embed_url:
-                                                    event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input min-h-[90px] py-3"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Open Map URL
-                                    </span>
-                                    <input
-                                        value={form.open_map_url}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                open_map_url:
-                                                    event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        VISITA URL
-                                    </span>
-                                    <input
-                                        value={form.visita_url}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                visita_url: event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Creative Baguio URL
-                                    </span>
-                                    <input
-                                        value={form.creative_baguio_url}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                creative_baguio_url:
-                                                    event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Footer Description
-                                    </span>
-                                    <textarea
-                                        rows={4}
-                                        value={form.footer_description}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                footer_description:
-                                                    event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input min-h-[120px] py-3"
-                                    />
-                                </label>
-
-                                <label className="grid gap-2">
-                                    <span className="backend-booking-label">
-                                        Footer Copyright
-                                    </span>
-                                    <input
-                                        value={form.footer_copyright}
-                                        onChange={(event) =>
-                                            setForm((current) => ({
-                                                ...current,
-                                                footer_copyright:
-                                                    event.target.value,
-                                            }))
-                                        }
-                                        className="backend-booking-input"
-                                    />
-                                </label>
-
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="alh-primary-button justify-center disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    <Save className="h-4 w-4" />
-                                    {saving ? 'Saving...' : 'Save Settings'}
-                                </button>
-                            </form>
-                        </section>
-
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Official Contacts
-                                    </p>
-                                    <h2>BCCC references</h2>
-                                </div>
-                                <Phone className="h-5 w-5 text-slate-400" />
-                            </div>
-
-                            <div className="grid gap-3 p-5">
-                                {safeArray(contactCards).map((contact) => (
-                                    <article
-                                        key={`${contact.office}-${contact.person}`}
-                                        className="guidelines-contact-card"
-                                    >
-                                        <p className="backend-booking-label">
-                                            {contact.office}
-                                        </p>
-                                        <h3>{contact.person}</h3>
-                                        <span>{contact.role}</span>
-
-                                        <div className="mt-4 grid gap-2">
-                                            {contact.email ? (
-                                                <a
-                                                    href={`mailto:${contact.email}`}
-                                                    className="guidelines-contact-link"
-                                                >
-                                                    <Mail className="h-4 w-4" />
-                                                    {contact.email}
-                                                </a>
-                                            ) : null}
-                                            {safeArray(contact.phones).map(
-                                                (phone) => (
-                                                    <a
-                                                        key={phone}
-                                                        href={`tel:${phone}`}
-                                                        className="guidelines-contact-link"
-                                                    >
-                                                        <Phone className="h-4 w-4" />
-                                                        {phone}
-                                                    </a>
-                                                ),
-                                            )}
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
-                        </section>
-
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Current Public Values
-                                    </p>
-                                    <h2>Quick preview</h2>
-                                </div>
-                                <MapPin className="h-5 w-5 text-slate-400" />
-                            </div>
-
-                            <div className="grid gap-3 p-5">
-                                <div className="alh-admin-mini-box">
-                                    <span>Address</span>
-                                    <strong>
-                                        {settingText(siteSettings?.address)}
-                                    </strong>
-                                </div>
-                                <div className="alh-admin-mini-box">
-                                    <span>Phone</span>
-                                    <strong>
-                                        {settingText(siteSettings?.phone)}
-                                    </strong>
-                                </div>
-                                <div className="alh-admin-mini-box">
-                                    <span>Email</span>
-                                    <strong>
-                                        {settingText(siteSettings?.email)}
-                                    </strong>
-                                </div>
-                                <div className="alh-admin-mini-box">
-                                    <span>Map Link</span>
-                                    {siteSettings?.openMapUrl ? (
-                                        <a
-                                            href={siteSettings.openMapUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-2 font-black text-slate-950 dark:text-white"
-                                        >
-                                            Open Map{' '}
-                                            <ExternalLink className="h-4 w-4" />
-                                        </a>
-                                    ) : (
-                                        <strong>Not configured</strong>
-                                    )}
-                                </div>
-                            </div>
-                        </section>
-
-                        <section className="guidelines-panel overflow-hidden">
-                            <div className="guidelines-panel-header">
-                                <div>
-                                    <p className="backend-booking-label">
-                                        Operational Notes
-                                    </p>
-                                    <h2>Internal reminders</h2>
-                                </div>
-                                <CalendarDays className="h-5 w-5 text-slate-400" />
-                            </div>
-
-                            <div className="grid gap-3 p-5">
-                                {safeArray(operationalNotes).map(
-                                    (note, index) => (
-                                        <div
-                                            key={index}
-                                            className="guidelines-note-row"
-                                        >
-                                            <span>{index + 1}</span>
-                                            <p>{note}</p>
-                                        </div>
-                                    ),
-                                )}
-                            </div>
-                        </section>
-                    </aside>
-                </section>
+                        <button
+                            type="submit"
+                            disabled={saving}
+                            className="mt-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-[#17120b]"
+                        >
+                            <Save className="h-4 w-4" />
+                            {saving ? 'Saving...' : 'Save Settings'}
+                        </button>
+                    </form>
+                </ResourceSection>
             </div>
-        </AdminLayout>
+
+            <div className="mt-5 grid gap-5 xl:grid-cols-2">
+                <ResourceSection title="Venue rate references" eyebrow="Rental Areas">
+                    <div className="grid gap-3">
+                        {safeArray(rentalAreas).map((area) => (
+                            <article
+                                key={area.area}
+                                className="rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 p-4 dark:border-white/10 dark:bg-white/[0.035]"
+                            >
+                                <h3 className="text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">
+                                    {area.area}
+                                </h3>
+
+                                <div className="mt-3 grid gap-2">
+                                    {safeArray(area.rates).map((rate) => (
+                                        <div
+                                            key={`${area.area}-${rate.usage}`}
+                                            className="flex items-center justify-between rounded-[1rem] bg-white/70 px-3 py-2 text-sm dark:bg-white/[0.04]"
+                                        >
+                                            <span className="font-semibold text-[#21180d] dark:text-white">{rate.usage}</span>
+                                            <span className="text-[#6e604c] dark:text-white/56">{rate.rate}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </ResourceSection>
+
+                <ResourceSection title="Official contacts" eyebrow="Contact Cards">
+                    <div className="grid gap-3">
+                        {safeArray(contactCards).map((card) => (
+                            <article
+                                key={`${card.office}-${card.person}`}
+                                className="rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 p-4 dark:border-white/10 dark:bg-white/[0.035]"
+                            >
+                                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                    {card.office}
+                                </p>
+                                <h3 className="mt-2 text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">
+                                    {card.person}
+                                </h3>
+                                <p className="mt-1 text-sm text-[#6e604c] dark:text-white/56">{card.role}</p>
+                                <p className="mt-3 text-sm leading-7 text-[#6e604c] dark:text-white/56">
+                                    Email: {settingText(card.email)}
+                                    <br />
+                                    Phone: {safeArray(card.phones).join(', ') || 'Not configured'}
+                                </p>
+                            </article>
+                        ))}
+                    </div>
+                </ResourceSection>
+            </div>
+        </ResourcePageShell>
+    );
+}
+
+function Field({
+    label,
+    value,
+    onChange,
+    icon: Icon,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    icon: typeof Mail;
+}) {
+    return (
+        <label className="grid gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                {label}
+            </span>
+
+            <span className="flex min-h-11 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-4 dark:border-white/10 dark:bg-white/7">
+                <Icon className="h-4 w-4 shrink-0 text-[#9d7b3d] dark:text-[#f1d89b]" />
+
+                <input
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-[#21180d] outline-none placeholder:text-[#8a7a63] dark:text-white"
+                />
+            </span>
+        </label>
     );
 }

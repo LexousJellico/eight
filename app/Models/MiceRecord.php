@@ -9,23 +9,18 @@ class MiceRecord extends Model
 {
     protected $fillable = [
         'booking_id',
-        'submitted_by_user_id',
-        'updated_by_user_id',
-
         'record_no',
         'year_recorded',
-        'status',
-
         'enterprise_group',
         'btc_group_code',
 
+        'establishment_name',
         'event_name',
         'event_category',
         'type_of_event',
         'venue_area',
         'event_date_from',
         'event_date_to',
-        'event_days',
 
         'organization_name',
         'organizer_name',
@@ -41,7 +36,6 @@ class MiceRecord extends Model
         'domestic_female_participants',
         'foreign_male_participants',
         'foreign_female_participants',
-        'total_participants',
 
         'main_origin_country',
         'main_origin_province',
@@ -61,7 +55,12 @@ class MiceRecord extends Model
         'active_member',
 
         'remarks',
+        'event_days',
+        'total_participants',
+        'status',
         'submitted_at',
+        'submitted_by_user_id',
+        'updated_by_user_id',
     ];
 
     protected $casts = [
@@ -99,6 +98,34 @@ class MiceRecord extends Model
         'submitted_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+{
+    static::creating(function (MiceRecord $record): void {
+        if (blank($record->establishment_name)) {
+            $record->establishment_name = $record->organization_name
+                ?: $record->organizer_name
+                ?: $record->event_name
+                ?: 'Baguio Convention and Cultural Center';
+        }
+
+        if (blank($record->year_recorded) && filled($record->event_date_from)) {
+            $record->year_recorded = (int) \Illuminate\Support\Carbon::parse($record->event_date_from)->format('Y');
+        }
+
+        if (blank($record->status)) {
+            $record->status = 'submitted';
+        }
+    });
+
+    static::updating(function (MiceRecord $record): void {
+        if (blank($record->establishment_name)) {
+            $record->establishment_name = $record->organization_name
+                ?: $record->organizer_name
+                ?: $record->event_name
+                ?: 'Baguio Convention and Cultural Center';
+        }
+    });
+}
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);

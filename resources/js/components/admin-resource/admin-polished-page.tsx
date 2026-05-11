@@ -2,21 +2,28 @@ import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
-import { ArrowRight, Search } from 'lucide-react';
+import { ArrowRight, Plus, Search } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-type ResourcePageShellProps = {
+type AdminPolishedPageProps = {
     title: string;
     subtitle?: string;
     eyebrow?: string;
     icon?: LucideIcon;
     breadcrumbs?: BreadcrumbItem[];
-    actions?: ReactNode;
     children: ReactNode;
+    actions?: ReactNode;
     headTitle?: string;
 };
 
-type ResourceSectionProps = {
+type AdminStatCardProps = {
+    label: string;
+    value: string | number;
+    description?: string;
+    icon?: LucideIcon;
+};
+
+type AdminSectionCardProps = {
     title?: string;
     eyebrow?: string;
     description?: string;
@@ -25,33 +32,33 @@ type ResourceSectionProps = {
     className?: string;
 };
 
-type ResourceStatProps = {
-    label: string;
-    value: string | number;
-    description?: string;
-    icon?: LucideIcon;
-};
-
-type ResourceEmptyProps = {
+type AdminEmptyStateProps = {
     title: string;
     description?: string;
     icon?: LucideIcon;
+    actionHref?: string;
+    actionLabel?: string;
+};
+
+type AdminToolbarProps = {
+    searchPlaceholder?: string;
+    right?: ReactNode;
 };
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
 }
 
-export function ResourcePageShell({
+export function AdminPolishedPage({
     title,
     subtitle,
     eyebrow = 'Admin Workspace',
     icon: Icon,
     breadcrumbs = [],
-    actions,
     children,
+    actions,
     headTitle,
-}: ResourcePageShellProps) {
+}: AdminPolishedPageProps) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={headTitle || title} />
@@ -88,12 +95,12 @@ export function ResourcePageShell({
     );
 }
 
-export function ResourceStatCard({
+export function AdminStatCard({
     label,
     value,
     description,
     icon: Icon,
-}: ResourceStatProps) {
+}: AdminStatCardProps) {
     return (
         <article className="rounded-[1.25rem] border border-[#d9c7a6]/70 bg-white/78 p-4 shadow-[0_14px_40px_rgba(47,37,23,0.07)] dark:border-white/10 dark:bg-white/[0.055]">
             <div className="flex items-start justify-between gap-3">
@@ -101,7 +108,6 @@ export function ResourceStatCard({
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#9d7b3d] dark:text-[#f1d89b]">
                         {label}
                     </p>
-
                     <p className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-[#21180d] dark:text-white">
                         {value}
                     </p>
@@ -123,14 +129,14 @@ export function ResourceStatCard({
     );
 }
 
-export function ResourceSection({
+export function AdminSectionCard({
     title,
     eyebrow,
     description,
     actions,
     children,
     className,
-}: ResourceSectionProps) {
+}: AdminSectionCardProps) {
     return (
         <section
             className={cx(
@@ -169,35 +175,13 @@ export function ResourceSection({
     );
 }
 
-export function ResourceToolbar({
-    searchPlaceholder = 'Search records...',
-    right,
-}: {
-    searchPlaceholder?: string;
-    right?: ReactNode;
-}) {
-    return (
-        <div className="mb-4 flex flex-col gap-3 rounded-[1.25rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/70 p-3 dark:border-white/10 dark:bg-white/[0.035] lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-4 dark:border-white/10 dark:bg-white/7">
-                <Search className="h-4 w-4 shrink-0 text-[#9d7b3d] dark:text-[#f1d89b]" />
-
-                <input
-                    type="search"
-                    placeholder={searchPlaceholder}
-                    className="min-w-0 flex-1 bg-transparent text-sm text-[#21180d] outline-none placeholder:text-[#8a7a63] dark:text-white dark:placeholder:text-white/42"
-                />
-            </div>
-
-            {right ? <div className="flex flex-wrap gap-2 lg:justify-end">{right}</div> : null}
-        </div>
-    );
-}
-
-export function ResourceEmptyState({
+export function AdminEmptyState({
     title,
     description,
     icon: Icon,
-}: ResourceEmptyProps) {
+    actionHref,
+    actionLabel = 'Create Record',
+}: AdminEmptyStateProps) {
     return (
         <div className="rounded-[1.35rem] border border-dashed border-[#d9c7a6]/80 bg-[#fffaf0]/58 p-8 text-center dark:border-white/10 dark:bg-white/[0.035]">
             {Icon ? (
@@ -215,11 +199,41 @@ export function ResourceEmptyState({
                     {description}
                 </p>
             ) : null}
+
+            {actionHref ? (
+                <Link
+                    href={actionHref}
+                    className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
+                >
+                    <Plus className="h-4 w-4" />
+                    {actionLabel}
+                </Link>
+            ) : null}
         </div>
     );
 }
 
-export function ResourceActionLink({
+export function AdminToolbar({
+    searchPlaceholder = 'Search records...',
+    right,
+}: AdminToolbarProps) {
+    return (
+        <div className="mb-4 flex flex-col gap-3 rounded-[1.25rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/70 p-3 dark:border-white/10 dark:bg-white/[0.035] lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-4 dark:border-white/10 dark:bg-white/7">
+                <Search className="h-4 w-4 shrink-0 text-[#9d7b3d] dark:text-[#f1d89b]" />
+                <input
+                    type="search"
+                    placeholder={searchPlaceholder}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-[#21180d] outline-none placeholder:text-[#8a7a63] dark:text-white dark:placeholder:text-white/42"
+                />
+            </div>
+
+            {right ? <div className="flex flex-wrap gap-2 lg:justify-end">{right}</div> : null}
+        </div>
+    );
+}
+
+export function AdminActionLink({
     href,
     children,
     variant = 'primary',

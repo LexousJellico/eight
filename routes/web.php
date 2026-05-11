@@ -41,14 +41,9 @@ Route::post('/public/availability-check', [PublicAvailabilityController::class, 
 Route::get('/public/calendar-month', [PublicAvailabilityController::class, 'month'])
     ->name('public.calendar.month');
 
-Route::post('/public/availability-check', [PublicAvailabilityController::class, 'check'])
-    ->name('public.availability.check');
-
-Route::get('/public/calendar-month', [PublicAvailabilityController::class, 'month'])
-    ->name('public.calendar.month');
-
 Route::get('/bookings/availability', BookingAvailabilityController::class)
-    ->name('bookings.availability');
+    ->middleware('throttle:60,1')
+    ->name('public.bookings.availability');
 
 Route::post('/inquiries', [PublicInquiryController::class, 'store'])
     ->middleware('throttle:5,1')

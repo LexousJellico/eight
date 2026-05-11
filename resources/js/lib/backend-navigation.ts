@@ -8,6 +8,7 @@ import {
     FileBarChart,
     FileClock,
     Globe2,
+    Home,
     LayoutDashboard,
     LayoutPanelTop,
     MessagesSquare,
@@ -46,6 +47,15 @@ export type BackendNavItem = {
     exact?: boolean;
     permission?: string | string[] | null;
     description?: string;
+};
+
+export type BackendNavSection = {
+    key: string;
+    title: string;
+    description?: string;
+    icon?: LucideIcon;
+    defaultOpen?: boolean;
+    items: BackendNavItem[];
 };
 
 function normalizeRoleText(value?: unknown): string | null {
@@ -139,15 +149,15 @@ export function backendRoleLabel(role: BackendRole): string {
 
 export function backendRoleEyebrow(role: BackendRole): string {
     if (role === 'admin') {
-        return 'Executive Workspace';
+        return 'Executive Control';
     }
 
     if (role === 'manager') {
-        return 'Management Workspace';
+        return 'Management Review';
     }
 
     if (role === 'staff') {
-        return 'Operations Workspace';
+        return 'Operations Desk';
     }
 
     return 'Client Portal';
@@ -233,66 +243,152 @@ export function backendMiceRegistryHref(role: BackendRole): string {
     return '/admin/reports/mice-registry';
 }
 
-export function backendGuidelinesHref(role: BackendRole): string | null {
-    if (role === 'admin') {
-        return '/admin/guidelines-contacts';
-    }
-
-    return null;
-}
-
-export function backendMainNav(role: BackendRole): BackendNavItem[] {
+export function backendNavSections(role: BackendRole): BackendNavSection[] {
     if (role === 'admin') {
         return [
             {
-                title: 'Dashboard',
-                href: '/admin/dashboard',
+                key: 'overview',
+                title: 'Overview',
+                description: 'Dashboard and home workspace',
                 icon: LayoutDashboard,
-                exact: true,
-                permission: 'dashboard.view',
-                description: 'Metrics, charts, and operational overview',
+                defaultOpen: true,
+                items: [
+                    {
+                        title: 'Dashboard',
+                        href: '/admin/dashboard',
+                        icon: LayoutDashboard,
+                        exact: true,
+                        permission: 'dashboard.view',
+                        description: 'Metrics and operational overview',
+                    },
+                    {
+                        title: 'Home',
+                        href: '/admin/home',
+                        icon: Home,
+                        permission: 'dashboard.view',
+                        description: 'Admin landing workspace',
+                    },
+                ],
             },
             {
-                title: 'Home',
-                href: '/admin/home',
-                icon: LayoutPanelTop,
-                permission: 'dashboard.view',
-                description: 'Admin home workspace',
-            },
-            {
-                title: 'Content',
-                href: '/admin/content',
-                icon: LayoutPanelTop,
-                permission: 'services.manage',
-                description: 'Public website configuration',
-            },
-            {
-                title: 'Calendar',
-                href: '/admin/calendar',
-                icon: CalendarDays,
-                permission: 'dashboard.view',
-                description: 'Availability, blocks, and public schedules',
-            },
-            {
-                title: 'Bookings',
-                href: '/admin/bookings',
+                key: 'reservations',
+                title: 'Reservations',
+                description: 'Calendar, bookings, and daily operations',
                 icon: ClipboardList,
-                permission: 'bookings.view',
-                description: 'Booking records and lifecycle management',
+                defaultOpen: true,
+                items: [
+                    {
+                        title: 'Calendar',
+                        href: '/admin/calendar',
+                        icon: CalendarDays,
+                        permission: 'dashboard.view',
+                        description: 'Blocks, events, and venue schedule',
+                    },
+                    {
+                        title: 'Bookings',
+                        href: '/admin/bookings',
+                        icon: ClipboardList,
+                        permission: 'bookings.view',
+                        description: 'Booking requests and lifecycle',
+                    },
+                    {
+                        title: 'New Booking',
+                        href: '/admin/bookings/create',
+                        icon: FileClock,
+                        permission: 'bookings.create',
+                        description: 'Create assisted booking',
+                    },
+                ],
             },
             {
-                title: 'Payments',
-                href: '/admin/payments/review',
-                icon: CreditCard,
-                permission: 'payments.manage',
-                description: 'Proof review and payment status tracking',
-            },
-            {
-                title: 'Reports',
-                href: '/admin/reports/mice-registry',
+                key: 'review',
+                title: 'Review & Reports',
+                description: 'Payments, analytics, and MICE registry',
                 icon: FileBarChart,
-                permission: 'bookings.view',
-                description: 'MICE registry and reporting',
+                defaultOpen: true,
+                items: [
+                    {
+                        title: 'Payment Review',
+                        href: '/admin/payments/review',
+                        icon: CreditCard,
+                        permission: 'payments.manage',
+                        description: 'Review proof and payment status',
+                    },
+                    {
+                        title: 'MICE Registry',
+                        href: '/admin/reports/mice-registry',
+                        icon: FileBarChart,
+                        permission: 'bookings.view',
+                        description: 'Tourism reporting registry',
+                    },
+                    {
+                        title: 'Analytics',
+                        href: '/admin/bookings/analytics',
+                        icon: BarChart3,
+                        permission: 'bookings.view',
+                        description: 'Booking and revenue insights',
+                    },
+                ],
+            },
+            {
+                key: 'content',
+                title: 'Public Website',
+                description: 'Content and public-facing configuration',
+                icon: LayoutPanelTop,
+                defaultOpen: false,
+                items: [
+                    {
+                        title: 'Content Manager',
+                        href: '/admin/content',
+                        icon: LayoutPanelTop,
+                        permission: 'services.manage',
+                        description: 'Homepage and public site content',
+                    },
+                    {
+                        title: 'Guidelines & Contacts',
+                        href: '/admin/guidelines-contacts',
+                        icon: ContactRound,
+                        permission: 'services.manage',
+                        description: 'Public policy and contact details',
+                    },
+                    {
+                        title: 'Public Inquiries',
+                        href: '/admin/inquiries',
+                        icon: MessagesSquare,
+                        permission: 'bookings.view',
+                        description: 'Messages from public contact forms',
+                    },
+                ],
+            },
+            {
+                key: 'system',
+                title: 'System Setup',
+                description: 'Venue, services, users, and permissions',
+                icon: Settings2,
+                defaultOpen: false,
+                items: [
+                    {
+                        title: 'Venue Areas',
+                        href: '/admin/venue-areas',
+                        icon: Tags,
+                        permission: 'service_types.manage',
+                        description: 'Service types / venue spaces',
+                    },
+                    {
+                        title: 'Rental Options',
+                        href: '/admin/rental-options',
+                        icon: Settings2,
+                        permission: 'services.manage',
+                        description: 'Whole day, half day, additional hours',
+                    },
+                    {
+                        title: 'Users & Roles',
+                        href: '/admin/users',
+                        icon: UsersRound,
+                        permission: 'users.manage',
+                        description: 'Accounts and workspace access',
+                    },
+                ],
             },
         ];
     }
@@ -300,40 +396,58 @@ export function backendMainNav(role: BackendRole): BackendNavItem[] {
     if (role === 'manager') {
         return [
             {
-                title: 'Dashboard',
-                href: '/manager/dashboard',
+                key: 'overview',
+                title: 'Overview',
+                description: 'Management dashboard',
                 icon: LayoutDashboard,
-                exact: true,
-                permission: 'dashboard.view',
-                description: 'Management overview',
+                defaultOpen: true,
+                items: [
+                    {
+                        title: 'Dashboard',
+                        href: '/manager/dashboard',
+                        icon: LayoutDashboard,
+                        exact: true,
+                        permission: 'dashboard.view',
+                        description: 'Management overview',
+                    },
+                    {
+                        title: 'Calendar',
+                        href: '/manager/calendar',
+                        icon: CalendarDays,
+                        permission: 'dashboard.view',
+                        description: 'Venue schedule monitoring',
+                    },
+                ],
             },
             {
-                title: 'Calendar',
-                href: '/manager/calendar',
-                icon: CalendarDays,
-                permission: 'dashboard.view',
-                description: 'Schedule monitoring',
-            },
-            {
-                title: 'Bookings',
-                href: '/manager/bookings',
+                key: 'review',
+                title: 'Review',
+                description: 'Booking and payment review',
                 icon: ClipboardList,
-                permission: 'bookings.view',
-                description: 'Booking verification',
-            },
-            {
-                title: 'Payments',
-                href: '/manager/payments/review',
-                icon: CreditCard,
-                permission: 'payments.manage',
-                description: 'Payment proof review',
-            },
-            {
-                title: 'Reports',
-                href: '/manager/reports/mice-registry',
-                icon: FileBarChart,
-                permission: 'bookings.view',
-                description: 'MICE registry',
+                defaultOpen: true,
+                items: [
+                    {
+                        title: 'Bookings',
+                        href: '/manager/bookings',
+                        icon: ClipboardList,
+                        permission: 'bookings.view',
+                        description: 'Approve and monitor requests',
+                    },
+                    {
+                        title: 'Payment Review',
+                        href: '/manager/payments/review',
+                        icon: CreditCard,
+                        permission: 'payments.manage',
+                        description: 'Review submitted payment proofs',
+                    },
+                    {
+                        title: 'MICE Registry',
+                        href: '/manager/reports/mice-registry',
+                        icon: FileBarChart,
+                        permission: 'bookings.view',
+                        description: 'Reporting and tourism records',
+                    },
+                ],
             },
         ];
     }
@@ -341,183 +455,99 @@ export function backendMainNav(role: BackendRole): BackendNavItem[] {
     if (role === 'staff') {
         return [
             {
-                title: 'Dashboard',
-                href: '/staff/dashboard',
-                icon: LayoutDashboard,
-                exact: true,
-                permission: 'dashboard.view',
-                description: 'Staff overview',
-            },
-            {
-                title: 'Calendar',
-                href: '/staff/calendar',
-                icon: CalendarDays,
-                permission: 'dashboard.view',
-                description: 'Daily availability and schedule',
-            },
-            {
-                title: 'Bookings',
-                href: '/staff/bookings',
+                key: 'operations',
+                title: 'Operations',
+                description: 'Daily staff tools',
                 icon: ClipboardList,
-                permission: 'bookings.view',
-                description: 'Client booking assistance',
-            },
-            {
-                title: 'Assist Booking',
-                href: '/staff/bookings/create',
-                icon: FileClock,
-                permission: 'bookings.create',
-                description: 'Create a booking for a client',
+                defaultOpen: true,
+                items: [
+                    {
+                        title: 'Dashboard',
+                        href: '/staff/dashboard',
+                        icon: LayoutDashboard,
+                        exact: true,
+                        permission: 'dashboard.view',
+                        description: 'Staff overview',
+                    },
+                    {
+                        title: 'Calendar',
+                        href: '/staff/calendar',
+                        icon: CalendarDays,
+                        permission: 'dashboard.view',
+                        description: 'Daily schedule and availability',
+                    },
+                    {
+                        title: 'Bookings',
+                        href: '/staff/bookings',
+                        icon: ClipboardList,
+                        permission: 'bookings.view',
+                        description: 'Assist and monitor clients',
+                    },
+                    {
+                        title: 'Assist Booking',
+                        href: '/staff/bookings/create',
+                        icon: FileClock,
+                        permission: 'bookings.create',
+                        description: 'Create booking for a client',
+                    },
+                ],
             },
         ];
     }
 
     return [
         {
-            title: 'Dashboard',
-            href: '/my-dashboard',
+            key: 'client',
+            title: 'Client Portal',
+            description: 'Your booking workspace',
             icon: LayoutDashboard,
-            exact: true,
-            description: 'Client booking overview',
-        },
-        {
-            title: 'My Bookings',
-            href: '/my-bookings',
-            icon: ClipboardList,
-            description: 'Submitted booking requests',
-        },
-        {
-            title: 'Book Event',
-            href: '/book',
-            icon: CalendarDays,
-            exact: true,
-            description: 'Submit a new request',
-        },
-    ];
-}
-
-export function backendAdminConfigNav(role: BackendRole): BackendNavItem[] {
-    if (role !== 'admin') {
-        return [];
-    }
-
-    return [
-        {
-            title: 'Venue Areas',
-            href: '/admin/venue-areas',
-            icon: Tags,
-            permission: 'service_types.manage',
-            description: 'Service types / venue spaces',
-        },
-        {
-            title: 'Rental Options',
-            href: '/admin/rental-options',
-            icon: Settings2,
-            permission: 'services.manage',
-            description: 'Whole day, half day, and additional hour options',
-        },
-        {
-            title: 'Users',
-            href: '/admin/users',
-            icon: UsersRound,
-            permission: 'users.manage',
-            description: 'Role and access management',
-        },
-        {
-            title: 'Inquiries',
-            href: '/admin/inquiries',
-            icon: MessagesSquare,
-            permission: 'bookings.view',
-            description: 'Public inquiries and client messages',
-        },
-        {
-            title: 'Guidelines',
-            href: '/admin/guidelines-contacts',
-            icon: ContactRound,
-            permission: 'services.manage',
-            description: 'Policies, contacts, and public guidance',
+            defaultOpen: true,
+            items: [
+                {
+                    title: 'Dashboard',
+                    href: '/my-dashboard',
+                    icon: LayoutDashboard,
+                    exact: true,
+                    description: 'Booking overview',
+                },
+                {
+                    title: 'My Bookings',
+                    href: '/my-bookings',
+                    icon: ClipboardList,
+                    description: 'Submitted requests',
+                },
+                {
+                    title: 'Book Event',
+                    href: '/book',
+                    icon: CalendarDays,
+                    exact: true,
+                    description: 'Create a new request',
+                },
+            ],
         },
     ];
 }
 
-export function backendExternalNav(role: BackendRole): BackendNavItem[] {
-    if (role === 'admin') {
-        return [
-            {
-                title: 'Public Website',
-                href: '/',
-                icon: Globe2,
-                exact: true,
-                description: 'Open public site',
-            },
-            {
-                title: 'Analytics',
-                href: '/admin/bookings/analytics',
-                icon: BarChart3,
-                permission: 'bookings.view',
-                description: 'Booking analytics',
-            },
-        ];
-    }
-
-    if (role === 'manager') {
-        return [
-            {
-                title: 'Public Website',
-                href: '/',
-                icon: Globe2,
-                exact: true,
-                description: 'Open public site',
-            },
-            {
-                title: 'MICE Registry',
-                href: '/manager/reports/mice-registry',
-                icon: FileBarChart,
-                permission: 'bookings.view',
-                description: 'Management report registry',
-            },
-        ];
-    }
-
-    if (role === 'staff') {
-        return [
-            {
-                title: 'Public Website',
-                href: '/',
-                icon: Globe2,
-                exact: true,
-                description: 'Open public site',
-            },
-            {
-                title: 'Assist Booking',
-                href: '/staff/bookings/create',
-                icon: FileClock,
-                permission: 'bookings.create',
-                description: 'Start assisted booking',
-            },
-        ];
-    }
-
+export function backendUtilityItems(role: BackendRole): BackendNavItem[] {
     return [
         {
             title: 'Public Website',
             href: '/',
             icon: Globe2,
             exact: true,
-            description: 'Open public site',
+            description: 'Open public-facing website',
         },
         {
-            title: 'Book Event',
-            href: '/book',
+            title: role === 'user' ? 'Book Event' : 'New Booking',
+            href: backendBookingCreateHref(role),
             icon: CalendarDays,
-            exact: true,
-            description: 'Submit booking request',
+            description: 'Start booking flow',
         },
     ];
 }
 
-export function hrefValue(href: string): string {
-    return href;
+export function flattenBackendSections(sections: BackendNavSection[]): BackendNavItem[] {
+    return sections.flatMap((section) => section.items);
 }
 
 export function isBackendActive(currentUrl: string, href: string, exact = false): boolean {
@@ -535,6 +565,10 @@ export function isBackendActive(currentUrl: string, href: string, exact = false)
     return currentPath === target || currentPath.startsWith(`${target}/`);
 }
 
+export function sectionIsActive(currentUrl: string, section: BackendNavSection): boolean {
+    return section.items.some((item) => isBackendActive(currentUrl, item.href, item.exact));
+}
+
 export function userHasPermission(
     permissions: string[] = [],
     required?: string | string[] | null,
@@ -550,4 +584,16 @@ export function userHasPermission(
     const requiredList = Array.isArray(required) ? required : [required];
 
     return requiredList.some((permission) => permissions.includes(permission));
+}
+
+export function filterBackendSectionsByPermission(
+    sections: BackendNavSection[],
+    permissions: string[] = [],
+): BackendNavSection[] {
+    return sections
+        .map((section) => ({
+            ...section,
+            items: section.items.filter((item) => userHasPermission(permissions, item.permission)),
+        }))
+        .filter((section) => section.items.length > 0);
 }

@@ -1,253 +1,110 @@
-import AppLayout from '@/layouts/app-layout';
-import { Service, type BreadcrumbItem, type ServiceTypeOption } from '@/types';
-import { Head } from '@inertiajs/react';
-import { Pencil, Trash2 } from 'lucide-react';
-import { useState } from 'react';
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    Pagination,
-    PaginationContent,
-    PaginationEllipsis,
-    PaginationItem,
-    PaginationLink,
-    PaginationNext,
-    PaginationPrevious,
-} from '@/components/ui/pagination';
-import {
-    Table,
-    TableBody,
-    TableCaption,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+    ResourceActionLink,
+    ResourcePageShell,
+    ResourceSection,
+    ResourceStatCard,
+} from '@/components/admin-resource/resource-page-shell';
+import type { BreadcrumbItem } from '@/types';
+import { usePage } from '@inertiajs/react';
+import { Clock3, Construction, PackageCheck, ShieldCheck } from 'lucide-react';
 
-import servicesRoutes from '@/routes/services';
-import DeleteServiceDialog from './DeleteServiceDialog';
-import ServiceFormModal from './ServiceFormModal';
+type Service = {
+    id?: number | string;
+    name?: string | null;
+    service_type_id?: number | string | null;
+    is_active?: boolean | number | string | null;
+};
+
+type PageProps = {
+    services?: Service[] | { data?: Service[] };
+    rentalOptions?: Service[] | { data?: Service[] };
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Services', href: servicesRoutes.index.url() },
+    { title: 'Admin', href: '/admin/dashboard' },
+    { title: 'Rental Options', href: '/admin/rental-options' },
 ];
 
-interface LaravelPaginationLink {
-    url: string | null;
-    label: string;
-    page: number;
-    active: boolean;
-}
-
-interface ServicesPageProps {
-    services: {
-        data: Service[];
-        meta: {
-            current_page: number;
-            from: number;
-            last_page: number;
-            links: LaravelPaginationLink[];
-        };
-        links: {
-            first: string | null;
-            last: string | null;
-            prev: string | null;
-            next: string | null;
-        };
-    };
-    serviceTypes: ServiceTypeOption[];
-}
-
-function guestLimitLabel(service: Service) {
-    const min = service.min_guests ?? null;
-    const max = service.max_guests ?? null;
-
-    if (min !== null && max !== null) return `${min}–${max}`;
-    if (min !== null) return `Min ${min}`;
-    if (max !== null) return `Max ${max}`;
-
-    return 'No limit';
-}
-
-export default function Services({
-    services,
-    serviceTypes,
-}: ServicesPageProps) {
-    const [modalOpen, setModalOpen] = useState(false);
-    const [mode, setMode] = useState<'create' | 'edit'>('create');
-    const [selected, setSelected] = useState<Service | null>(null);
-    const [deleteOpen, setDeleteOpen] = useState(false);
-
-    function openCreate() {
-        setSelected(null);
-        setMode('create');
-        setModalOpen(true);
+function collection<T>(value: unknown): T[] {
+    if (Array.isArray(value)) {
+        return value as T[];
     }
 
-    function openEdit(service: Service) {
-        setSelected(service);
-        setMode('edit');
-        setModalOpen(true);
+    if (value && typeof value === 'object' && Array.isArray((value as { data?: unknown[] }).data)) {
+        return (value as { data: T[] }).data;
     }
 
-    function openDelete(service: Service) {
-        setSelected(service);
-        setDeleteOpen(true);
-    }
+    return [];
+}
+
+export default function ServicesIndexComingSoon() {
+    const { props } = usePage<PageProps>();
+    const rows = collection<Service>(props.rentalOptions ?? props.services);
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Services" />
-
-            <div className="space-y-6 p-4 md:p-6">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle>Services</CardTitle>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Manage booking options, prices, and
-                                guest-capacity rules. Stock and quantity are
-                                fixed to one booking option per schedule.
-                            </p>
-                        </div>
-
-                        <Button onClick={openCreate}>New Service</Button>
-                    </CardHeader>
-
-                    <CardContent>
-                        <Table>
-                            <TableCaption>
-                                A list of services offered.
-                            </TableCaption>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Description</TableHead>
-                                    <TableHead>UoM</TableHead>
-                                    <TableHead className="text-right">
-                                        Price
-                                    </TableHead>
-                                    <TableHead>Guest Limit</TableHead>
-                                    <TableHead>Capacity Note</TableHead>
-                                    <TableHead className="w-[120px] text-right">
-                                        Actions
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-
-                            <TableBody>
-                                {services.data.map((service) => (
-                                    <TableRow key={service.id}>
-                                        <TableCell className="font-medium">
-                                            {service.name}
-                                        </TableCell>
-                                        <TableCell>
-                                            {service.service_type ?? '-'}
-                                        </TableCell>
-                                        <TableCell className="max-w-[260px] whitespace-normal">
-                                            {service.description}
-                                        </TableCell>
-                                        <TableCell>{service.uom}</TableCell>
-                                        <TableCell className="text-right">
-                                            {Number(service.price).toFixed(2)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {guestLimitLabel(service)}
-                                        </TableCell>
-                                        <TableCell className="max-w-[240px] whitespace-normal">
-                                            {service.capacity_note ?? '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={() =>
-                                                        openEdit(service)
-                                                    }
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="destructive"
-                                                    size="icon"
-                                                    onClick={() =>
-                                                        openDelete(service)
-                                                    }
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-
-                        <div className="mt-6">
-                            <Pagination>
-                                <PaginationContent>
-                                    {services.meta.links.map((link, i) => (
-                                        <PaginationItem
-                                            key={`${link.label}-${i}`}
-                                        >
-                                            {link.label.includes('Previous') ? (
-                                                <PaginationPrevious
-                                                    href={link.url ?? '#'}
-                                                    className={
-                                                        !link.url
-                                                            ? 'pointer-events-none opacity-50'
-                                                            : ''
-                                                    }
-                                                />
-                                            ) : link.label.includes('Next') ? (
-                                                <PaginationNext
-                                                    href={link.url ?? '#'}
-                                                    className={
-                                                        !link.url
-                                                            ? 'pointer-events-none opacity-50'
-                                                            : ''
-                                                    }
-                                                />
-                                            ) : link.label === '...' ? (
-                                                <PaginationEllipsis />
-                                            ) : (
-                                                <PaginationLink
-                                                    href={link.url ?? '#'}
-                                                    isActive={link.active}
-                                                    className={
-                                                        !link.url
-                                                            ? 'pointer-events-none opacity-50'
-                                                            : ''
-                                                    }
-                                                >
-                                                    {link.label}
-                                                </PaginationLink>
-                                            )}
-                                        </PaginationItem>
-                                    ))}
-                                </PaginationContent>
-                            </Pagination>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <ServiceFormModal
-                    open={modalOpen}
-                    onOpenChange={setModalOpen}
-                    mode={mode}
-                    service={selected}
-                    serviceTypes={serviceTypes}
-                />
-
-                <DeleteServiceDialog
-                    open={deleteOpen}
-                    onOpenChange={setDeleteOpen}
-                    service={selected}
-                />
+        <ResourcePageShell
+            title="Rental Options"
+            eyebrow="System Setup"
+            icon={Construction}
+            breadcrumbs={breadcrumbs}
+            subtitle="This module will manage Whole Day, Half Day, and Additional Hours per venue area. It is temporarily locked while the booking and availability rules are being finalized."
+            actions={
+                <ResourceActionLink href="/admin/venue-areas" variant="secondary">
+                    Venue Areas
+                </ResourceActionLink>
+            }
+        >
+            <div className="grid gap-3 md:grid-cols-3">
+                <ResourceStatCard label="Existing Options" value={rows.length} description="Current rental option records detected." icon={PackageCheck} />
+                <ResourceStatCard label="Module Status" value="Soon" description="Editing is intentionally disabled for now." icon={Construction} />
+                <ResourceStatCard label="Rule Set" value="AM · PM · EVE" description="Time-block availability remains active." icon={Clock3} />
             </div>
-        </AppLayout>
+
+            <div className="mt-5">
+                <ResourceSection
+                    title="Coming soon"
+                    eyebrow="Rental Options"
+                    description="This page is intentionally presented as coming soon so admins do not accidentally change rates or availability mappings before the final booking rules are locked."
+                >
+                    <div className="relative overflow-hidden rounded-[1.65rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/80 p-8 text-center shadow-[0_18px_58px_rgba(47,37,23,0.08)] dark:border-white/10 dark:bg-white/[0.035]">
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(216,181,109,0.18),transparent_50%)] dark:bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.07),transparent_50%)]" />
+
+                        <div className="relative mx-auto max-w-3xl">
+                            <span className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-[#2f2517] text-white shadow-[0_20px_60px_rgba(47,37,23,0.22)] dark:bg-white dark:text-[#17120b]">
+                                <Construction className="h-9 w-9" />
+                            </span>
+
+                            <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                Locked for final configuration
+                            </p>
+
+                            <h2 className="mt-3 text-4xl font-semibold tracking-[-0.06em] text-[#21180d] dark:text-white">
+                                Rental Options module is coming soon.
+                            </h2>
+
+                            <p className="mt-4 text-sm leading-7 text-[#6e604c] dark:text-white/58">
+                                The intended structure is three rental options per venue area: Whole Day,
+                                Half Day, and Additional Hours. This should stay disabled until the final
+                                availability and pricing relationships are confirmed.
+                            </p>
+
+                            <div className="mt-6 grid gap-3 md:grid-cols-3">
+                                {['Whole Day', 'Half Day', 'Additional Hours'].map((item) => (
+                                    <article
+                                        key={item}
+                                        className="rounded-[1.2rem] border border-[#eadcc2]/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.035]"
+                                    >
+                                        <ShieldCheck className="mx-auto h-5 w-5 text-[#9d7b3d] dark:text-[#f1d89b]" />
+                                        <p className="mt-3 text-sm font-semibold text-[#21180d] dark:text-white">
+                                            {item}
+                                        </p>
+                                    </article>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </ResourceSection>
+            </div>
+        </ResourcePageShell>
     );
 }

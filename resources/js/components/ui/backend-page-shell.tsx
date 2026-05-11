@@ -7,6 +7,7 @@ type BackendPageShellProps = {
     description?: string;
     actions?: ReactNode;
     className?: string;
+    compact?: boolean;
 };
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -20,18 +21,20 @@ export default function BackendPageShell({
     description,
     actions,
     className,
+    compact = false,
 }: BackendPageShellProps) {
     return (
         <section
             className={cx(
-                'overflow-hidden rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/82 p-4 shadow-[0_20px_64px_rgba(47,37,23,0.09)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055] sm:p-5',
+                'overflow-hidden rounded-[1.45rem] border border-[#d9c7a6]/70 bg-white/84 shadow-[0_18px_58px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]',
+                compact ? 'p-3 sm:p-4' : 'p-4 sm:p-5',
                 className,
             )}
         >
             {title || description || actions ? (
                 <div className="mb-5 grid gap-4 border-b border-[#d9c7a6]/60 pb-4 dark:border-white/10 lg:grid-cols-[1fr_auto] lg:items-end">
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">
                             {eyebrow}
                         </p>
 
