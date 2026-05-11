@@ -1,317 +1,367 @@
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import {
+    BLOCK_ORDER,
+    cleanBlockList,
+    humanDate,
+    isFullyBooked,
+    normalizeAvailability,
+    normalizeContiguousBlocks,
+    rangeForBlocks,
+    unavailableMiddleBlock,
+    type AvailabilityResponse,
+    type BlockKey,
+} from '@/lib/booking-time-blocks';
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, Loader2, Lock, Sparkles } from 'lucide-react';
 import * as React from 'react';
 
-type BlockKey = 'AM' | 'PM' | 'EVE';
-
-type BlockAvailability = {
-    key: BlockKey;
-    label: string;
-    from: string;
-    to: string;
-    is_available: boolean;
-};
-
-type AvailabilityResponse = {
-    date: string;
-    window?: { from: string; to: string };
-    blocks?: Record<BlockKey, BlockAvailability>;
-    is_fully_booked?: boolean;
-    is_warning?: boolean;
-};
-
-const ORDER: BlockKey[] = ['AM', 'PM', 'EVE'];
-
-const UI = {
-    AM: { title: 'AM', desc: 'Morning', time: '6:00 AM – 12:00 PM' },
-    PM: { title: 'PM', desc: 'Afternoon', time: '12:00 PM – 6:00 PM' },
-    EVE: { title: 'EVE', desc: 'Evening', time: '6:00 PM – 12:00 AM' },
-} as const;
-
-function addDays(ymd: string, days: number): string {
-    const [y, m, d] = ymd.split('-').map(Number);
-    const dt = new Date(y, m - 1, d);
-    dt.setDate(dt.getDate() + days);
-    const yyyy = dt.getFullYear();
-    const mm = String(dt.getMonth() + 1).padStart(2, '0');
-    const dd = String(dt.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-}
-
-function toIso(date: string, time: string): string {
-    // "24:00" = next-day 00:00
-    if (time === '24:00') {
-        const next = addDays(date, 1);
-        return `${next}T00:00`;
-    }
-    return `${date}T${time}`;
-}
-
-function normalizeToContiguous(blocks: BlockKey[]): BlockKey[] {
-    if (blocks.length === 0) return [];
-    const idx = blocks.map((b) => ORDER.indexOf(b));
-    const min = Math.min(...idx);
-    const max = Math.max(...idx);
-    return ORDER.slice(min, max + 1);
-}
-
-function labelFor(blocks: BlockKey[]): string {
-    const key = blocks.join(',');
-    if (key === 'AM') return 'AM (Morning)';
-    if (key === 'PM') return 'PM (Afternoon)';
-    if (key === 'EVE') return 'EVE (Evening)';
-    if (key === 'AM,PM') return 'Whole Day';
-    if (key === 'PM,EVE') return 'Afternoon + Evening';
-    if (key === 'AM,PM,EVE') return 'Whole Day (till evening)';
-    return key;
-}
-
-function rangeFor(date: string, blocks: BlockKey[]) {
-    if (!date || blocks.length === 0) return null;
-
-    const normalized = normalizeToContiguous(blocks);
-    const first = normalized[0];
-    const last = normalized[normalized.length - 1];
-
-    const fromTime =
-        first === 'AM' ? '06:00' : first === 'PM' ? '12:00' : '18:00';
-    const toTime = last === 'AM' ? '12:00' : last === 'PM' ? '18:00' : '24:00';
-
-    return {
-        label: labelFor(normalized),
-        blocks: normalized,
-        fromIso: toIso(date, fromTime),
-        toIso: toIso(date, toTime),
-        display: `${fromTime} – ${toTime === '24:00' ? '12:00 AM' : toTime}`,
-    };
-}
-
-export default function BookingTimeBlocksPicker(props: {
+type BookingTimeBlocksPickerProps = {
     date: string;
     onDateChange: (date: string) => void;
-
     value: BlockKey[];
     onChange: (blocks: BlockKey[]) => void;
-
-    excludeBookingId?: number;
-
-    // When date/blocks change we can push the ISO range to the parent form
+    excludeBookingId?: number | null;
+    serviceId?: number | null;
+    serviceTypeId?: number | null;
+    areaId?: number | null;
+    availabilityUrl?: string;
+    disabled?: boolean;
+    contactNumber?: string | null;
+    label?: string;
     onRangeChange?: (range: {
         fromIso: string;
         toIso: string;
         label: string;
     }) => void;
+};
 
-    contactNumber?: string; // optional note display
-}) {
-    const {
-        date,
-        onDateChange,
-        value,
-        onChange,
-        excludeBookingId,
-        onRangeChange,
-        contactNumber,
-    } = props;
+function cx(...classes: Array<string | false | null | undefined>) {
+    return classes.filter(Boolean).join(' ');
+}
 
-    const [loading, setLoading] = React.useState(false);
-    const [availability, setAvailability] =
-        React.useState<AvailabilityResponse | null>(null);
-    const [hint, setHint] = React.useState<string | null>(null);
-
-    const blocksInfo = availability?.blocks;
-
-    React.useEffect(() => {
-        let ignore = false;
-
-        async function load() {
-            if (!date) {
-                setAvailability(null);
-                return;
-            }
-
-            setLoading(true);
-            setHint(null);
-
-            try {
-                const url = new URL(
-                    '/bookings/availability',
-                    window.location.origin,
-                );
-                url.searchParams.set('date', date);
-                if (excludeBookingId)
-                    url.searchParams.set(
-                        'exclude_booking_id',
-                        String(excludeBookingId),
-                    );
-
-                const res = await fetch(url.toString(), {
-                    headers: { Accept: 'application/json' },
-                });
-
-                const json = (await res.json()) as AvailabilityResponse;
-                if (!ignore) setAvailability(json);
-            } catch (e) {
-                if (!ignore) setAvailability(null);
-            } finally {
-                if (!ignore) setLoading(false);
-            }
-        }
-
-        load();
-
-        return () => {
-            ignore = true;
-        };
-    }, [date, excludeBookingId]);
-
-    // Push computed range to parent
-    React.useEffect(() => {
-        if (!onRangeChange) return;
-        const r = rangeFor(date, value);
-        if (!r) return;
-        onRangeChange({ fromIso: r.fromIso, toIso: r.toIso, label: r.label });
-    }, [date, value, onRangeChange]);
-
-    const selected = normalizeToContiguous(value);
-    const selectedRange = date ? rangeFor(date, selected) : null;
-
-    function isAvailable(key: BlockKey) {
-        if (!blocksInfo) return true; // if API not loaded yet, don't block UI
-        return !!blocksInfo[key]?.is_available;
+function blockTone(isSelected: boolean, isAvailable: boolean) {
+    if (!isAvailable) {
+        return 'border-rose-200/80 bg-rose-50 text-rose-900 opacity-70 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100';
     }
 
-    function toggle(key: BlockKey) {
-        setHint(null);
+    if (isSelected) {
+        return 'border-[#b08d48]/70 bg-[#2f2517] text-white shadow-[0_18px_44px_rgba(47,37,23,0.22)] dark:border-white/20 dark:bg-white dark:text-[#17120b]';
+    }
 
-        // If the API says it's unavailable, don't allow selection
-        if (blocksInfo && !isAvailable(key)) return;
+    return 'border-[#d9c7a6]/70 bg-white/82 text-[#2f2517] hover:border-[#b08d48]/70 hover:bg-[#fffaf0] dark:border-white/10 dark:bg-white/[0.055] dark:text-white dark:hover:bg-white/10';
+}
 
-        const set = new Set<BlockKey>(selected);
-        if (set.has(key)) {
-            set.delete(key);
-        } else {
-            set.add(key);
+export default function BookingTimeBlocksPicker({
+    date,
+    onDateChange,
+    value,
+    onChange,
+    excludeBookingId,
+    serviceId,
+    serviceTypeId,
+    areaId,
+    availabilityUrl = '/bookings/availability',
+    disabled = false,
+    contactNumber,
+    label = 'Booking date and time blocks',
+    onRangeChange,
+}: BookingTimeBlocksPickerProps) {
+    const [loading, setLoading] = React.useState(false);
+    const [availability, setAvailability] = React.useState<AvailabilityResponse | null>(null);
+    const [hint, setHint] = React.useState<string | null>(null);
+    const [error, setError] = React.useState<string | null>(null);
+
+    const selected = React.useMemo(() => normalizeContiguousBlocks(value), [value]);
+    const normalizedBlocks = React.useMemo(() => normalizeAvailability(availability), [availability]);
+    const selectedRange = React.useMemo(() => rangeForBlocks(date, selected), [date, selected]);
+
+    React.useEffect(() => {
+        if (!date) {
+            setAvailability(null);
+            setHint(null);
+            setError(null);
+            return;
         }
 
-        const next = normalizeToContiguous(Array.from(set));
+        const controller = new AbortController();
 
-        // If contiguity forces selecting a booked middle block, prevent it
-        if (blocksInfo) {
-            const bad = next.find((k) => !isAvailable(k));
-            if (bad) {
-                setHint(
-                    'That combination crosses a booked block. Please choose another option.',
-                );
-                return;
+        async function loadAvailability() {
+            setLoading(true);
+            setHint(null);
+            setError(null);
+
+            try {
+                const url = new URL(availabilityUrl, window.location.origin);
+
+                url.searchParams.set('date', date);
+
+                if (excludeBookingId) {
+                    url.searchParams.set('exclude_booking_id', String(excludeBookingId));
+                }
+
+                if (serviceId) {
+                    url.searchParams.set('service_id', String(serviceId));
+                }
+
+                if (serviceTypeId) {
+                    url.searchParams.set('service_type_id', String(serviceTypeId));
+                }
+
+                if (areaId) {
+                    url.searchParams.set('area_id', String(areaId));
+                }
+
+                const response = await fetch(url.toString(), {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    signal: controller.signal,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Availability request failed with status ${response.status}`);
+                }
+
+                const json = (await response.json()) as AvailabilityResponse;
+
+                setAvailability(json);
+
+                const badBlock = unavailableMiddleBlock(json, selected);
+
+                if (badBlock) {
+                    onChange(selected.filter((block) => block !== badBlock));
+                    setHint(`${badBlock} is already booked or blocked. It was removed from your selected time blocks.`);
+                }
+            } catch (requestError) {
+                if (controller.signal.aborted) {
+                    return;
+                }
+
+                setAvailability(null);
+                setError('Availability could not be checked right now. You may continue, but staff should verify this schedule.');
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
+        }
+
+        loadAvailability();
+
+        return () => controller.abort();
+    }, [availabilityUrl, date, excludeBookingId, serviceId, serviceTypeId, areaId]);
+
+    React.useEffect(() => {
+        if (!onRangeChange || !selectedRange) {
+            return;
+        }
+
+        onRangeChange({
+            fromIso: selectedRange.fromIso,
+            toIso: selectedRange.toIso,
+            label: selectedRange.label,
+        });
+    }, [onRangeChange, selectedRange]);
+
+    function isBlockAvailable(block: BlockKey) {
+        const match = normalizedBlocks.find((item) => item.key === block);
+
+        return match?.isAvailable ?? true;
+    }
+
+    function toggleBlock(block: BlockKey) {
+        if (disabled || !date) {
+            return;
+        }
+
+        setHint(null);
+
+        if (!isBlockAvailable(block)) {
+            setHint(`${block} is not available on ${humanDate(date)}.`);
+            return;
+        }
+
+        const current = new Set(cleanBlockList(selected));
+
+        if (current.has(block)) {
+            current.delete(block);
+        } else {
+            current.add(block);
+        }
+
+        const next = normalizeContiguousBlocks([...current]);
+        const badBlock = unavailableMiddleBlock(availability, next);
+
+        if (badBlock) {
+            setHint(
+                `That combination crosses ${badBlock}, which is already booked or blocked. Please choose another available block.`,
+            );
+            return;
         }
 
         onChange(next);
     }
 
+    const fullyBooked = isFullyBooked(availability);
+
     return (
-        <div className="space-y-3">
-            <div className="space-y-1">
-                <label className="text-sm font-medium">Date</label>
-                <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => onDateChange(e.target.value)}
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                    Choose a date first, then choose AM / PM / EVE (you can
-                    select multiple).
-                </p>
+        <section className="overflow-hidden rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/86 p-4 shadow-[0_18px_54px_rgba(47,37,23,0.09)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.055]">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-[#f7f0e3] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:border-white/10 dark:bg-white/7 dark:text-[#f1d89b]">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        {label}
+                    </div>
+
+                    <h3 className="mt-3 text-2xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
+                        Select the event date and usable time block.
+                    </h3>
+
+                    <p className="mt-2 max-w-3xl text-sm leading-7 text-[#6e604c] dark:text-white/58">
+                        AM is 6:00 AM–12:00 PM, PM is 12:00 PM–6:00 PM, and EVE is 6:00 PM–11:59 PM.
+                        If you select non-adjacent blocks, the picker will automatically form a continuous range and prevent combinations that cross a booked block.
+                    </p>
+                </div>
+
+                <div className="w-full lg:w-[18rem]">
+                    <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.18em] text-[#7a6b55] dark:text-white/48">
+                        Event Date
+                    </label>
+
+                    <div className="relative">
+                        <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9d7b3d]" />
+                        <input
+                            type="date"
+                            value={date || ''}
+                            onChange={(event) => onDateChange(event.target.value)}
+                            disabled={disabled}
+                            className="h-12 w-full rounded-full border border-[#d9c7a6]/80 bg-white/90 pl-10 pr-4 text-sm font-semibold text-[#2f2517] shadow-[0_12px_32px_rgba(47,37,23,0.07)] outline-none transition focus:border-[#b08d48] focus:ring-4 focus:ring-[#b08d48]/12 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/7 dark:text-white dark:focus:border-[#f1d89b]"
+                        />
+                    </div>
+                </div>
             </div>
 
-            <div className="space-y-3 rounded-lg border bg-card p-3">
-                <div className="flex items-center justify-between">
-                    <div className="text-sm font-medium">Time Blocks</div>
-                    {loading && (
-                        <div className="text-xs text-muted-foreground">
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+                {normalizedBlocks.map((block) => {
+                    const isSelected = selected.includes(block.key);
+                    const unavailable = !block.isAvailable;
+                    const Icon = unavailable ? Lock : isSelected ? CheckCircle2 : Clock3;
+
+                    return (
+                        <button
+                            key={block.key}
+                            type="button"
+                            onClick={() => toggleBlock(block.key)}
+                            disabled={disabled || !date || unavailable}
+                            className={cx(
+                                'group min-h-[8.6rem] rounded-[1.35rem] border p-4 text-left transition duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:hover:translate-y-0',
+                                blockTone(isSelected, block.isAvailable),
+                            )}
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.22em] opacity-70">
+                                        {block.description}
+                                    </p>
+
+                                    <h4 className="mt-1 text-3xl font-semibold tracking-[-0.055em]">
+                                        {block.title}
+                                    </h4>
+                                </div>
+
+                                <span
+                                    className={cx(
+                                        'grid h-10 w-10 shrink-0 place-items-center rounded-full',
+                                        isSelected
+                                            ? 'bg-white/14 text-white dark:bg-[#17120b]/8 dark:text-[#17120b]'
+                                            : unavailable
+                                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-200'
+                                              : 'bg-[#f7f0e3] text-[#9d7b3d] dark:bg-white/10 dark:text-[#f1d89b]',
+                                    )}
+                                >
+                                    <Icon className="h-4.5 w-4.5" />
+                                </span>
+                            </div>
+
+                            <p className="mt-4 text-sm font-semibold opacity-90">{block.display}</p>
+
+                            {unavailable ? (
+                                <p className="mt-2 text-xs leading-5 opacity-75">
+                                    {block.reason || 'This block is already booked or blocked.'}
+                                </p>
+                            ) : (
+                                <p className="mt-2 text-xs leading-5 opacity-70">
+                                    {isSelected ? 'Selected for this booking.' : 'Available for selection.'}
+                                </p>
+                            )}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                <div className="space-y-2">
+                    {loading ? (
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-[#f7f0e3] px-3 py-2 text-xs font-semibold text-[#7a5a24] dark:border-white/10 dark:bg-white/7 dark:text-[#f1d89b]">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             Checking availability…
                         </div>
-                    )}
-                </div>
+                    ) : null}
 
-                <div className="grid grid-cols-3 gap-2">
-                    {(ORDER as BlockKey[]).map((k) => {
-                        const active = selected.includes(k);
-                        const available = isAvailable(k);
-
-                        return (
-                            <Button
-                                key={k}
-                                type="button"
-                                variant={active ? 'default' : 'outline'}
-                                onClick={() => toggle(k)}
-                                disabled={
-                                    !date || (blocksInfo ? !available : false)
-                                }
-                                className={cn(
-                                    'h-auto flex-col items-start gap-1 px-3 py-2',
-                                    !available && 'opacity-60',
-                                )}
-                            >
-                                <div className="flex w-full items-center justify-between">
-                                    <span className="text-sm font-semibold">
-                                        {UI[k].title}
-                                    </span>
-                                    {!available && (
-                                        <span className="rounded-full bg-muted px-2 py-[2px] text-[10px]">
-                                            Booked
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="text-left text-xs">
-                                    {UI[k].desc}
-                                </div>
-                                <div className="text-left text-[11px] text-muted-foreground">
-                                    {UI[k].time}
-                                </div>
-                            </Button>
-                        );
-                    })}
-                </div>
-
-                {hint && <div className="text-xs text-destructive">{hint}</div>}
-
-                {availability?.is_fully_booked && (
-                    <div className="text-xs text-destructive">
-                        This date is fully booked (AM, PM, and EVE are all
-                        unavailable).
-                    </div>
-                )}
-
-                {selectedRange && (
-                    <div className="rounded-md bg-muted/40 p-3 text-sm">
-                        <div className="font-medium">Selected:</div>
-                        <div className="text-muted-foreground">
-                            {selectedRange.label} — {selectedRange.display}
+                    {error ? (
+                        <div className="flex items-start gap-2 rounded-[1.15rem] border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                            {error}
                         </div>
-                    </div>
-                )}
+                    ) : null}
 
-                <div className="rounded-md border p-3 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Note:</span>{' '}
-                    12:00 AM – 6:00 AM bookings are{' '}
-                    <span className="font-medium">admin-only</span>.
-                    {contactNumber ? (
-                        <>
-                            {' '}
-                            Please contact{' '}
-                            <span className="font-medium">
-                                {contactNumber}
-                            </span>{' '}
-                            for assistance.
-                        </>
+                    {hint ? (
+                        <div className="flex items-start gap-2 rounded-[1.15rem] border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                            {hint}
+                        </div>
+                    ) : null}
+
+                    {fullyBooked ? (
+                        <div className="flex items-start gap-2 rounded-[1.15rem] border border-rose-200 bg-rose-50 p-3 text-sm leading-6 text-rose-900 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
+                            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                            This date is fully booked or blocked. Please choose another date.
+                        </div>
+                    ) : null}
+                </div>
+
+                <div className="rounded-[1.25rem] border border-[#d9c7a6]/70 bg-[#f7f0e3]/84 p-4 text-sm text-[#4a3b27] dark:border-white/10 dark:bg-white/7 dark:text-white/72 lg:w-[24rem]">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Selected Range
+                    </div>
+
+                    {selectedRange ? (
+                        <div className="mt-2">
+                            <p className="text-lg font-semibold tracking-[-0.035em] text-[#21180d] dark:text-white">
+                                {selectedRange.label}
+                            </p>
+                            <p className="mt-1 text-sm">
+                                {humanDate(date)} • {selectedRange.display}
+                            </p>
+                            <p className="mt-2 text-xs leading-5 opacity-70">
+                                System range: {selectedRange.fromIso} → {selectedRange.toIso}
+                            </p>
+                        </div>
                     ) : (
-                        <> Please contact the admin for assistance.</>
+                        <p className="mt-2 text-sm leading-6">
+                            Choose a date and at least one available time block to continue.
+                        </p>
                     )}
+
+                    <p className="mt-3 border-t border-[#d9c7a6]/70 pt-3 text-xs leading-5 opacity-70 dark:border-white/10">
+                        Midnight to 6:00 AM usage is admin-assisted only.{' '}
+                        {contactNumber ? `Please contact ${contactNumber} for special arrangements.` : 'Please contact the office for special arrangements.'}
+                    </p>
                 </div>
             </div>
-        </div>
+        </section>
     );
 }
+
+export type { BlockKey };

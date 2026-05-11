@@ -45,6 +45,7 @@ export type BackendNavItem = {
     icon?: LucideIcon;
     exact?: boolean;
     permission?: string | string[] | null;
+    description?: string;
 };
 
 function normalizeRoleText(value?: unknown): string | null {
@@ -52,21 +53,21 @@ function normalizeRoleText(value?: unknown): string | null {
         return null;
     }
 
-    return String(value).trim().toLowerCase().replace(/[_-]+/g, ' ');
+    const normalized = String(value).trim().toLowerCase().replace(/[_-]+/g, ' ');
+
+    return normalized || null;
 }
 
 function roleName(role: RoleLike): string | null {
-    if (!role) return null;
+    if (!role) {
+        return null;
+    }
 
     if (typeof role === 'string') {
         return normalizeRoleText(role);
     }
 
-    return (
-        normalizeRoleText(role.name) ??
-        normalizeRoleText(role.role) ??
-        normalizeRoleText(role.title)
-    );
+    return normalizeRoleText(role.name) ?? normalizeRoleText(role.role) ?? normalizeRoleText(role.title);
 }
 
 function pathRoleFallback(): BackendRole | null {
@@ -76,14 +77,19 @@ function pathRoleFallback(): BackendRole | null {
 
     const path = window.location.pathname;
 
-    if (path.startsWith('/admin')) return 'admin';
-    if (path.startsWith('/manager')) return 'manager';
-    if (path.startsWith('/staff')) return 'staff';
-    if (
-        path.startsWith('/my-dashboard') ||
-        path.startsWith('/my-bookings') ||
-        path.startsWith('/book')
-    ) {
+    if (path.startsWith('/admin')) {
+        return 'admin';
+    }
+
+    if (path.startsWith('/manager')) {
+        return 'manager';
+    }
+
+    if (path.startsWith('/staff')) {
+        return 'staff';
+    }
+
+    if (path.startsWith('/my-dashboard') || path.startsWith('/my-bookings') || path.startsWith('/book')) {
         return 'user';
     }
 
@@ -92,8 +98,8 @@ function pathRoleFallback(): BackendRole | null {
 
 export function getBackendRole(auth?: AuthLike | null): BackendRole {
     const roleValues = [
-        ...(Array.isArray(auth?.roles) ? (auth?.roles ?? []) : []),
-        ...(Array.isArray(auth?.user?.roles) ? (auth?.user?.roles ?? []) : []),
+        ...(Array.isArray(auth?.roles) ? auth?.roles ?? [] : []),
+        ...(Array.isArray(auth?.user?.roles) ? auth?.user?.roles ?? [] : []),
         auth?.user?.role,
         auth?.user?.role_name,
     ]
@@ -116,67 +122,121 @@ export function getBackendRole(auth?: AuthLike | null): BackendRole {
 }
 
 export function backendRoleLabel(role: BackendRole): string {
-    if (role === 'admin') return 'Administrator';
-    if (role === 'manager') return 'Manager';
-    if (role === 'staff') return 'Staff';
+    if (role === 'admin') {
+        return 'Administrator';
+    }
+
+    if (role === 'manager') {
+        return 'Manager';
+    }
+
+    if (role === 'staff') {
+        return 'Staff';
+    }
 
     return 'Client';
 }
 
 export function backendRoleEyebrow(role: BackendRole): string {
-    if (role === 'admin') return 'Executive Workspace';
-    if (role === 'manager') return 'Management Workspace';
-    if (role === 'staff') return 'Operations Workspace';
+    if (role === 'admin') {
+        return 'Executive Workspace';
+    }
+
+    if (role === 'manager') {
+        return 'Management Workspace';
+    }
+
+    if (role === 'staff') {
+        return 'Operations Workspace';
+    }
 
     return 'Client Portal';
 }
 
 export function backendHomeHref(role: BackendRole): string {
-    if (role === 'admin') return '/admin/dashboard';
-    if (role === 'manager') return '/manager/dashboard';
-    if (role === 'staff') return '/staff/dashboard';
+    if (role === 'admin') {
+        return '/admin/dashboard';
+    }
+
+    if (role === 'manager') {
+        return '/manager/dashboard';
+    }
+
+    if (role === 'staff') {
+        return '/staff/dashboard';
+    }
 
     return '/my-dashboard';
 }
 
 export function backendBookingsHref(role: BackendRole): string {
-    if (role === 'admin') return '/admin/bookings';
-    if (role === 'manager') return '/manager/bookings';
-    if (role === 'staff') return '/staff/bookings';
+    if (role === 'admin') {
+        return '/admin/bookings';
+    }
+
+    if (role === 'manager') {
+        return '/manager/bookings';
+    }
+
+    if (role === 'staff') {
+        return '/staff/bookings';
+    }
 
     return '/my-bookings';
 }
 
 export function backendBookingCreateHref(role: BackendRole): string {
-    if (role === 'admin') return '/admin/bookings/create';
-    if (role === 'staff') return '/staff/bookings/create';
-    if (role === 'manager') return '/manager/bookings';
+    if (role === 'admin') {
+        return '/admin/bookings/create';
+    }
+
+    if (role === 'staff') {
+        return '/staff/bookings/create';
+    }
+
+    if (role === 'manager') {
+        return '/manager/bookings';
+    }
 
     return '/book';
 }
 
 export function backendCalendarHref(role: BackendRole): string {
-    if (role === 'admin') return '/admin/calendar';
-    if (role === 'manager') return '/manager/calendar';
-    if (role === 'staff') return '/staff/calendar';
+    if (role === 'admin') {
+        return '/admin/calendar';
+    }
+
+    if (role === 'manager') {
+        return '/manager/calendar';
+    }
+
+    if (role === 'staff') {
+        return '/staff/calendar';
+    }
 
     return '/calendar';
 }
 
 export function backendPaymentReviewHref(role: BackendRole): string {
-    if (role === 'manager') return '/manager/payments/review';
+    if (role === 'manager') {
+        return '/manager/payments/review';
+    }
 
     return '/admin/payments/review';
 }
 
 export function backendMiceRegistryHref(role: BackendRole): string {
-    if (role === 'manager') return '/manager/reports/mice-registry';
+    if (role === 'manager') {
+        return '/manager/reports/mice-registry';
+    }
 
     return '/admin/reports/mice-registry';
 }
 
 export function backendGuidelinesHref(role: BackendRole): string | null {
-    if (role === 'admin') return '/admin/guidelines-contacts';
+    if (role === 'admin') {
+        return '/admin/guidelines-contacts';
+    }
 
     return null;
 }
@@ -190,36 +250,49 @@ export function backendMainNav(role: BackendRole): BackendNavItem[] {
                 icon: LayoutDashboard,
                 exact: true,
                 permission: 'dashboard.view',
+                description: 'Metrics, charts, and operational overview',
+            },
+            {
+                title: 'Home',
+                href: '/admin/home',
+                icon: LayoutPanelTop,
+                permission: 'dashboard.view',
+                description: 'Admin home workspace',
             },
             {
                 title: 'Content',
                 href: '/admin/content',
                 icon: LayoutPanelTop,
                 permission: 'services.manage',
+                description: 'Public website configuration',
             },
             {
                 title: 'Calendar',
                 href: '/admin/calendar',
                 icon: CalendarDays,
                 permission: 'dashboard.view',
+                description: 'Availability, blocks, and public schedules',
             },
             {
                 title: 'Bookings',
                 href: '/admin/bookings',
                 icon: ClipboardList,
                 permission: 'bookings.view',
+                description: 'Booking records and lifecycle management',
             },
             {
                 title: 'Payments',
                 href: '/admin/payments/review',
                 icon: CreditCard,
                 permission: 'payments.manage',
+                description: 'Proof review and payment status tracking',
             },
             {
                 title: 'Reports',
                 href: '/admin/reports/mice-registry',
                 icon: FileBarChart,
                 permission: 'bookings.view',
+                description: 'MICE registry and reporting',
             },
         ];
     }
@@ -232,30 +305,35 @@ export function backendMainNav(role: BackendRole): BackendNavItem[] {
                 icon: LayoutDashboard,
                 exact: true,
                 permission: 'dashboard.view',
+                description: 'Management overview',
             },
             {
                 title: 'Calendar',
                 href: '/manager/calendar',
                 icon: CalendarDays,
                 permission: 'dashboard.view',
+                description: 'Schedule monitoring',
             },
             {
                 title: 'Bookings',
                 href: '/manager/bookings',
                 icon: ClipboardList,
                 permission: 'bookings.view',
+                description: 'Booking verification',
             },
             {
                 title: 'Payments',
                 href: '/manager/payments/review',
                 icon: CreditCard,
                 permission: 'payments.manage',
+                description: 'Payment proof review',
             },
             {
                 title: 'Reports',
                 href: '/manager/reports/mice-registry',
                 icon: FileBarChart,
                 permission: 'bookings.view',
+                description: 'MICE registry',
             },
         ];
     }
@@ -268,24 +346,28 @@ export function backendMainNav(role: BackendRole): BackendNavItem[] {
                 icon: LayoutDashboard,
                 exact: true,
                 permission: 'dashboard.view',
+                description: 'Staff overview',
             },
             {
                 title: 'Calendar',
                 href: '/staff/calendar',
                 icon: CalendarDays,
                 permission: 'dashboard.view',
+                description: 'Daily availability and schedule',
             },
             {
                 title: 'Bookings',
                 href: '/staff/bookings',
                 icon: ClipboardList,
                 permission: 'bookings.view',
+                description: 'Client booking assistance',
             },
             {
                 title: 'Assist Booking',
                 href: '/staff/bookings/create',
                 icon: FileClock,
                 permission: 'bookings.create',
+                description: 'Create a booking for a client',
             },
         ];
     }
@@ -296,17 +378,20 @@ export function backendMainNav(role: BackendRole): BackendNavItem[] {
             href: '/my-dashboard',
             icon: LayoutDashboard,
             exact: true,
+            description: 'Client booking overview',
         },
         {
             title: 'My Bookings',
             href: '/my-bookings',
             icon: ClipboardList,
+            description: 'Submitted booking requests',
         },
         {
             title: 'Book Event',
             href: '/book',
             icon: CalendarDays,
             exact: true,
+            description: 'Submit a new request',
         },
     ];
 }
@@ -322,30 +407,35 @@ export function backendAdminConfigNav(role: BackendRole): BackendNavItem[] {
             href: '/admin/venue-areas',
             icon: Tags,
             permission: 'service_types.manage',
+            description: 'Service types / venue spaces',
         },
         {
             title: 'Rental Options',
             href: '/admin/rental-options',
             icon: Settings2,
             permission: 'services.manage',
+            description: 'Whole day, half day, and additional hour options',
         },
         {
             title: 'Users',
             href: '/admin/users',
             icon: UsersRound,
             permission: 'users.manage',
+            description: 'Role and access management',
         },
         {
             title: 'Inquiries',
             href: '/admin/inquiries',
             icon: MessagesSquare,
             permission: 'bookings.view',
+            description: 'Public inquiries and client messages',
         },
         {
             title: 'Guidelines',
             href: '/admin/guidelines-contacts',
             icon: ContactRound,
             permission: 'services.manage',
+            description: 'Policies, contacts, and public guidance',
         },
     ];
 }
@@ -358,12 +448,14 @@ export function backendExternalNav(role: BackendRole): BackendNavItem[] {
                 href: '/',
                 icon: Globe2,
                 exact: true,
+                description: 'Open public site',
             },
             {
                 title: 'Analytics',
                 href: '/admin/bookings/analytics',
                 icon: BarChart3,
                 permission: 'bookings.view',
+                description: 'Booking analytics',
             },
         ];
     }
@@ -375,12 +467,14 @@ export function backendExternalNav(role: BackendRole): BackendNavItem[] {
                 href: '/',
                 icon: Globe2,
                 exact: true,
+                description: 'Open public site',
             },
             {
                 title: 'MICE Registry',
                 href: '/manager/reports/mice-registry',
                 icon: FileBarChart,
                 permission: 'bookings.view',
+                description: 'Management report registry',
             },
         ];
     }
@@ -392,12 +486,14 @@ export function backendExternalNav(role: BackendRole): BackendNavItem[] {
                 href: '/',
                 icon: Globe2,
                 exact: true,
+                description: 'Open public site',
             },
             {
                 title: 'Assist Booking',
                 href: '/staff/bookings/create',
                 icon: FileClock,
                 permission: 'bookings.create',
+                description: 'Start assisted booking',
             },
         ];
     }
@@ -408,12 +504,14 @@ export function backendExternalNav(role: BackendRole): BackendNavItem[] {
             href: '/',
             icon: Globe2,
             exact: true,
+            description: 'Open public site',
         },
         {
             title: 'Book Event',
             href: '/book',
             icon: CalendarDays,
             exact: true,
+            description: 'Submit booking request',
         },
     ];
 }
@@ -422,13 +520,9 @@ export function hrefValue(href: string): string {
     return href;
 }
 
-export function isBackendActive(
-    currentUrl: string,
-    href: string,
-    exact = false,
-): boolean {
-    const currentPath = currentUrl.split('?')[0];
-    const target = href.split('?')[0];
+export function isBackendActive(currentUrl: string, href: string, exact = false): boolean {
+    const currentPath = currentUrl.split('?')[0].split('#')[0];
+    const target = href.split('?')[0].split('#')[0];
 
     if (exact) {
         return currentPath === target;
@@ -445,7 +539,9 @@ export function userHasPermission(
     permissions: string[] = [],
     required?: string | string[] | null,
 ): boolean {
-    if (!required) return true;
+    if (!required) {
+        return true;
+    }
 
     if (!Array.isArray(permissions) || permissions.length === 0) {
         return true;

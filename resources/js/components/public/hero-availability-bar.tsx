@@ -1,716 +1,622 @@
+import { BcccLogoLoader } from '@/components/shared/bccc-logo-loader';
+import {
+    blockMeta,
+    cx,
+    daysBetween,
+    deriveDayStatus,
+    formatRangeLabel,
+    normalizeBlocks,
+    normalizeStatus,
+    postAvailabilityCheck,
+    publicEventTypeOptions,
+    rangeBookingHref,
+    statusDescription,
+    statusDot,
+    statusLabel,
+    statusTone,
+    todayKey,
+    type AvailabilityRangeResponse,
+    type AvailabilityStatus,
+    type PublicDayStatus,
+} from '@/lib/public-availability';
+import type { VenueOption } from '@/types/public-content';
 import { Link } from '@inertiajs/react';
 import {
-  CalendarDays,
-  CheckCircle2,
-  CircleAlert,
-  CircleX,
-  Info,
-  LoaderCircle,
-  Sparkles,
-  Users,
-  X,
+    AlertTriangle,
+    ArrowRight,
+    CalendarDays,
+    CheckCircle2,
+    CircleAlert,
+    Clock3,
+    LayoutGrid,
+    LoaderCircle,
+    Search,
+    Sparkles,
+    Users,
+    X,
 } from 'lucide-react';
-import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { type FormEvent, useMemo, useState } from 'react';
 
-type VenueOption = {
-  label: string;
-  value: string;
-  category?: string | null;
-  capacity?: string | null;
+type Props = {
+    venueOptions: VenueOption[];
 };
 
-type AvailabilityStatus =
-  | 'available'
-  | 'limited'
-  | 'public_booked'
-  | 'private_booked'
-  | 'blocked';
+const ease = [0.22, 1, 0.36, 1] as const;
 
-type AvailabilityBlock = {
-  key: 'AM' | 'PM' | 'EVE' | string;
-  label: string;
-  from: string;
-  to: string;
-  is_available: boolean;
-};
-
-type CalendarBlock = {
-  title?: string;
-  area?: string;
-  notes?: string;
-  block?: string;
-  public_status?: string;
-};
-
-type AvailabilityResult = {
-  date: string;
-  venue: string;
-  status: AvailabilityStatus;
-  title: string;
-  description: string;
-  note: string;
-  blocks?: AvailabilityBlock[] | Record<string, AvailabilityBlock>;
-  event_titles?: string[];
-  calendar_blocks?: CalendarBlock[];
-  recommended_action?: string;
-  can_proceed?: boolean;
-  venue_capacity_ok?: boolean | null;
-  venue_capacity_message?: string | null;
-};
-
-type AvailabilityRangeResponse = {
-  mode?: 'range';
-  from: string;
-  to: string;
-  date?: string;
-  venue: string;
-  event_type?: string | null;
-  guests?: number | null;
-  status: AvailabilityStatus;
-  title: string;
-  description: string;
-  note: string;
-  recommended_action?: string;
-  can_proceed?: boolean;
-  days_count?: number;
-  available_days?: number;
-  limited_days?: number;
-  blocked_days?: number;
-  results: AvailabilityResult[];
-  event_titles?: string[];
-  calendar_blocks?: CalendarBlock[];
-};
-
-const eventTypeOptions = [
-  'Conference',
-  'Convention',
-  'Summit',
-  'Seminar',
-  'Workshop',
-  'Training',
-  'Meeting',
-  'Board Meeting',
-  'General Assembly',
-  'Government Program',
-  'Public Forum',
-  'Press Conference',
-  'Exhibit',
-  'Expo',
-  'Trade Fair',
-  'Bazaar',
-  'Product Launch',
-  'Corporate Event',
-  'Cultural Program',
-  'Cultural Show',
-  'Concert',
-  'Awards Night',
-  'Graduation',
-  'Recognition Program',
-  'Wedding Reception',
-  'Debut',
-  'Birthday Celebration',
-  'Religious Gathering',
-  'Community Event',
-  'Festival Activity',
-  'Sports Event',
-  'Private Event',
-];
-
-function getCsrfToken() {
-  return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')?.trim() ?? '';
+function readableNumber(value?: number | null) {
+    return Number(value ?? 0).toLocaleString('en-PH');
 }
 
-async function parseResponse(response: Response) {
-  const contentType = response.headers.get('content-type') ?? '';
+function asRangePayload(payload: unknown, form: {
+    from: string;
+    to: string;
+    venue: string;
+    eventType: string;
+    guests: string;
+}): AvailabilityRangeResponse {
+    const raw = payload as Partial<AvailabilityRangeResponse> & Partial<PublicDayStatus>;
 
-  if (contentType.includes('application/json')) {
-    return response.json();
-  }
+    if (Array.isArray(raw.results)) {
+        return {
+            mode: 'range',
+            from: raw.from || form.from,
+            to: raw.to || form.to,
+            venue: raw.venue || form.venue,
+            event_type: raw.event_type || form.eventType,
+            guests: raw.guests || Number(form.guests),
+            status: normalizeStatus(raw.status),
+            title: raw.title || 'Availability checked',
+            description: raw.description || 'The selected range was checked.',
+            note: raw.note || raw.recommended_action || 'Review each day before continuing.',
+            recommended_action: raw.recommended_action || null,
+            can_proceed: raw.can_proceed !== false,
+            days_count: raw.days_count || raw.results.length,
+            available_days: raw.available_days,
+            limited_days: raw.limited_days,
+            blocked_days: raw.blocked_days,
+            results: raw.results,
+            event_titles: raw.event_titles || [],
+            calendar_blocks: raw.calendar_blocks || [],
+        };
+    }
 
-  const text = await response.text();
+    const singleDay = payload as PublicDayStatus;
+    const status = deriveDayStatus(singleDay);
 
-  try {
-    return JSON.parse(text);
-  } catch {
-    return { message: text || 'Unexpected response.' };
-  }
+    return {
+        mode: 'range',
+        from: singleDay.date || form.from,
+        to: singleDay.date || form.to,
+        date: singleDay.date || form.from,
+        venue: singleDay.venue || form.venue,
+        event_type: singleDay.event_type || form.eventType,
+        guests: singleDay.guests || Number(form.guests),
+        status,
+        title: singleDay.title || statusLabel(status),
+        description: singleDay.description || statusDescription(status),
+        note: singleDay.note || 'Review the available time blocks before continuing.',
+        recommended_action: singleDay.recommended_action || null,
+        can_proceed: singleDay.can_proceed !== false,
+        days_count: 1,
+        available_days: status === 'available' ? 1 : 0,
+        limited_days: status === 'limited' ? 1 : 0,
+        blocked_days: status === 'blocked' || status === 'private_booked' ? 1 : 0,
+        results: [singleDay],
+        event_titles: singleDay.event_titles || [],
+        calendar_blocks: singleDay.calendar_blocks || [],
+    };
 }
 
-function todayKey() {
-  const today = new Date();
-
-  return [
-    today.getFullYear(),
-    `${today.getMonth() + 1}`.padStart(2, '0'),
-    `${today.getDate()}`.padStart(2, '0'),
-  ].join('-');
-}
-
-function tone(status: AvailabilityStatus) {
-  switch (status) {
-    case 'available':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200';
-    case 'limited':
-      return 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-200';
-    case 'public_booked':
-      return 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-200';
-    case 'private_booked':
-      return 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-400/20 dark:bg-yellow-500/10 dark:text-yellow-200';
-    default:
-      return 'border-red-200 bg-red-50 text-red-800 dark:border-red-400/20 dark:bg-red-500/10 dark:text-red-200';
-  }
-}
-
-function statusIcon(status: AvailabilityStatus) {
-  if (status === 'available') return <CheckCircle2 className="h-4 w-4" />;
-  if (status === 'limited' || status === 'public_booked') return <Info className="h-4 w-4" />;
-  return <CircleX className="h-4 w-4" />;
-}
-
-function blockTone(block: AvailabilityBlock) {
-  return block.is_available
-    ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-200'
-    : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200';
-}
-
-function readableStatus(status: string) {
-  return status
-    .replaceAll('_', ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function normalizeBlocks(blocks?: AvailabilityResult['blocks']): AvailabilityBlock[] {
-  if (!blocks) return [];
-
-  if (Array.isArray(blocks)) {
-    return blocks;
-  }
-
-  return Object.entries(blocks).map(([key, value]) => ({
-    key: value.key || key,
-    label: value.label || key,
-    from: value.from || '--:--',
-    to: value.to || '--:--',
-    is_available: Boolean(value.is_available),
-  }));
-}
-
-function formatRangeLabel(from: string, to: string) {
-  const first = new Date(`${from}T00:00:00`);
-  const last = new Date(`${to}T00:00:00`);
-
-  const formatter = new Intl.DateTimeFormat('en-PH', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
-  if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) {
-    return `${from} to ${to}`;
-  }
-
-  if (from === to) {
-    return formatter.format(first);
-  }
-
-  return `${formatter.format(first)} to ${formatter.format(last)}`;
-}
-
-function daysBetween(from: string, to: string): number {
-  const start = new Date(`${from}T00:00:00`);
-  const end = new Date(`${to}T00:00:00`);
-
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
-    return 0;
-  }
-
-  return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
-}
-
-function bookingHref(result: AvailabilityRangeResponse) {
-  const query = new URLSearchParams();
-
-  query.set('date_from', `${result.from}T06:00`);
-  query.set('date_to', `${result.to}T23:59`);
-  query.set('venue', result.venue);
-
-  if (result.event_type) {
-    query.set('event_type', result.event_type);
-  }
-
-  if (result.guests) {
-    query.set('guests', String(result.guests));
-  }
-
-  return `/book?${query.toString()}`;
-}
-
-function HeroFieldShell({
-  label,
-  icon,
-  children,
+function FieldShell({
+    label,
+    icon,
+    children,
 }: {
-  label: string;
-  icon: ReactNode;
-  children: ReactNode;
+    label: string;
+    icon: React.ReactNode;
+    children: React.ReactNode;
 }) {
-  return (
-    <label className="group block border border-white/20 bg-white/92 px-4 py-3 text-[#17352c] shadow-[0_18px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl transition duration-500 hover:-translate-y-0.5 hover:border-[#c6a35b]/70 dark:border-white/10 dark:bg-[#10130f]/88 dark:text-white">
-      <span className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-[#a1762d] dark:text-[#f2d697]">
-        {icon}
-        {label}
-      </span>
+    return (
+        <label className="group block rounded-[1.05rem] border border-[#d9c7a6]/70 bg-white/84 px-3 py-2.5 shadow-[0_12px_30px_rgba(47,37,23,0.06)] transition focus-within:border-[#b08d48] focus-within:ring-4 focus-within:ring-[#b08d48]/12 dark:border-white/10 dark:bg-white/7">
+            <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                {icon}
+                {label}
+            </span>
 
-      {children}
-    </label>
-  );
+            {children}
+        </label>
+    );
 }
 
-function DayResultCard({ day }: { day: AvailabilityResult }) {
-  const blocks = normalizeBlocks(day.blocks);
+function ResultStatusIcon({ status }: { status: AvailabilityStatus | string }) {
+    const normalized = normalizeStatus(status);
 
-  return (
-    <article className="border border-[#eadfc9] bg-white/88 p-4 text-[#1d2018] dark:border-white/10 dark:bg-white/[0.04] dark:text-white">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#a1762d]">
-            {day.date}
-          </p>
+    if (normalized === 'available') {
+        return <CheckCircle2 className="h-4 w-4" />;
+    }
 
-          <h4 className="mt-2 text-lg font-semibold tracking-[-0.04em]">
-            {day.title}
-          </h4>
+    if (normalized === 'limited' || normalized === 'public_booked') {
+        return <CircleAlert className="h-4 w-4" />;
+    }
 
-          <p className="mt-2 text-sm leading-7 text-[#69665d] dark:text-white/62">
-            {day.description}
-          </p>
-        </div>
+    return <AlertTriangle className="h-4 w-4" />;
+}
 
-        <span className={`inline-flex items-center gap-2 border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] ${tone(day.status)}`}>
-          {statusIcon(day.status)}
-          {readableStatus(day.status)}
-        </span>
-      </div>
+function DayResultCard({ day }: { day: PublicDayStatus }) {
+    const status = deriveDayStatus(day);
+    const blocks = normalizeBlocks(day.blocks);
 
-      {blocks.length > 0 ? (
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          {blocks.map((block) => (
-            <div
-              key={`${day.date}-${block.key}`}
-              className={`border p-3 ${blockTone(block)}`}
-            >
-              <p className="text-[10px] font-black uppercase tracking-[0.18em]">
-                {block.key} · {block.label}
-              </p>
-              <p className="mt-1 text-xs font-semibold">
-                {block.from} - {block.to}
-              </p>
-              <p className="mt-1 text-xs">
-                {block.is_available ? 'Available' : 'Unavailable'}
-              </p>
+    return (
+        <article className="rounded-[1.15rem] border border-black/10 bg-white/74 p-3 dark:border-white/10 dark:bg-white/7">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                        {day.date}
+                    </p>
+                    <h4 className="mt-1 text-sm font-semibold text-[#21180d] dark:text-white">
+                        {day.title || statusLabel(status)}
+                    </h4>
+                </div>
+
+                <span className={cx('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]', statusTone(status))}>
+                    <ResultStatusIcon status={status} />
+                    {statusLabel(status)}
+                </span>
             </div>
-          ))}
-        </div>
-      ) : null}
 
-      {day.event_titles && day.event_titles.length > 0 ? (
-        <div className="mt-4 border-t border-[#eadfc9] pt-4 dark:border-white/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#a1762d]">
-            Visible Events
-          </p>
+            <p className="mt-2 text-xs leading-5 text-[#6e604c] dark:text-white/58">
+                {day.description || statusDescription(status)}
+            </p>
 
-          <ul className="mt-2 space-y-1 text-sm leading-6 text-[#69665d] dark:text-white/62">
-            {day.event_titles.map((title) => (
-              <li key={title}>• {title}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {day.calendar_blocks && day.calendar_blocks.length > 0 ? (
-        <div className="mt-4 border-t border-[#eadfc9] pt-4 dark:border-white/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#a1762d]">
-            Calendar Blocks
-          </p>
-
-          <ul className="mt-2 space-y-1 text-sm leading-6 text-[#69665d] dark:text-white/62">
-            {day.calendar_blocks.map((block, index) => (
-              <li key={`${block.title}-${index}`}>
-                • {block.title || 'Calendar block'}
-                {block.area ? ` — ${block.area}` : ''}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {day.venue_capacity_message ? (
-        <p className="mt-4 border border-[#d9c79d] bg-[#fff8e7] p-3 text-sm leading-6 text-[#6b5221] dark:border-[#80682a] dark:bg-[#201a10] dark:text-[#f2d697]">
-          {day.venue_capacity_message}
-        </p>
-      ) : null}
-    </article>
-  );
-}
-
-export default function HeroAvailabilityBar({ venueOptions }: { venueOptions: VenueOption[] }) {
-  const [dateFrom, setDateFrom] = useState(todayKey);
-  const [dateTo, setDateTo] = useState(todayKey);
-  const [eventType, setEventType] = useState('');
-  const [venue, setVenue] = useState('');
-  const [guests, setGuests] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [validationMessage, setValidationMessage] = useState('');
-  const [modalMessage, setModalMessage] = useState('');
-  const [result, setResult] = useState<AvailabilityRangeResponse | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-
-  const selectedVenue = useMemo(
-    () => venueOptions.find((item) => item.value === venue) ?? null,
-    [venue, venueOptions],
-  );
-
-  function closeModal() {
-    setModalOpen(false);
-  }
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-
-    if (!dateFrom || !dateTo || !eventType || !venue || !guests) {
-      setValidationMessage('Please complete the date range, event type, area, and guest count.');
-      return;
-    }
-
-    if (dateFrom > dateTo) {
-      setValidationMessage('The end date must be the same as or later than the start date.');
-      return;
-    }
-
-    const days = daysBetween(dateFrom, dateTo);
-
-    if (days < 1) {
-      setValidationMessage('Please select a valid date range.');
-      return;
-    }
-
-    if (days > 14) {
-      setValidationMessage('Please keep the quick-check range to 14 days or fewer.');
-      return;
-    }
-
-    setLoading(true);
-    setModalOpen(true);
-    setResult(null);
-    setValidationMessage('');
-    setModalMessage('Checking selected date range and area...');
-
-    try {
-      const response = await fetch('/public/availability-check', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': getCsrfToken(),
-        },
-        body: JSON.stringify({
-          start_date: dateFrom,
-          end_date: dateTo,
-          date_from: dateFrom,
-          date_to: dateTo,
-          venue,
-          event_type: eventType,
-          guests: Number(guests),
-        }),
-      });
-
-      const payload = await parseResponse(response);
-
-      if (!response.ok) {
-        throw new Error(payload?.message ?? 'Unable to check availability.');
-      }
-
-      if (Array.isArray(payload?.results)) {
-        setResult(payload as AvailabilityRangeResponse);
-      } else {
-        const single = payload as AvailabilityResult;
-
-        setResult({
-          mode: 'range',
-          from: single.date,
-          to: single.date,
-          date: single.date,
-          venue: single.venue,
-          event_type: eventType,
-          guests: Number(guests),
-          status: single.status,
-          title: single.title,
-          description: single.description,
-          note: single.note,
-          recommended_action: single.recommended_action,
-          can_proceed: single.can_proceed,
-          days_count: 1,
-          available_days: single.status === 'available' ? 1 : 0,
-          limited_days: single.status === 'limited' ? 1 : 0,
-          blocked_days: ['blocked', 'private_booked'].includes(single.status) ? 1 : 0,
-          results: [single],
-          event_titles: single.event_titles,
-          calendar_blocks: single.calendar_blocks,
-        });
-      }
-
-      setModalMessage('');
-    } catch (error) {
-      setModalMessage(error instanceof Error ? error.message : 'Unable to check availability right now.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <>
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto grid max-w-7xl gap-3 border border-white/20 bg-[#f7efe0]/92 p-3 shadow-[0_30px_90px_rgba(0,0,0,0.18)] backdrop-blur-xl dark:border-white/10 dark:bg-[#080b08]/86 lg:grid-cols-[1fr_1fr_1.25fr_1.35fr_1fr_auto]"
-      >
-        <div className="lg:col-span-6">
-          <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#a1762d] dark:text-[#f2d697]">
-            <Sparkles className="h-3.5 w-3.5" />
-            Multi-date public schedule preview
-          </p>
-
-          <p className="mt-1 text-sm leading-6 text-[#4c4a43] dark:text-white/62">
-            Select a single date or a multi-day range before starting the booking request.
-          </p>
-        </div>
-
-        <HeroFieldShell label="Start Date" icon={<CalendarDays className="h-3.5 w-3.5" />}>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(event) => {
-              setDateFrom(event.target.value);
-
-              if (!dateTo || event.target.value > dateTo) {
-                setDateTo(event.target.value);
-              }
-            }}
-            className="w-full bg-transparent text-sm font-semibold outline-none"
-          />
-        </HeroFieldShell>
-
-        <HeroFieldShell label="End Date" icon={<CalendarDays className="h-3.5 w-3.5" />}>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(event) => setDateTo(event.target.value)}
-            className="w-full bg-transparent text-sm font-semibold outline-none"
-          />
-        </HeroFieldShell>
-
-        <HeroFieldShell label="Event Type" icon={<Info className="h-3.5 w-3.5" />}>
-          <select
-            value={eventType}
-            onChange={(event) => setEventType(event.target.value)}
-            className="w-full bg-transparent text-sm font-semibold outline-none"
-          >
-            <option value="">Select type</option>
-            {eventTypeOptions.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </HeroFieldShell>
-
-        <HeroFieldShell label="Venue Area" icon={<Sparkles className="h-3.5 w-3.5" />}>
-          <select
-            value={venue}
-            onChange={(event) => setVenue(event.target.value)}
-            className="w-full bg-transparent text-sm font-semibold outline-none"
-          >
-            <option value="">Select area</option>
-            {venueOptions.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </HeroFieldShell>
-
-        <HeroFieldShell label="Guests" icon={<Users className="h-3.5 w-3.5" />}>
-          <input
-            type="number"
-            min={1}
-            value={guests}
-            onChange={(event) => setGuests(event.target.value)}
-            placeholder="Estimated"
-            className="w-full bg-transparent text-sm font-semibold outline-none"
-          />
-        </HeroFieldShell>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex min-h-[4.25rem] items-center justify-center gap-2 bg-[#11392f] px-6 text-[11px] font-black uppercase tracking-[0.22em] text-white shadow-[0_16px_50px_rgba(17,57,47,0.25)] transition duration-500 hover:-translate-y-0.5 hover:bg-[#0d2c25] disabled:cursor-wait disabled:opacity-70 dark:bg-[#d7b46a] dark:text-[#10130f]"
-        >
-          {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          {loading ? 'Checking' : 'Check'}
-        </button>
-
-        {selectedVenue ? (
-          <div className="lg:col-span-6 border border-[#d9c79d] bg-white/62 px-4 py-3 text-xs font-semibold text-[#5c574b] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/62">
-            {selectedVenue.label}
-            {selectedVenue.category ? ` • ${selectedVenue.category}` : ''}
-            {selectedVenue.capacity ? ` • Capacity: ${selectedVenue.capacity}` : ''}
-          </div>
-        ) : null}
-
-        {validationMessage ? (
-          <div className="lg:col-span-6 flex items-start gap-2 border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200">
-            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            {validationMessage}
-          </div>
-        ) : null}
-      </form>
-
-      {modalOpen ? (
-        <div
-          className="fixed inset-0 z-[170] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) closeModal();
-          }}
-        >
-          <section className="max-h-[90svh] w-full max-w-5xl overflow-y-auto border border-white/14 bg-[#f8f2e6] text-[#1d2018] shadow-[0_30px_120px_rgba(0,0,0,0.42)] dark:bg-[#090b08] dark:text-white">
-            <header className="flex items-start justify-between gap-4 border-b border-[#e5d6bb] p-5 dark:border-white/10">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#a1762d] dark:text-[#f2d697]">
-                  Availability Status
-                </p>
-
-                <h3 className="mt-2 text-3xl font-semibold tracking-[-0.06em]">
-                  {loading ? 'Checking selected schedule' : result?.title || 'Availability result'}
-                </h3>
-              </div>
-
-              <button
-                type="button"
-                onClick={closeModal}
-                className="flex h-11 w-11 shrink-0 items-center justify-center border border-[#e5d6bb] bg-white/60 transition hover:border-[#b98b35] dark:border-white/10 dark:bg-white/[0.04]"
-                aria-label="Close availability result"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </header>
-
-            <div className="p-5">
-              {loading ? (
-                <div className="flex min-h-72 flex-col items-center justify-center text-center">
-                  <LoaderCircle className="h-10 w-10 animate-spin text-[#a1762d]" />
-                  <h4 className="mt-5 text-xl font-semibold tracking-[-0.04em]">
-                    Checking availability
-                  </h4>
-                  <p className="mt-2 max-w-md text-sm leading-7 text-[#69665d] dark:text-white/62">
-                    {modalMessage || 'Please wait while the system reviews the selected range, area, and visible schedule.'}
-                  </p>
-                </div>
-              ) : modalMessage && !result ? (
-                <div className="border border-rose-200 bg-rose-50 p-5 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-200">
-                  <p className="font-semibold">Unable to complete the check</p>
-                  <p className="mt-2 text-sm leading-7">{modalMessage}</p>
-                </div>
-              ) : result ? (
-                <div className="grid gap-5">
-                  <div className={`border p-5 ${tone(result.status)}`}>
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <p className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em]">
-                          {statusIcon(result.status)}
-                          {readableStatus(result.status)}
-                        </p>
-
-                        <h4 className="mt-3 text-2xl font-semibold tracking-[-0.05em]">
-                          {result.title}
-                        </h4>
-
-                        <p className="mt-2 text-sm leading-7">
-                          {formatRangeLabel(result.from, result.to)}
-                        </p>
-
-                        <p className="mt-3 max-w-3xl text-sm leading-7">
-                          {result.description}
-                        </p>
-
-                        <p className="mt-2 max-w-3xl text-sm leading-7">
-                          {result.note}
-                        </p>
-                      </div>
-
-                      <div className="grid min-w-48 gap-2 text-sm">
-                        <Metric label="Days" value={result.days_count ?? result.results.length} />
-                        <Metric label="Open" value={result.available_days ?? 0} />
-                        <Metric label="Limited" value={result.limited_days ?? 0} />
-                        <Metric label="Blocked" value={result.blocked_days ?? 0} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3">
-                    {result.results.map((day) => (
-                      <DayResultCard key={day.date} day={day} />
-                    ))}
-                  </div>
-
-                  <div className="grid gap-4 border border-[#eadfc9] bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-[1fr_auto_auto] md:items-center">
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#a1762d]">
-                        Booking Summary
-                      </p>
-
-                      <p className="mt-2 text-sm leading-7 text-[#69665d] dark:text-white/62">
-                        Range: {formatRangeLabel(result.from, result.to)} · Area: {result.venue} · Event: {result.event_type || eventType} · Guests: {result.guests || guests}
-                      </p>
-
-                      <p className="mt-1 text-sm leading-7 text-[#69665d] dark:text-white/62">
-                        {result.recommended_action || 'Review each date before continuing.'}
-                      </p>
-                    </div>
-
-                    <Link
-                      href={bookingHref(result)}
-                      className={`inline-flex min-h-11 items-center justify-center px-5 text-[11px] font-black uppercase tracking-[0.18em] transition ${
-                        result.can_proceed === false
-                          ? 'pointer-events-none bg-[#b7afa0] text-white opacity-60'
-                          : 'bg-[#11392f] text-white hover:-translate-y-0.5 hover:bg-[#0d2c25] dark:bg-[#d7b46a] dark:text-[#10130f]'
-                      }`}
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                {blocks.map((block) => (
+                    <div
+                        key={String(block.key)}
+                        className={cx(
+                            'rounded-xl border px-2.5 py-2 text-xs',
+                            block.is_available
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100'
+                                : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100',
+                        )}
                     >
-                      Continue to Booking
-                    </Link>
-
-                    <Link
-                      href="/calendar"
-                      className="inline-flex min-h-11 items-center justify-center border border-[#d9c79d] px-5 text-[11px] font-black uppercase tracking-[0.18em] text-[#1d2018] transition hover:-translate-y-0.5 dark:border-white/10 dark:text-white"
-                    >
-                      Open Full Calendar
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
+                        <p className="font-bold uppercase tracking-[0.14em]">
+                            {block.key} · {block.label}
+                        </p>
+                        <p className="mt-1 opacity-75">
+                            {block.from} – {block.to}
+                        </p>
+                        <p className="mt-1 font-semibold">
+                            {block.is_available ? 'Open' : block.reason || 'Closed'}
+                        </p>
+                    </div>
+                ))}
             </div>
-          </section>
-        </div>
-      ) : null}
-    </>
-  );
+
+            {day.event_titles?.length ? (
+                <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
+                    <p className="font-bold uppercase tracking-[0.16em]">Visible Events</p>
+                    <ul className="mt-2 space-y-1">
+                        {day.event_titles.map((title) => (
+                            <li key={title}>• {title}</li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
+
+            {day.calendar_blocks?.length ? (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                    <p className="font-bold uppercase tracking-[0.16em]">Calendar Blocks</p>
+                    <ul className="mt-2 space-y-1">
+                        {day.calendar_blocks.map((block, index) => (
+                            <li key={`${block.title || 'block'}-${index}`}>
+                                • {block.title || 'Calendar block'}
+                                {block.area ? ` — ${block.area}` : ''}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            ) : null}
+        </article>
+    );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border border-current/20 px-3 py-2">
-      <span className="text-[10px] font-black uppercase tracking-[0.18em]">{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
+function AvailabilityResultModal({
+    open,
+    loading,
+    message,
+    result,
+    onClose,
+}: {
+    open: boolean;
+    loading: boolean;
+    message: string;
+    result: AvailabilityRangeResponse | null;
+    onClose: () => void;
+}) {
+    const reduceMotion = useReducedMotion();
+
+    return (
+        <AnimatePresence>
+            {open ? (
+                <motion.div
+                    className="fixed inset-0 z-[999990] grid place-items-center bg-white/72 px-4 py-6 backdrop-blur-2xl dark:bg-slate-950/58"
+                    initial={reduceMotion ? false : { opacity: 0 }}
+                    animate={reduceMotion ? undefined : { opacity: 1 }}
+                    exit={reduceMotion ? undefined : { opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    onClick={(event) => {
+                        if (event.target === event.currentTarget) {
+                            onClose();
+                        }
+                    }}
+                >
+                    <motion.section
+                        className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-hidden rounded-[1.8rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/96 shadow-[0_30px_100px_rgba(47,37,23,0.24)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/96"
+                        initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.98, filter: 'blur(10px)' }}
+                        animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                        exit={reduceMotion ? undefined : { opacity: 0, y: 18, scale: 0.98, filter: 'blur(10px)' }}
+                        transition={{ duration: 0.28, ease }}
+                        role="dialog"
+                        aria-modal="true"
+                    >
+                        <div className="flex items-start justify-between gap-4 border-b border-[#d9c7a6]/60 p-5 dark:border-white/10">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                    Availability Status
+                                </p>
+                                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
+                                    {loading ? 'Checking selected schedule' : result?.title || 'Availability Result'}
+                                </h3>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-black/10 bg-white/70 text-[#2f2517] transition hover:bg-white dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                aria-label="Close availability result"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {loading ? (
+                                <div className="grid min-h-[22rem] place-items-center text-center">
+                                    <div>
+                                        <BcccLogoLoader
+                                            logoSrc="/marketing/images/logo/bccc-seal.png"
+                                            label="Checking availability"
+                                            showLabel={false}
+                                            size="lg"
+                                        />
+                                        <h4 className="mt-5 text-xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
+                                            Checking availability
+                                        </h4>
+                                        <p className="mt-2 max-w-md text-sm leading-7 text-[#6e604c] dark:text-white/58">
+                                            {message || 'Please wait while the system reviews the selected range, venue area, and calendar blocks.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : message && !result ? (
+                                <div className="rounded-[1.35rem] border border-rose-200 bg-rose-50 p-5 text-rose-900 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
+                                    <div className="flex items-start gap-3">
+                                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                                        <div>
+                                            <h4 className="text-base font-semibold">Unable to complete the check</h4>
+                                            <p className="mt-2 text-sm leading-7">{message}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : result ? (
+                                <div className="space-y-5">
+                                    <div className={cx('rounded-[1.35rem] border p-4', statusTone(result.status))}>
+                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                            <div>
+                                                <span className="inline-flex items-center gap-2 rounded-full border border-current/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em]">
+                                                    <ResultStatusIcon status={result.status} />
+                                                    {statusLabel(result.status)}
+                                                </span>
+
+                                                <h4 className="mt-3 text-xl font-semibold tracking-[-0.045em]">
+                                                    {result.title}
+                                                </h4>
+
+                                                <p className="mt-2 text-sm leading-7 opacity-80">
+                                                    {formatRangeLabel(result.from, result.to)} · {result.venue}
+                                                </p>
+
+                                                <p className="mt-2 text-sm leading-7 opacity-80">
+                                                    {result.description}
+                                                </p>
+
+                                                {result.note ? (
+                                                    <p className="mt-2 text-sm leading-7 opacity-80">
+                                                        {result.note}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+
+                                            <div className="grid min-w-[16rem] gap-2 rounded-[1.15rem] bg-white/55 p-3 text-sm dark:bg-white/7">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <span>Days checked</span>
+                                                    <strong>{readableNumber(result.days_count || result.results.length)}</strong>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <span>Available</span>
+                                                    <strong>{readableNumber(result.available_days)}</strong>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <span>Limited</span>
+                                                    <strong>{readableNumber(result.limited_days)}</strong>
+                                                </div>
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <span>Blocked/Reserved</span>
+                                                    <strong>{readableNumber(result.blocked_days)}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-3">
+                                        {result.results.map((day) => (
+                                            <DayResultCard key={day.date} day={day} />
+                                        ))}
+                                    </div>
+
+                                    <div className="rounded-[1.35rem] border border-[#d9c7a6]/70 bg-white/75 p-4 dark:border-white/10 dark:bg-white/7">
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                            Booking Summary
+                                        </p>
+
+                                        <p className="mt-2 text-sm leading-7 text-[#6e604c] dark:text-white/58">
+                                            Range: {formatRangeLabel(result.from, result.to)} · Area: {result.venue} · Event:{' '}
+                                            {result.event_type || 'Not specified'} · Guests: {result.guests || 'Not specified'}
+                                        </p>
+
+                                        <p className="mt-2 text-sm leading-7 text-[#6e604c] dark:text-white/58">
+                                            {result.recommended_action || 'Review each date and available block before continuing.'}
+                                        </p>
+
+                                        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                                            {result.can_proceed !== false ? (
+                                                <Link
+                                                    href={rangeBookingHref(result)}
+                                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
+                                                >
+                                                    Continue to Booking
+                                                    <ArrowRight className="h-4 w-4" />
+                                                </Link>
+                                            ) : null}
+
+                                            <Link
+                                                href={`/calendar?venue=${encodeURIComponent(result.venue)}`}
+                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                            >
+                                                Open Full Calendar
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
+                    </motion.section>
+                </motion.div>
+            ) : null}
+        </AnimatePresence>
+    );
 }
+
+export default function HeroAvailabilityBar({ venueOptions }: Props) {
+    const options = venueOptions.length > 0 ? venueOptions : [];
+    const defaultVenue = options[0]?.value || '';
+
+    const [dateFrom, setDateFrom] = useState(todayKey());
+    const [dateTo, setDateTo] = useState(todayKey());
+    const [eventType, setEventType] = useState('');
+    const [venue, setVenue] = useState(defaultVenue);
+    const [guests, setGuests] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [validationMessage, setValidationMessage] = useState('');
+    const [modalMessage, setModalMessage] = useState('');
+    const [result, setResult] = useState<AvailabilityRangeResponse | null>(null);
+    const [modalOpen, setModalOpen] = useState(false);
+
+    const selectedVenue = useMemo(
+        () => options.find((item) => item.value === venue) ?? null,
+        [venue, options],
+    );
+
+    async function handleSubmit(event: FormEvent) {
+        event.preventDefault();
+
+        if (!dateFrom || !dateTo || !eventType || !venue || !guests) {
+            setValidationMessage('Please complete the date range, event type, area, and guest count.');
+            return;
+        }
+
+        if (dateFrom > dateTo) {
+            setValidationMessage('The end date must be the same as or later than the start date.');
+            return;
+        }
+
+        const days = daysBetween(dateFrom, dateTo);
+
+        if (days < 1) {
+            setValidationMessage('Please select a valid date range.');
+            return;
+        }
+
+        if (days > 14) {
+            setValidationMessage('Please keep the quick-check range to 14 days or fewer.');
+            return;
+        }
+
+        setLoading(true);
+        setModalOpen(true);
+        setResult(null);
+        setValidationMessage('');
+        setModalMessage('Checking selected date range and area...');
+
+        try {
+            const payload = await postAvailabilityCheck({
+                date: dateFrom,
+                start_date: dateFrom,
+                end_date: dateTo,
+                date_from: dateFrom,
+                date_to: dateTo,
+                venue,
+                event_type: eventType,
+                guests: Number(guests),
+            });
+
+            setResult(
+                asRangePayload(payload, {
+                    from: dateFrom,
+                    to: dateTo,
+                    venue,
+                    eventType,
+                    guests,
+                }),
+            );
+            setModalMessage('');
+        } catch (error) {
+            setModalMessage(error instanceof Error ? error.message : 'Unable to check availability right now.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <>
+            <section className="sticky bottom-0 z-[99960] -mt-2 border-y border-[#d9c7a6]/70 bg-[#fffaf0]/90 px-3 py-3 shadow-[0_-18px_70px_rgba(47,37,23,0.14)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/90 sm:px-4 lg:px-6">
+                <div className="mx-auto w-full max-w-[1920px]">
+                    <form
+                        onSubmit={handleSubmit}
+                        className="grid gap-2 xl:grid-cols-[1.1fr_1.1fr_1.35fr_1.35fr_0.85fr_auto]"
+                    >
+                        <FieldShell label="Date From" icon={<CalendarDays className="h-3.5 w-3.5" />}>
+                            <input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(event) => {
+                                    const next = event.target.value;
+
+                                    setDateFrom(next);
+
+                                    if (!dateTo || next > dateTo) {
+                                        setDateTo(next);
+                                    }
+                                }}
+                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                            />
+                        </FieldShell>
+
+                        <FieldShell label="Date To" icon={<CalendarDays className="h-3.5 w-3.5" />}>
+                            <input
+                                type="date"
+                                value={dateTo}
+                                onChange={(event) => setDateTo(event.target.value)}
+                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                            />
+                        </FieldShell>
+
+                        <FieldShell label="Event Type" icon={<Sparkles className="h-3.5 w-3.5" />}>
+                            <select
+                                value={eventType}
+                                onChange={(event) => setEventType(event.target.value)}
+                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                            >
+                                <option value="">Select type</option>
+                                {publicEventTypeOptions.map((item) => (
+                                    <option key={item} value={item}>
+                                        {item}
+                                    </option>
+                                ))}
+                            </select>
+                        </FieldShell>
+
+                        <FieldShell label="Venue Area" icon={<LayoutGrid className="h-3.5 w-3.5" />}>
+                            <select
+                                value={venue}
+                                onChange={(event) => setVenue(event.target.value)}
+                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                            >
+                                <option value="">Select area</option>
+                                {options.map((item) => (
+                                    <option key={item.value} value={item.value}>
+                                        {item.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </FieldShell>
+
+                        <FieldShell label="Guests" icon={<Users className="h-3.5 w-3.5" />}>
+                            <input
+                                type="number"
+                                min="1"
+                                value={guests}
+                                onChange={(event) => setGuests(event.target.value)}
+                                placeholder="Estimated"
+                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none placeholder:text-[#85755d] dark:text-white dark:placeholder:text-white/42"
+                            />
+                        </FieldShell>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="inline-flex min-h-[4.65rem] items-center justify-center gap-2 rounded-[1.05rem] bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.22)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-[#17120b]"
+                        >
+                            {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                            {loading ? 'Checking' : 'Check'}
+                        </button>
+                    </form>
+
+                    <div className="mt-2 flex flex-col gap-2 text-xs text-[#6e604c] dark:text-white/58 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            {selectedVenue ? (
+                                <span>
+                                    {selectedVenue.label}
+                                    {selectedVenue.category ? ` • ${selectedVenue.category}` : ''}
+                                    {selectedVenue.capacity ? ` • Capacity: ${selectedVenue.capacity}` : ''}
+                                </span>
+                            ) : (
+                                <span>Select a venue area to begin checking availability.</span>
+                            )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {blockOrderPreview.map((item) => (
+                                <span key={item.key} className="inline-flex items-center gap-1 rounded-full border border-[#d9c7a6]/70 bg-white/70 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] dark:border-white/10 dark:bg-white/7">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-[#9d7b3d] dark:bg-[#f1d89b]" />
+                                    {item.key} {item.display}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+
+                    {validationMessage ? (
+                        <div className="mt-2 flex items-start gap-2 rounded-[1rem] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                            {validationMessage}
+                        </div>
+                    ) : null}
+                </div>
+            </section>
+
+            <AvailabilityResultModal
+                open={modalOpen}
+                loading={loading}
+                message={modalMessage}
+                result={result}
+                onClose={() => setModalOpen(false)}
+            />
+        </>
+    );
+}
+
+const blockOrderPreview = [
+    { key: 'AM', display: blockMeta.AM.display },
+    { key: 'PM', display: blockMeta.PM.display },
+    { key: 'EVE', display: blockMeta.EVE.display },
+];

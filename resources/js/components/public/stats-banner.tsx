@@ -1,103 +1,119 @@
-import { motion, useReducedMotion } from 'framer-motion';
-import { BarChart3, Sparkles } from 'lucide-react';
 import type { HomepageStatItem } from '@/types/public-content';
+import { motion, useReducedMotion } from 'framer-motion';
+import { Building2, CalendarDays, Landmark, Users } from 'lucide-react';
 
-type Props = {
-  items?: HomepageStatItem[];
+type StatsBannerProps = {
+    items?: HomepageStatItem[];
 };
 
 const fallbackStats: HomepageStatItem[] = [
-  {
-    id: '1',
-    value: '01',
-    suffix: '',
-    label: 'City Landmark Venue',
-  },
-  {
-    id: '2',
-    value: '07',
-    suffix: '+',
-    label: 'Flexible Venue Areas',
-  },
-  {
-    id: '3',
-    value: '03',
-    suffix: '',
-    label: 'Core Time Blocks',
-  },
-  {
-    id: '4',
-    value: '24',
-    suffix: '/7',
-    label: 'Digital Inquiry Access',
-  },
+    {
+        id: 'years',
+        label: 'City Landmark',
+        value: '1909',
+        description: 'Baguio heritage and civic identity',
+    },
+    {
+        id: 'events',
+        label: 'Event-ready Areas',
+        value: '7+',
+        description: 'Venue spaces for public and private use',
+    },
+    {
+        id: 'blocks',
+        label: 'Booking Blocks',
+        value: 'AM · PM · EVE',
+        description: 'Structured daily schedule windows',
+    },
+    {
+        id: 'office',
+        label: 'Managed Portal',
+        value: 'BCCC EASE',
+        description: 'Official booking and scheduling engine',
+    },
 ];
 
-const easeLuxury = [0.22, 1, 0.36, 1] as const;
+const icons = [Landmark, Building2, CalendarDays, Users];
 
-export default function StatsBanner({ items = [] }: Props) {
-  const source = items.length > 0 ? items : fallbackStats;
-  const looping = [...source, ...source, ...source];
-  const reduceMotion = useReducedMotion();
+function statValue(item: HomepageStatItem) {
+    return `${item.prefix || ''}${item.value}${item.suffix || ''}`;
+}
 
-  return (
-    <section className="relative overflow-hidden bg-[#080906] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,223,173,0.12),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(47,106,85,0.22),transparent_42%)]" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#f4dfad]/50 to-transparent" />
+export default function StatsBanner({ items = [] }: StatsBannerProps) {
+    const reduceMotion = useReducedMotion();
+    const visible = items.length > 0 ? items : fallbackStats;
+    const loopItems = [...visible, ...visible];
 
-      <div className="public-container relative z-10 grid gap-8 py-10 lg:grid-cols-[0.55fr_1.45fr] lg:items-center lg:py-12">
-        <motion.div
-          initial={reduceMotion ? { opacity: 1 } : { opacity: 0, x: -18, filter: 'blur(8px)' }}
-          whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0, filter: 'blur(0px)' }}
-          viewport={{ once: true, amount: 0.25 }}
-          transition={{ duration: 0.62, ease: easeLuxury }}
-        >
-          <div className="inline-flex items-center gap-2 border border-[#f4dfad]/25 bg-[#f4dfad]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-[#f4dfad]">
-            <BarChart3 className="h-3.5 w-3.5" />
-            Venue at a Glance
-          </div>
+    return (
+        <section className="overflow-hidden bg-[#f8f5ef] py-0 dark:bg-[#0d0f12]">
+            <div className="border-y border-[#d9c7a6]/70 bg-[#fffaf0]/80 shadow-[0_14px_55px_rgba(47,37,23,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045]">
+                <div className="mx-auto max-w-[1920px] px-4 sm:px-6 lg:px-8">
+                    <div className="flex min-h-[8.2rem] items-center gap-8 overflow-hidden">
+                        <div className="hidden shrink-0 lg:block">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                Venue at a Glance
+                            </p>
+                            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#21180d] dark:text-white">
+                                BCCC by numbers
+                            </h2>
+                        </div>
 
-          <h2 className="mt-4 max-w-lg text-3xl font-semibold tracking-[-0.055em] text-white sm:text-4xl">
-            A moving snapshot of BCCC’s public-facing venue value.
-          </h2>
+                        <div className="relative min-w-0 flex-1 overflow-hidden">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#fffaf0] to-transparent dark:from-[#15181d]" />
+                            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#fffaf0] to-transparent dark:from-[#15181d]" />
 
-          <p className="mt-4 max-w-lg text-sm leading-7 text-white/58">
-            Key venue indicators glide across the page with a quiet marquee motion, keeping the section active without feeling noisy.
-          </p>
-        </motion.div>
+                            <motion.div
+                                className="flex w-max gap-4 py-4"
+                                animate={
+                                    reduceMotion
+                                        ? undefined
+                                        : {
+                                              x: ['0%', '-50%'],
+                                          }
+                                }
+                                transition={
+                                    reduceMotion
+                                        ? undefined
+                                        : {
+                                              duration: 34,
+                                              repeat: Infinity,
+                                              ease: 'linear',
+                                          }
+                                }
+                            >
+                                {loopItems.map((item, index) => {
+                                    const Icon = icons[index % icons.length];
 
-        <motion.div
-          initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, filter: 'blur(8px)' }}
-          whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: 'blur(0px)' }}
-          viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.62, ease: easeLuxury, delay: 0.08 }}
-          className="relative overflow-hidden border-y border-white/10 py-5"
-        >
-          <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-16 bg-gradient-to-r from-[#080906] to-transparent" />
-          <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-16 bg-gradient-to-l from-[#080906] to-transparent" />
+                                    return (
+                                        <article
+                                            key={`${item.id || item.label}-${index}`}
+                                            className="flex min-w-[18rem] items-center gap-4 rounded-[1.35rem] border border-[#d9c7a6]/70 bg-white/78 p-4 shadow-[0_16px_40px_rgba(47,37,23,0.08)] dark:border-white/10 dark:bg-white/[0.055]"
+                                        >
+                                            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
+                                                <Icon className="h-5 w-5" />
+                                            </span>
 
-          <div className="bccc-stat-marquee flex w-max gap-3">
-            {looping.map((item, index) => (
-              <article
-                key={`${item.id}-${index}`}
-                className="min-w-[15rem] border border-white/10 bg-white/[0.055] px-5 py-5 backdrop-blur-xl sm:min-w-[18rem]"
-              >
-                <div className="mb-6 flex items-center justify-between gap-4">
-                  <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/46">
-                    {item.label}
-                  </span>
-                  <Sparkles className="h-4 w-4 text-[#f4dfad]/70" />
+                                            <span className="min-w-0">
+                                                <span className="block text-2xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
+                                                    {statValue(item)}
+                                                </span>
+                                                <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                                    {item.label}
+                                                </span>
+                                                {item.description ? (
+                                                    <span className="mt-1 block truncate text-xs text-[#6e604c] dark:text-white/48">
+                                                        {item.description}
+                                                    </span>
+                                                ) : null}
+                                            </span>
+                                        </article>
+                                    );
+                                })}
+                            </motion.div>
+                        </div>
+                    </div>
                 </div>
-
-                <p className="text-5xl font-semibold tracking-[-0.08em] text-white sm:text-6xl">
-                  {item.value}
-                  <span className="text-[#f4dfad]">{item.suffix}</span>
-                </p>
-              </article>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-    </section>
-  );
+            </div>
+        </section>
+    );
 }

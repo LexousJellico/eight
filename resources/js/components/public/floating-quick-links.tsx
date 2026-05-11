@@ -1,110 +1,142 @@
-import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowUpRight, Landmark, Palette } from 'lucide-react';
-
-type SiteSettingsLike = {
-  visitaUrl?: string | null;
-  creativeBaguioUrl?: string | null;
-};
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { ArrowUpRight, Info, Landmark, Palette, X } from 'lucide-react';
+import { useState } from 'react';
+import type { SiteSettings } from '@/layouts/public-layout';
 
 type Props = {
-  siteSettings?: SiteSettingsLike;
+    siteSettings?: SiteSettings | null;
 };
 
-const easeLuxury = [0.22, 1, 0.36, 1] as const;
+const ease = [0.22, 1, 0.36, 1] as const;
 
 export default function FloatingQuickLinks({ siteSettings }: Props) {
-  const reduceMotion = useReducedMotion();
+    const reduceMotion = useReducedMotion();
+    const [open, setOpen] = useState(false);
 
-  const visitaUrl = siteSettings?.visitaUrl || 'https://visita.baguio.gov.ph';
-  const artsUrl = siteSettings?.creativeBaguioUrl || 'https://creativecity.baguio.gov.ph';
+    const visitaUrl =
+        siteSettings?.visitaUrl ||
+        siteSettings?.visita_url ||
+        'https://visita.baguio.gov.ph';
 
-  const links = [
-    {
-      label: 'VISITA',
-      description: 'Baguio travel portal',
-      href: visitaUrl,
-      icon: Landmark,
-    },
-    {
-      label: 'ARTS',
-      description: 'Creative Baguio',
-      href: artsUrl,
-      icon: Palette,
-    },
-  ];
+    const artsUrl =
+        siteSettings?.creativeBaguioUrl ||
+        siteSettings?.creative_baguio_url ||
+        siteSettings?.arts_url ||
+        'https://creativecity.baguio.gov.ph';
 
-  return (
-    <div className="bccc-floating-quick-links pointer-events-none fixed bottom-[5.6rem] left-4 z-[70] hidden flex-col gap-2 sm:flex lg:left-6">
-      {links.map((link, index) => {
-        const Icon = link.icon;
+    const links = [
+        {
+            label: 'VISITA',
+            description: 'Baguio tourist assistance',
+            href: visitaUrl,
+            icon: Landmark,
+        },
+        {
+            label: 'ARTS',
+            description: 'Creative Baguio portal',
+            href: artsUrl,
+            icon: Palette,
+        },
+    ];
 
-        return (
-          <motion.a
-            key={link.label}
-            href={link.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Open ${link.label} in a new tab`}
-            className="pointer-events-auto group relative flex min-w-[11rem] items-center gap-3 overflow-hidden border border-white/18 bg-[#090a08]/55 px-3.5 py-3 text-white shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-[#f4dfad]/45 hover:bg-[#090a08]/72 dark:border-white/14"
-            initial={reduceMotion ? { opacity: 1 } : { opacity: 0, x: -18, filter: 'blur(8px)' }}
-            animate={
-              reduceMotion
-                ? { opacity: 1 }
-                : {
-                    opacity: 1,
-                    x: 0,
-                    filter: 'blur(0px)',
-                    y: [0, -6, 0],
-                  }
-            }
-            transition={
-              reduceMotion
-                ? undefined
-                : {
-                    opacity: {
-                      duration: 0.58,
-                      ease: easeLuxury,
-                      delay: 0.7 + index * 0.12,
-                    },
-                    x: {
-                      duration: 0.58,
-                      ease: easeLuxury,
-                      delay: 0.7 + index * 0.12,
-                    },
-                    filter: {
-                      duration: 0.58,
-                      ease: easeLuxury,
-                      delay: 0.7 + index * 0.12,
-                    },
-                    y: {
-                      duration: 5.2 + index * 0.7,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                      delay: index * 0.4,
-                    },
-                  }
-            }
-          >
-            <span className="absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-[#f4dfad]/70 to-transparent opacity-70" />
-            <span className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(244,223,173,0.16),transparent_45%)] opacity-0 transition duration-500 group-hover:opacity-100" />
+    return (
+        <div
+            className="fixed bottom-5 right-4 z-[99970] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6"
+            onMouseEnter={() => setOpen(true)}
+            onMouseLeave={() => setOpen(false)}
+            onFocus={() => setOpen(true)}
+            onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setOpen(false);
+                }
+            }}
+        >
+            <AnimatePresence>
+                {open ? (
+                    <motion.div
+                        className="flex flex-col items-end gap-2"
+                        initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96, filter: 'blur(8px)' }}
+                        animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                        exit={reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96, filter: 'blur(8px)' }}
+                        transition={{ duration: 0.26, ease }}
+                    >
+                        {links.map((link, index) => {
+                            const Icon = link.icon;
 
-            <span className="relative flex h-9 w-9 items-center justify-center border border-white/18 bg-white/10 text-[#f4dfad]">
-              <Icon className="h-4 w-4" />
-            </span>
+                            return (
+                                <motion.a
+                                    key={link.label}
+                                    href={link.href}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="group flex min-h-14 w-[17rem] items-center gap-3 rounded-[1.25rem] border border-black/10 bg-white/90 px-3.5 text-left text-[#241a0d] shadow-[0_20px_60px_rgba(31,23,12,0.16)] backdrop-blur-2xl transition duration-300 hover:-translate-x-1 hover:border-[#b08d48]/50 hover:bg-white dark:border-white/10 dark:bg-[#111418]/90 dark:text-white dark:hover:bg-[#161b21]"
+                                    initial={
+                                        reduceMotion
+                                            ? false
+                                            : { opacity: 0, x: 18, y: 10, scale: 0.96 }
+                                    }
+                                    animate={
+                                        reduceMotion
+                                            ? undefined
+                                            : { opacity: 1, x: 0, y: 0, scale: 1 }
+                                    }
+                                    exit={
+                                        reduceMotion
+                                            ? undefined
+                                            : { opacity: 0, x: 18, y: 10, scale: 0.96 }
+                                    }
+                                    transition={{
+                                        duration: 0.28,
+                                        delay: index * 0.045,
+                                        ease,
+                                    }}
+                                >
+                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#f2e6ce] text-[#7d5d29] transition group-hover:bg-[#2f2517] group-hover:text-white dark:bg-white/10 dark:text-[#f3d995]">
+                                        <Icon className="h-4.5 w-4.5" />
+                                    </span>
 
-            <span className="relative min-w-0 flex-1">
-              <span className="block text-[11px] font-semibold uppercase tracking-[0.28em]">
-                {link.label}
-              </span>
-              <span className="mt-0.5 block truncate text-[11px] text-white/62">
-                {link.description}
-              </span>
-            </span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-[11px] font-bold uppercase tracking-[0.22em]">
+                                            {link.label}
+                                        </span>
+                                        <span className="mt-0.5 block truncate text-xs text-[#6f604f] dark:text-white/62">
+                                            {link.description}
+                                        </span>
+                                    </span>
 
-            <ArrowUpRight className="relative h-4 w-4 text-white/65 transition duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-[#f4dfad]" />
-          </motion.a>
-        );
-      })}
-    </div>
-  );
+                                    <ArrowUpRight className="h-4 w-4 shrink-0 opacity-55 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
+                                </motion.a>
+                            );
+                        })}
+                    </motion.div>
+                ) : null}
+            </AnimatePresence>
+
+            <motion.button
+                type="button"
+                onClick={() => setOpen((value) => !value)}
+                className="group relative grid h-14 w-14 place-items-center rounded-full border border-[#b08d48]/30 bg-[#2f2517] text-white shadow-[0_24px_70px_rgba(47,37,23,0.32)] transition duration-300 hover:-translate-y-1 hover:bg-[#4b3a22] dark:border-white/15 dark:bg-white dark:text-[#17120b]"
+                aria-label="Open VISITA and Arts quick links"
+                animate={
+                    reduceMotion
+                        ? undefined
+                        : {
+                              y: [0, -5, 0],
+                          }
+                }
+                transition={
+                    reduceMotion
+                        ? undefined
+                        : {
+                              duration: 3,
+                              repeat: Infinity,
+                              ease: 'easeInOut',
+                          }
+                }
+            >
+                <span className="absolute inset-0 rounded-full border border-white/20 opacity-0 transition group-hover:scale-125 group-hover:opacity-100" />
+                {open ? <X className="h-5 w-5" /> : <Info className="h-5 w-5" />}
+            </motion.button>
+        </div>
+    );
 }

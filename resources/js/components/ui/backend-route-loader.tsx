@@ -1,115 +1,103 @@
+import { BcccFullScreenLoader } from '@/components/shared/bccc-logo-loader';
 import { router } from '@inertiajs/react';
-import { Loader2 } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
-type LoadingPhase = 'idle' | 'starting' | 'loading' | 'finishing';
+type BackendRouteLoaderProps = {
+    delay?: number;
+    minimumVisibleMs?: number;
+};
 
-export function BackendRouteLoader() {
-  const [phase, setPhase] = useState<LoadingPhase>('idle');
-  const [progress, setProgress] = useState(0);
+export default function BackendRouteLoader({
+    delay = 80,
+    minimumVisibleMs = 1500,
+}: BackendRouteLoaderProps) {
+    const [visible, setVisible] = useState(false);
 
-  const progressTimer = useRef<number | null>(null);
-  const overlayTimer = useRef<number | null>(null);
-  const finishTimer = useRef<number | null>(null);
+    const visibleRef = useRef(false);
+    const openedAtRef = useRef(0);
+    const showTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+    const hideTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
-  useEffect(() => {
-    document.documentElement.classList.add('backend-smooth-scroll-active');
+    useEffect(() => {
+        visibleRef.current = visible;
+    }, [visible]);
 
-    return () => {
-      document.documentElement.classList.remove('backend-smooth-scroll-active');
-    };
-  }, []);
+    useEffect(() => {
+        const clearShowTimer = () => {
+            if (showTimerRef.current) {
+                window.clearTimeout(showTimerRef.current);
+                showTimerRef.current = null;
+            }
+        };
 
-  useEffect(() => {
-    const clearTimers = () => {
-      if (progressTimer.current) {
-        window.clearInterval(progressTimer.current);
-        progressTimer.current = null;
-      }
+        const clearHideTimer = () => {
+            if (hideTimerRef.current) {
+                window.clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = null;
+            }
+        };
 
-      if (overlayTimer.current) {
-        window.clearTimeout(overlayTimer.current);
-        overlayTimer.current = null;
-      }
+        const reveal = () => {
+            clearShowTimer();
+            clearHideTimer();
 
-      if (finishTimer.current) {
-        window.clearTimeout(finishTimer.current);
-        finishTimer.current = null;
-      }
-    };
+            showTimerRef.current = window.setTimeout(() => {
+                openedAtRef.current = Date.now();
+                visibleRef.current = true;
+                setVisible(true);
+            }, delay);
+        };
 
-    const unbindStart = router.on('start', () => {
-      clearTimers();
+        const conceal = () => {
+            clearShowTimer();
 
-      setProgress(8);
-      setPhase('starting');
+            if (!visibleRef.current) {
+                setVisible(false);
+                return;
+            }
 
-      overlayTimer.current = window.setTimeout(() => {
-        setPhase('loading');
-      }, 250);
+            const elapsed = Date.now() - openedAtRef.current;
+            const remaining = Math.max(minimumVisibleMs - elapsed, 0);
 
-      progressTimer.current = window.setInterval(() => {
-        setProgress((current) => {
-          if (current < 35) return current + 4;
-          if (current < 65) return current + 2;
-          if (current < 85) return current + 0.8;
-          return Math.min(current + 0.2, 92);
-        });
-      }, 160);
-    });
+            clearHideTimer();
 
-    const unbindFinish = router.on('finish', () => {
-      clearTimers();
-      setProgress(100);
-      setPhase('finishing');
+            hideTimerRef.current = window.setTimeout(() => {
+                visibleRef.current = false;
+                setVisible(false);
+            }, remaining);
+        };
 
-      finishTimer.current = window.setTimeout(() => {
-        setPhase('idle');
-        setProgress(0);
-      }, 350);
-    });
+        const offStart = router.on('start', reveal);
+        const offFinish = router.on('finish', conceal);
+        const offNavigate = router.on('navigate', conceal);
+        const offError = router.on('error', conceal);
+        const offCancel = router.on('cancel', conceal);
 
-    return () => {
-      clearTimers();
-      unbindStart();
-      unbindFinish();
-    };
-  }, []);
+        return () => {
+            clearShowTimer();
+            clearHideTimer();
 
-  const active = phase !== 'idle';
-  const showOverlay = phase === 'loading';
+            offStart();
+            offFinish();
+            offNavigate();
+            offError();
+            offCancel();
+        };
+    }, [delay, minimumVisibleMs]);
 
-  return (
-    <>
-      <div
-        className={`backend-route-progress ${active ? 'is-active' : ''}`}
-        aria-hidden="true"
-      >
-        <div
-          className="backend-route-progress-bar"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
-      <div
-        className={`backend-route-overlay ${showOverlay ? 'is-visible' : ''}`}
-        aria-hidden={!showOverlay}
-      >
-        <div className="backend-route-loader-card">
-          <div className="backend-route-loader-orb">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-
-          <div>
-            <p className="text-sm font-black tracking-[-0.02em]">
-              Loading workspace
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Please wait while the page updates.
-            </p>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+    return (
+        <AnimatePresence>
+            {visible ? (
+                <BcccFullScreenLoader
+                    open={visible}
+                    logoSrc="/marketing/images/logo/bccc-seal.png"
+                    label="Loading workspace..."
+                    sublabel="Preparing your workspace"
+                    size="lg"
+                    variant="route"
+                />
+            ) : null}
+        </AnimatePresence>
+    );
 }

@@ -1,151 +1,140 @@
 import LuxuryHorizontalRail from '@/components/public/luxury-horizontal-rail';
+import SafeImage from '@/components/system/safe-image';
+import BcccEmptyState, { BcccEmptyStateLink } from '@/components/ui/bccc-empty-state';
 import { Link } from '@inertiajs/react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowUpRight, Building2, Users } from 'lucide-react';
+import { ArrowUpRight, Building2, Map, Users } from 'lucide-react';
 import { useMemo } from 'react';
 import type { PublicSpaceItem } from '@/types/public-content';
 
 type Props = {
-  items?: PublicSpaceItem[];
+    items?: PublicSpaceItem[];
 };
 
-const easeLuxury = [0.22, 1, 0.36, 1] as const;
-
-function cx(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(' ');
-}
-
-function SpaceImage({ item }: { item: PublicSpaceItem }) {
-  const lightImage = item.lightImage || item.image || '/marketing/images/hero/noon2.jpg';
-  const darkImage = item.darkImage || item.image || lightImage;
-
-  return (
-    <div className="relative h-[19rem] overflow-hidden bg-[#080806] sm:h-[22rem] lg:h-[25rem]">
-      <img
-        src={lightImage}
-        alt={item.title}
-        className="absolute inset-0 h-full w-full object-cover transition duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.055] group-hover:saturate-[1.05] dark:hidden"
-        draggable={false}
-      />
-
-      <img
-        src={darkImage}
-        alt={item.title}
-        className="absolute inset-0 hidden h-full w-full object-cover transition duration-[1200ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.055] group-hover:saturate-[1.05] dark:block"
-        draggable={false}
-      />
-
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.08)_42%,rgba(0,0,0,0.68)_100%)]" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/84 via-black/16 to-black/18" />
-
-      <div className="absolute left-4 top-4 border border-white/16 bg-black/24 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#f4dfad] backdrop-blur-xl">
-        {item.category || 'Venue'}
-      </div>
-
-      {item.featured ? (
-        <div className="absolute right-4 top-4 border border-[#f4dfad]/35 bg-[#f4dfad]/14 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-[#f4dfad] backdrop-blur-xl">
-          Featured
-        </div>
-      ) : null}
-
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/72">
-          <Users className="h-3.5 w-3.5 text-[#f4dfad]" />
-          {item.capacity || 'Capacity available upon request'}
-        </div>
-
-        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-white sm:text-3xl">
-          {item.title}
-        </h3>
-      </div>
-    </div>
-  );
-}
+const ease = [0.22, 1, 0.36, 1] as const;
 
 function SpaceCard({ item, index }: { item: PublicSpaceItem; index: number }) {
-  const reduceMotion = useReducedMotion();
+    const reduceMotion = useReducedMotion();
+    const lightImage = item.lightImage || item.light_image || item.image || item.image_url || item.imageUrl || '/marketing/images/hero/noon2.jpg';
+    const darkImage = item.darkImage || item.dark_image || item.image || item.image_url || item.imageUrl || lightImage;
 
-  return (
-    <motion.article
-      className={cx(
-        'group relative min-w-[82vw] overflow-hidden border border-[var(--bccc-line)] bg-[var(--bccc-surface)] shadow-[var(--bccc-shadow-soft)] backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-[var(--bccc-line-gold)] hover:shadow-[var(--bccc-shadow-medium)] sm:min-w-[24rem] lg:min-w-[28rem] xl:min-w-[31rem]',
-        index === 0 && 'lg:min-w-[34rem]',
-      )}
-      initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 24, scale: 0.985 }}
-      whileInView={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, amount: 0.18 }}
-      transition={{ duration: 0.58, ease: easeLuxury, delay: Math.min(index * 0.055, 0.28) }}
-    >
-      <Link
-        href={`/facilities/${item.slug}`}
-        className="block h-full"
-        aria-label={`View ${item.title}`}
-      >
-        <SpaceImage item={item} />
+    return (
+        <motion.article
+            className="group relative min-h-[29rem] overflow-hidden rounded-[1.6rem] border border-black/10 bg-white shadow-[0_24px_70px_rgba(40,29,13,0.12)] [flex:0_0_82vw] dark:border-white/10 dark:bg-[#111418] sm:[flex:0_0_22rem] lg:[flex:0_0_calc((100%_-_3rem)_/_4)]"
+            initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+            whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.22 }}
+            transition={{ duration: 0.48, delay: Math.min(index * 0.045, 0.18), ease }}
+        >
+            <Link href={`/facilities/${item.slug}`} className="absolute inset-0 z-20" aria-label={`View ${item.title}`} />
 
-        <div className="relative space-y-5 p-5 sm:p-6">
-          <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[var(--bccc-line-gold)] to-transparent opacity-60" />
+            <div className="absolute inset-0">
+                <SafeImage
+                    src={lightImage}
+                    fallbackSrc="/marketing/images/facilities/darkvip.jpg"
+                    alt={item.title}
+                    className="h-full w-full object-cover transition duration-700 group-hover:scale-105 dark:hidden"
+                    wrapperClassName="h-full w-full rounded-none border-0"
+                />
 
-          <p className="min-h-[4.5rem] text-sm leading-7 text-[var(--bccc-text-muted)]">
-            {item.summary || item.shortDescription || 'Explore this venue space for your upcoming event.'}
-          </p>
+                <SafeImage
+                    src={darkImage}
+                    fallbackSrc="/marketing/images/facilities/darkvip.jpg"
+                    alt={item.title}
+                    className="hidden h-full w-full object-cover transition duration-700 group-hover:scale-105 dark:block"
+                    wrapperClassName="hidden h-full w-full rounded-none border-0 dark:grid"
+                />
 
-          <div className="flex items-center justify-between gap-4 border-t border-[var(--bccc-line)] pt-5">
-            <span className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.22em] text-[var(--bccc-gold-800)] dark:text-[var(--bccc-gold-300)]">
-              <Building2 className="h-4 w-4" />
-              {item.ctaLabel || 'View Space'}
-            </span>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#100b05]/92 via-[#100b05]/28 to-transparent" />
+                <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/32 to-transparent" />
+            </div>
 
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center border border-[var(--bccc-line)] bg-[var(--bccc-surface-muted)] transition duration-500 group-hover:border-[var(--bccc-line-gold)] group-hover:bg-[var(--bccc-gold-700)] group-hover:text-white">
-              <ArrowUpRight className="h-4 w-4 transition duration-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </span>
-          </div>
-        </div>
-      </Link>
-    </motion.article>
-  );
+            <div className="relative z-10 flex h-full min-h-[29rem] flex-col justify-between p-5 text-white">
+                <div className="flex items-start justify-between gap-3">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/18 bg-white/12 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] backdrop-blur-xl">
+                        <Building2 className="h-3.5 w-3.5" />
+                        {item.category || 'Venue'}
+                    </span>
+
+                    {item.featured || item.is_featured ? (
+                        <span className="rounded-full bg-[#f4dfad] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#17120b]">
+                            Featured
+                        </span>
+                    ) : null}
+                </div>
+
+                <div>
+                    <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/14 bg-black/18 px-3 py-2 text-xs text-white/80 backdrop-blur-xl">
+                        <Users className="h-3.5 w-3.5" />
+                        {item.capacity || 'Capacity upon request'}
+                    </div>
+
+                    <h3 className="font-serif text-3xl font-light leading-tight tracking-[-0.04em]">
+                        {item.title || item.name || 'BCCC Venue Space'}
+                    </h3>
+
+                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-white/72">
+                        {item.summary || item.shortDescription || item.short_description || item.description || 'Explore this BCCC venue space for your event.'}
+                    </p>
+
+                    <span className="mt-5 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-[#f4dfad]">
+                        {item.ctaLabel || item.cta_label || item.buttonLabel || item.button_label || 'View Space'}
+                        <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    </span>
+                </div>
+            </div>
+        </motion.article>
+    );
 }
 
 export default function SpacesGrid({ items = [] }: Props) {
-  const visible = useMemo(
-    () => items.filter((item) => item.homepageVisible).slice(0, 10),
-    [items],
-  );
+    const visible = useMemo(
+        () =>
+            items
+                .filter((item) => item.homepageVisible !== false && item.homepage_visible !== 0 && item.homepage_visible !== '0')
+                .slice(0, 12),
+        [items],
+    );
 
-  return (
-    <section className="public-section relative overflow-hidden">
-      <div className="public-container">
-        <div className="mb-8 grid gap-5 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
-          <div>
-            <div className="bccc-section-kicker">
-              <Building2 className="h-3.5 w-3.5" />
-              Our Spaces
+    return (
+        <section id="spaces" className="relative bg-[#f8f5ef] px-4 py-14 dark:bg-[#0d0f12] sm:px-6 lg:px-8">
+            <div className="mx-auto max-w-[1920px]">
+                <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div className="max-w-3xl">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.26em] text-[#9b7739]">
+                            Our Spaces
+                        </p>
+
+                        <h2 className="mt-3 font-serif text-[clamp(2.3rem,4vw,5rem)] font-light leading-[0.94] tracking-[-0.055em] text-[#21180d] dark:text-white">
+                            Venue spaces shaped for civic, cultural, and corporate gatherings.
+                        </h2>
+                    </div>
+
+                    <p className="max-w-md text-sm leading-7 text-[#6d604d] dark:text-white/62">
+                        Drag sideways or use the controls to browse. The layout keeps four cards visible on wide screens while staying smooth on tablet and mobile.
+                    </p>
+                </div>
+
+                {visible.length === 0 ? (
+                    <BcccEmptyState
+                        icon={Map}
+                        eyebrow="Venue Spaces"
+                        title="No public spaces are visible yet"
+                        description="Add venue spaces in the admin content or venue configuration area, then mark them visible on the public homepage."
+                        action={
+                            <BcccEmptyStateLink href="/facilities">
+                                View Facilities Page
+                            </BcccEmptyStateLink>
+                        }
+                    />
+                ) : (
+                    <LuxuryHorizontalRail label="BCCC venue spaces">
+                        {visible.map((item, index) => (
+                            <SpaceCard key={item.id} item={item} index={index} />
+                        ))}
+                    </LuxuryHorizontalRail>
+                )}
             </div>
-
-            <h2 className="mt-4 bccc-section-title-sm">
-              Venue spaces shaped for civic, cultural, and corporate gatherings.
-            </h2>
-          </div>
-
-          <p className="bccc-section-copy lg:justify-self-end">
-            Explore BCCC venue areas through an elegant horizontal gallery. Drag sideways or use the controls to browse available spaces without overwhelming the page.
-          </p>
-        </div>
-
-        {visible.length === 0 ? (
-          <div className="bccc-public-panel p-8 text-center">
-            <p className="text-sm text-[var(--bccc-text-muted)]">
-              No homepage spaces are visible yet.
-            </p>
-          </div>
-        ) : (
-          <LuxuryHorizontalRail label="BCCC venue spaces">
-            {visible.map((item, index) => (
-              <SpaceCard key={item.id} item={item} index={index} />
-            ))}
-          </LuxuryHorizontalRail>
-        )}
-      </div>
-    </section>
-  );
+        </section>
+    );
 }

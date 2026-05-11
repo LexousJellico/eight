@@ -1,111 +1,113 @@
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 
 type AppErrorBoundaryProps = {
-  children: ReactNode;
-  pageName?: string;
+    children: ReactNode;
+    pageName?: string;
 };
 
 type AppErrorBoundaryState = {
-  hasError: boolean;
-  error?: Error;
+    hasError: boolean;
+    error?: Error;
 };
 
 export default class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
-  state: AppErrorBoundaryState = {
-    hasError: false,
-    error: undefined,
-  };
-
-  static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
-    return {
-      hasError: true,
-      error,
-    };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    if (import.meta.env.DEV) {
-      console.error('[BCCC EASE] Page render failed:', error, errorInfo);
-    }
-  }
-
-  componentDidUpdate(previousProps: AppErrorBoundaryProps) {
-    if (previousProps.pageName !== this.props.pageName && this.state.hasError) {
-      this.setState({
+    state: AppErrorBoundaryState = {
         hasError: false,
         error: undefined,
-      });
-    }
-  }
+    };
 
-  private refreshPage = () => {
-    window.location.reload();
-  };
-
-  render() {
-    if (!this.state.hasError) {
-      return this.props.children;
+    static getDerivedStateFromError(error: Error): AppErrorBoundaryState {
+        return {
+            hasError: true,
+            error,
+        };
     }
 
-    const errorMessage =
-      import.meta.env.DEV && this.state.error?.message
-        ? this.state.error.message
-        : 'The page could not be displayed properly. Please refresh the page and try again.';
+    componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+        if (import.meta.env.DEV) {
+            console.error('[BCCC EASE] Page render failed:', error, errorInfo);
+        }
+    }
 
-    return (
-      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f8f3ea] px-5 py-12 text-[#1b1712] dark:bg-[#070807] dark:text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(169,132,67,0.18),transparent_34%),linear-gradient(135deg,rgba(23,56,45,0.12),transparent_42%)]" />
-        <div className="absolute inset-x-10 top-10 h-px bg-gradient-to-r from-transparent via-[#a98443]/50 to-transparent" />
-        <div className="absolute inset-x-10 bottom-10 h-px bg-gradient-to-r from-transparent via-[#a98443]/30 to-transparent" />
+    componentDidUpdate(previousProps: AppErrorBoundaryProps) {
+        if (previousProps.pageName !== this.props.pageName && this.state.hasError) {
+            this.setState({
+                hasError: false,
+                error: undefined,
+            });
+        }
+    }
 
-        <section className="relative w-full max-w-xl border border-[#a98443]/30 bg-white/76 p-8 shadow-[0_30px_100px_rgba(27,23,18,0.16)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.06]">
-          <div className="mb-7 flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center border border-[#a98443]/40 bg-[#f4ead9] text-[#7a5a24] dark:bg-white/10 dark:text-[#e6c88b]">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
+    private refreshPage = () => {
+        window.location.reload();
+    };
 
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#8a6a35] dark:text-[#e6c88b]">
-                Display notice
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">
-                This page needs to reload
-              </h1>
-            </div>
-          </div>
+    render() {
+        if (!this.state.hasError) {
+            return this.props.children;
+        }
 
-          <p className="max-w-lg text-sm leading-7 text-[#6c6257] dark:text-white/70">
-            {errorMessage}
-          </p>
+        const errorMessage =
+            import.meta.env.DEV && this.state.error?.message
+                ? this.state.error.message
+                : 'The page could not be displayed properly. Please refresh the page and try again.';
 
-          {import.meta.env.DEV && this.props.pageName ? (
-            <div className="mt-5 border border-[#1b1712]/10 bg-[#1b1712]/[0.03] p-4 text-xs text-[#6c6257] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60">
-              <span className="font-semibold text-[#1b1712] dark:text-white">Page:</span>{' '}
-              {this.props.pageName}
-            </div>
-          ) : null}
+        return (
+            <main className="min-h-screen bg-[#f7f4ee] px-4 py-10 text-slate-950 dark:bg-[#0d1117] dark:text-white">
+                <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-3xl items-center justify-center">
+                    <section className="relative w-full overflow-hidden rounded-[2rem] border border-amber-200/70 bg-white/90 p-6 shadow-[0_24px_90px_rgba(15,23,42,0.15)] backdrop-blur-2xl dark:border-amber-400/20 dark:bg-[#111827]/90">
+                        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-rose-300 to-amber-400" />
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={this.refreshPage}
-              className="inline-flex items-center gap-2 border border-[#17382d] bg-[#17382d] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white transition duration-300 hover:-translate-y-0.5 hover:bg-[#10271f] dark:border-[#e6c88b] dark:bg-[#e6c88b] dark:text-[#17120a]"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </button>
+                        <div className="flex flex-col gap-5 sm:flex-row">
+                            <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-amber-500/12 text-amber-700 dark:bg-amber-400/12 dark:text-amber-300">
+                                <AlertTriangle className="h-7 w-7" />
+                            </div>
 
-            <a
-              href="/"
-              className="inline-flex items-center border border-[#1b1712]/15 bg-white/40 px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#1b1712] transition duration-300 hover:-translate-y-0.5 hover:bg-white dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
-            >
-              Return home
-            </a>
-          </div>
-        </section>
-      </main>
-    );
-  }
+                            <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold tracking-[0.24em] text-amber-700 uppercase dark:text-amber-300">
+                                    Display notice
+                                </p>
+
+                                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">
+                                    This page needs to reload
+                                </h1>
+
+                                <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                    {errorMessage}
+                                </p>
+
+                                {import.meta.env.DEV && this.props.pageName ? (
+                                    <p className="mt-4 rounded-2xl border border-black/10 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+                                        Page: {this.props.pageName}
+                                    </p>
+                                ) : null}
+
+                                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                                    <button
+                                        type="button"
+                                        onClick={this.refreshPage}
+                                        className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-950/15 transition hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+                                    >
+                                        <RefreshCw className="h-4 w-4" />
+                                        Refresh page
+                                    </button>
+
+                                    <Link
+                                        href="/"
+                                        className="inline-flex items-center justify-center gap-2 rounded-full border border-black/10 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                                    >
+                                        <Home className="h-4 w-4" />
+                                        Return home
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        );
+    }
 }

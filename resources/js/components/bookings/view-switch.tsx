@@ -1,30 +1,67 @@
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
+import { ArrowRightLeft, Globe2, LayoutDashboard } from 'lucide-react';
 
 type BookingViewSwitchProps = {
     showBackend?: boolean;
     backendHref?: string;
+    frontendHref?: string;
+    className?: string;
 };
+
+function cx(...classes: Array<string | false | null | undefined>) {
+    return classes.filter(Boolean).join(' ');
+}
 
 export default function BookingViewSwitch({
     showBackend = true,
     backendHref = '/dashboard',
+    frontendHref = '/book',
+    className,
 }: BookingViewSwitchProps) {
+    const { url } = usePage();
+
+    const activeFrontend = url.startsWith('/book') || url.startsWith('/my-bookings');
+    const activeBackend = !activeFrontend;
+
     return (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div
+            className={cx(
+                'inline-flex items-center gap-1 rounded-full border border-[#d9c7a6]/70 bg-white/78 p-1 shadow-[0_14px_34px_rgba(47,37,23,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/7',
+                className,
+            )}
+        >
             <Link
-                href="/"
-                className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-[#174f40] transition hover:bg-[#eef4f1] dark:border-white/10 dark:bg-[#17181c] dark:text-[#9dc0ff] dark:hover:bg-[#1d2330]"
+                href={frontendHref}
+                className={cx(
+                    'inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-bold uppercase tracking-[0.16em] transition',
+                    activeFrontend
+                        ? 'bg-[#2f2517] text-white shadow-[0_12px_30px_rgba(47,37,23,0.18)] dark:bg-white dark:text-[#17120b]'
+                        : 'text-[#4a3b27] hover:bg-[#f7f0e3] dark:text-white/68 dark:hover:bg-white/10',
+                )}
             >
-                Frontend Design
+                <Globe2 className="h-4 w-4" />
+                Frontend
             </Link>
 
             {showBackend ? (
-                <Link
-                    href={backendHref}
-                    className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-[#1f1f1c] transition hover:bg-[#f4ede1] dark:border-white/10 dark:bg-[#17181c] dark:text-white dark:hover:bg-[#26272d]"
-                >
-                    Backend Design
-                </Link>
+                <>
+                    <span className="grid h-8 w-8 place-items-center text-[#9d7b3d] dark:text-[#f1d89b]">
+                        <ArrowRightLeft className="h-3.5 w-3.5" />
+                    </span>
+
+                    <Link
+                        href={backendHref}
+                        className={cx(
+                            'inline-flex h-10 items-center gap-2 rounded-full px-3 text-xs font-bold uppercase tracking-[0.16em] transition',
+                            activeBackend
+                                ? 'bg-[#2f2517] text-white shadow-[0_12px_30px_rgba(47,37,23,0.18)] dark:bg-white dark:text-[#17120b]'
+                                : 'text-[#4a3b27] hover:bg-[#f7f0e3] dark:text-white/68 dark:hover:bg-white/10',
+                        )}
+                    >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Backend
+                    </Link>
+                </>
             ) : null}
         </div>
     );

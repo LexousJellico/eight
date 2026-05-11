@@ -1,5 +1,6 @@
 import { CalendarClock, CheckCircle2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export type PencilBookedPopupPayload = {
     requestedAtIso: string;
@@ -9,43 +10,57 @@ export type PencilBookedPopupPayload = {
 const STORAGE_KEY = '__pencil_booked_success_popup__';
 const EVENT_NAME = 'pencil-booked-success-popup';
 
-export function triggerPencilBookedSuccessPopup(
-    payload: PencilBookedPopupPayload,
-) {
+export function triggerPencilBookedSuccessPopup(payload: PencilBookedPopupPayload) {
     try {
         sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {}
+    } catch {
+        // Session storage can fail in strict privacy mode. The event below still handles the current page.
+    }
 
     try {
-        window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: payload }));
-    } catch {}
+        window.dispatchEvent(new CustomEvent<PencilBookedPopupPayload>(EVENT_NAME, { detail: payload }));
+    } catch {
+        // No-op.
+    }
 }
 
 function safeReadFromSession(): PencilBookedPopupPayload | null {
     try {
         const raw = sessionStorage.getItem(STORAGE_KEY);
-        if (!raw) return null;
+
+        if (!raw) {
+            return null;
+        }
 
         sessionStorage.removeItem(STORAGE_KEY);
 
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== 'object') return null;
+        const parsed = JSON.parse(raw) as Partial<PencilBookedPopupPayload>;
 
-        const { requestedAtIso, dueAtIso } = parsed as any;
-        if (typeof requestedAtIso !== 'string' || typeof dueAtIso !== 'string')
+        if (!parsed || typeof parsed !== 'object') {
             return null;
+        }
 
-        return { requestedAtIso, dueAtIso };
+        if (typeof parsed.requestedAtIso !== 'string' || typeof parsed.dueAtIso !== 'string') {
+            return null;
+        }
+
+        return {
+            requestedAtIso: parsed.requestedAtIso,
+            dueAtIso: parsed.dueAtIso,
+        };
     } catch {
         return null;
     }
 }
 
 function formatDateTimeLocal(iso: string) {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
+    const date = new Date(iso);
 
-    return d.toLocaleString(undefined, {
+    if (Number.isNaN(date.getTime())) {
+        return iso;
+    }
+
+    return date.toLocaleString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -55,52 +70,63 @@ function formatDateTimeLocal(iso: string) {
 }
 
 export default function PencilBookedSuccessPopup() {
-    const [payload, setPayload] = useState<PencilBookedPopupPayload | null>(
-        null,
-    );
-    const timerRef = useRef<number | null>(null);
+    const [mounted, setMounted] = useState(false);
+    const [payload, setPayload] = useState<PencilBookedPopupPayload | null>(null);
+    const timerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
     const close = () => {
         if (timerRef.current) {
             window.clearTimeout(timerRef.current);
             timerRef.current = null;
         }
+
         setPayload(null);
     };
 
-    const show = (p: PencilBookedPopupPayload) => {
+    const show = (nextPayload: PencilBookedPopupPayload) => {
         if (timerRef.current) {
             window.clearTimeout(timerRef.current);
             timerRef.current = null;
         }
 
-        setPayload(p);
+        setPayload(nextPayload);
 
         timerRef.current = window.setTimeout(() => {
             setPayload(null);
             timerRef.current = null;
-        }, 1500);
+        }, 4200);
     };
 
     useEffect(() => {
-        const fromSession = safeReadFromSession();
-        if (fromSession) show(fromSession);
+        setMounted(true);
 
-        const handler = (e: Event) => {
-            const ce = e as CustomEvent<PencilBookedPopupPayload>;
-            if (!ce?.detail) return;
+        const fromSession = safeReadFromSession();
+
+        if (fromSession) {
+            show(fromSession);
+        }
+
+        const handler = (event: Event) => {
+            const customEvent = event as CustomEvent<PencilBookedPopupPayload>;
+
+            if (!customEvent?.detail) {
+                return;
+            }
 
             try {
                 sessionStorage.removeItem(STORAGE_KEY);
-            } catch {}
+            } catch {
+                // No-op.
+            }
 
-            show(ce.detail);
+            show(customEvent.detail);
         };
 
         window.addEventListener(EVENT_NAME, handler);
 
         return () => {
             window.removeEventListener(EVENT_NAME, handler);
+
             if (timerRef.current) {
                 window.clearTimeout(timerRef.current);
                 timerRef.current = null;
@@ -108,47 +134,50 @@ export default function PencilBookedSuccessPopup() {
         };
     }, []);
 
-    if (!payload) return null;
+    if (!mounted || !payload) {
+        return null;
+    }
 
-    return (
-        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-slate-950/40 px-4 backdrop-blur-md">
-            <div className="w-full max-w-lg rounded-[1.9rem] border border-emerald-200/70 bg-white text-slate-950 shadow-[0_30px_90px_rgba(15,23,42,0.28)] duration-200 animate-in fade-in zoom-in-95 dark:border-emerald-500/20 dark:bg-[#0f172a] dark:text-white">
-                <div className="flex items-start gap-4 p-5">
-                    <div className="rounded-2xl bg-emerald-500/12 p-3 text-emerald-600 dark:bg-emerald-400/12 dark:text-emerald-300">
+    return createPortal(
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-[999998] flex justify-center px-4">
+            <div className="pointer-events-auto relative w-full max-w-xl overflow-hidden rounded-[1.75rem] border border-emerald-200/80 bg-white/92 p-5 text-slate-950 shadow-[0_24px_90px_rgba(15,23,42,0.18)] backdrop-blur-2xl dark:border-emerald-400/20 dark:bg-[#111827]/92 dark:text-white">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-400 via-amber-300 to-emerald-400" />
+
+                <button
+                    type="button"
+                    onClick={close}
+                    className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full border border-black/10 bg-white/70 text-slate-500 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                    aria-label="Close booking success notice"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+
+                <div className="flex gap-4 pr-8">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-emerald-500/12 text-emerald-600 dark:bg-emerald-400/12 dark:text-emerald-300">
                         <CheckCircle2 className="h-6 w-6" />
                     </div>
 
                     <div className="min-w-0 flex-1">
-                        <div className="text-xs font-bold tracking-[0.28em] text-emerald-700 uppercase dark:text-emerald-300">
+                        <p className="text-xs font-semibold tracking-[0.22em] text-emerald-700 uppercase dark:text-emerald-300">
                             Booking submitted
-                        </div>
+                        </p>
 
-                        <div className="mt-2 text-base leading-tight font-semibold">
+                        <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white">
                             Your booking is pencil booked for 24 hours.
-                        </div>
+                        </h2>
 
-                        <div className="mt-3 flex items-start gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-600 dark:bg-white/5 dark:text-slate-300">
-                            <CalendarClock className="mt-1 h-4 w-4 shrink-0" />
-                            <div>
+                        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/85 p-3 text-sm leading-relaxed text-amber-950 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                            <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" />
+                            <p>
                                 Kindly settle your payment on or before{' '}
-                                <span className="font-semibold text-slate-900 dark:text-white">
-                                    {formatDateTimeLocal(payload.dueAtIso)}
-                                </span>
-                                .
-                            </div>
+                                <span className="font-semibold">{formatDateTimeLocal(payload.dueAtIso)}</span>.
+                                Failure to comply within the required period may result in automatic cancellation.
+                            </p>
                         </div>
                     </div>
-
-                    <button
-                        type="button"
-                        onClick={close}
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-black/10 bg-white/70 text-slate-500 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
-                        aria-label="Close notice"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }

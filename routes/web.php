@@ -24,10 +24,10 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserRoleController;
 use App\Http\Controllers\WorkspaceCalendarController;
 use App\Http\Controllers\WorkspaceHomeController;
+use App\Http\Controllers\BookingAvailabilityController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Http\Controllers\BookingMiceSurveyController;
 /*
 |--------------------------------------------------------------------------
 | Public Marketing Routes
@@ -40,6 +40,15 @@ Route::post('/public/availability-check', [PublicAvailabilityController::class, 
 
 Route::get('/public/calendar-month', [PublicAvailabilityController::class, 'month'])
     ->name('public.calendar.month');
+
+Route::post('/public/availability-check', [PublicAvailabilityController::class, 'check'])
+    ->name('public.availability.check');
+
+Route::get('/public/calendar-month', [PublicAvailabilityController::class, 'month'])
+    ->name('public.calendar.month');
+
+Route::get('/bookings/availability', BookingAvailabilityController::class)
+    ->name('bookings.availability');
 
 Route::post('/inquiries', [PublicInquiryController::class, 'store'])
     ->middleware('throttle:5,1')
@@ -70,14 +79,7 @@ Route::get('/contact', [PublicSiteController::class, 'contact'])
 Route::get('/guidelines', [PublicSiteController::class, 'guidelines'])
     ->name('guidelines');
 
-Route::get('/my-bookings/{booking}/survey', [BookingMiceSurveyController::class, 'show'])
-    ->whereNumber('booking')
-    ->name('user.bookings.survey');
 
-Route::post('/my-bookings/{booking}/survey', [BookingMiceSurveyController::class, 'store'])
-    ->whereNumber('booking')
-    ->name('user.bookings.survey.store');
-    
 /*
 |--------------------------------------------------------------------------
 | Dedicated Role Entries
@@ -144,14 +146,6 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::get('/calendar', WorkspaceCalendarController::class)
             ->name('calendar');
 
-
-        Route::get('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'show'])
-            ->whereNumber('booking')
-            ->name('bookings.survey');
-
-        Route::post('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'store'])
-            ->whereNumber('booking')
-            ->name('bookings.survey.store');
 
         Route::get('/calendar/manage', [CalendarManagementController::class, 'index'])
             ->name('calendar.manage');
@@ -391,14 +385,6 @@ Route::middleware(['auth', 'verified', 'role:manager'])
         Route::post('/calendar-blocks', [CalendarBlockController::class, 'store'])
             ->name('calendar-blocks.store');
 
-        Route::get('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'show'])
-            ->whereNumber('booking')
-            ->name('bookings.survey');
-
-        Route::post('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'store'])
-            ->whereNumber('booking')
-            ->name('bookings.survey.store');
-
         Route::post('/calendar-blocks/bulk', [CalendarBlockController::class, 'bulkStore'])
             ->name('calendar-blocks.bulk-store');
 
@@ -515,14 +501,6 @@ Route::middleware(['auth', 'verified', 'role:staff'])
         Route::get('/calendar', WorkspaceCalendarController::class)
             ->name('calendar');
 
-        Route::get('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'show'])
-            ->whereNumber('booking')
-            ->name('bookings.survey');
-
-        Route::post('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'store'])
-            ->whereNumber('booking')
-            ->name('bookings.survey.store');
-
 
         Route::get('/bookings/availability', [BookingController::class, 'availability'])
             ->name('bookings.availability');
@@ -589,13 +567,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->whereNumber('booking')
         ->name('user.bookings.show');
 
-    Route::get('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'show'])
-        ->whereNumber('booking')
-        ->name('bookings.survey');
-
-    Route::post('/bookings/{booking}/survey', [BookingMiceSurveyController::class, 'store'])
-        ->whereNumber('booking')
-        ->name('bookings.survey.store');
 
     Route::get('/my-bookings/{booking}/survey', [BookingController::class, 'survey'])
         ->whereNumber('booking')
@@ -854,6 +825,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('users', UserController::class)
         ->middleware('permission:users.manage')
         ->where(['user' => '[0-9]+']);
+
+
 });
 
 require __DIR__ . '/settings.php';
