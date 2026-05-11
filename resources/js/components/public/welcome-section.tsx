@@ -48,16 +48,6 @@ export default function WelcomeSection() {
                     />
 
                     <div className="absolute inset-0 bg-gradient-to-t from-[#100b05]/82 via-[#100b05]/20 to-transparent" />
-
-                    <div className="absolute bottom-5 left-5 right-5 rounded-[1.45rem] border border-white/16 bg-white/12 p-4 text-white shadow-[0_24px_70px_rgba(0,0,0,0.24)] backdrop-blur-2xl">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#f4dfad]">
-                            BCCC EASE
-                        </p>
-
-                        <h3 className="mt-2 text-2xl font-semibold tracking-[-0.045em]">
-                            Public booking, calendar visibility, and office review in one system.
-                        </h3>
-                    </div>
                 </motion.div>
 
                 <motion.div
@@ -71,7 +61,7 @@ export default function WelcomeSection() {
                         Welcome to BCCC
                     </div>
 
-                    <h2 className="mt-5 font-serif text-[clamp(2.6rem,4.8vw,6.2rem)] font-light leading-[0.92] tracking-[-0.06em] text-[#21180d] dark:text-white">
+                    <h2 className="mt-5 font-serif text-[clamp(2rem,2.1vw,6rem)] font-light leading-[0.92] tracking-[-0.06em] text-[#21180d] dark:text-white">
                         A central venue for Baguio’s public life, culture, and events.
                     </h2>
 
@@ -105,23 +95,6 @@ export default function WelcomeSection() {
                                 </article>
                             );
                         })}
-                    </div>
-
-                    <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                        <Link
-                            href="/facilities"
-                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
-                        >
-                            Explore Facilities
-                            <ArrowRight className="h-4 w-4" />
-                        </Link>
-
-                        <Link
-                            href="/calendar"
-                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
-                        >
-                            View Public Calendar
-                        </Link>
                     </div>
                 </motion.div>
             </div>

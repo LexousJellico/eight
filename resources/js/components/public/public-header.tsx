@@ -416,7 +416,7 @@ export default function PublicHeader() {
 
     const settings = props.siteSettings || {};
 
-    const sealUrl = settings.city_seal_url || settings.logo_url || '/marketing/images/logo/bccc-seal.png';
+    const sealUrl = settings.city_seal_url || settings.logo_url || '/marketing/images/branding/FINAL.png';
     const breatheLogoUrl =
         settings.breathe_baguio_logo_url || settings.baguio_logo_url || '/marketing/images/logo/breathe-baguio.png';
 
@@ -440,11 +440,11 @@ export default function PublicHeader() {
     const officialCaption = useMemo(
         () => (
             <div className="leading-tight">
-                <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#8d6a30] dark:text-[#f0d69a]">
-                    Republic of the Philippines
+                <p className="text-[14px] font-semibold uppercase tracking-[0.05rem] text-[#8d6a30] dark:text-[#f0d69a]">
+                    Baguio Convention and Cultural Center
                 </p>
                 <p className="mt-0.5 text-[11px] font-semibold text-[#21180d] dark:text-white">
-                    City Government of Baguio
+                    EVENTS ACCESS AND SCHEDULING ENGINE
                 </p>
             </div>
         ),
@@ -456,10 +456,10 @@ export default function PublicHeader() {
             <header className="fixed inset-x-0 top-0 z-[99980] border-b border-black/8 bg-[#fffaf0]/82 shadow-[0_12px_50px_rgba(49,37,19,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0f1216]/74">
                 <div className="mx-auto flex h-[72px] w-full max-w-[1920px] items-center gap-2 px-3 sm:px-4 lg:px-5 2xl:px-7">
                     <Link href="/" className="group flex min-w-0 items-center gap-3">
-                        <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-[#c8a45e]/45 bg-white shadow-[0_10px_26px_rgba(49,37,19,0.12)]">
+                        <span className="grid h-26 w-26 shrink-0 place-items-center overflow-hidden">
                             <SafeImage
                                 src={sealUrl}
-                                fallbackSrc="/marketing/images/logo/bccc-seal.png"
+                                fallbackSrc="/marketing/images/branding/FINAL.png"
                                 alt="City Government of Baguio"
                                 className="h-full w-full object-contain p-1"
                             />
@@ -479,18 +479,11 @@ export default function PublicHeader() {
 
                         <ThemeButton />
 
-                        <span className="hidden h-10 items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 shadow-[0_10px_28px_rgba(54,39,20,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/8 sm:inline-flex">
-                            <ShieldCheck className="h-4 w-4 text-[#9b7739]" />
-                            <span className="hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-[#332616] dark:text-white/84 lg:inline">
-                                Official Portal
-                            </span>
-                        </span>
-
                         <SafeImage
                             src={breatheLogoUrl}
-                            fallbackSrc="/marketing/images/logo/bccc-seal.png"
+                            fallbackSrc="/marketing/images/branding/breathe-light.png"
                             alt="Breathe Baguio"
-                            className="hidden h-10 w-auto max-w-[7rem] object-contain md:block"
+                            className="hidden h-14 w-auto max-w-[10rem] object-contain md:block"
                             wrapperClassName="hidden h-10 w-[7rem] md:grid"
                         />
 
