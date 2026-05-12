@@ -28,7 +28,7 @@ import {
     X,
 } from 'lucide-react';
 import type { ChangeEvent, FormEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { notifyError, notifySuccess } from '@/components/shared/app-notice-center';
 
 type ContentType = 'event' | 'space' | 'package' | 'stat' | 'tourism';
@@ -129,16 +129,24 @@ type SiteSettings = {
     openMapUrl?: string | null;
 };
 
+type CollectionLike<T> =
+    | T[]
+    | {
+          data?: T[];
+      }
+    | null
+    | undefined;
+
 type PageProps = {
-    events?: GenericRecord[];
-    bcccEvents?: GenericRecord[];
-    cityEvents?: GenericRecord[];
-    spaces?: GenericRecord[];
-    offers?: GenericRecord[];
-    packages?: GenericRecord[];
-    stats?: GenericRecord[];
-    members?: GenericRecord[];
-    tourismMembers?: GenericRecord[];
+    events?: CollectionLike<GenericRecord>;
+    bcccEvents?: CollectionLike<GenericRecord>;
+    cityEvents?: CollectionLike<GenericRecord>;
+    spaces?: CollectionLike<GenericRecord>;
+    offers?: CollectionLike<GenericRecord>;
+    packages?: CollectionLike<GenericRecord>;
+    stats?: CollectionLike<GenericRecord>;
+    members?: CollectionLike<GenericRecord>;
+    tourismMembers?: CollectionLike<GenericRecord>;
     siteSettings?: SiteSettings;
     flash?: {
         success?: string;
@@ -147,6 +155,20 @@ type PageProps = {
     };
     errors?: Record<string, string>;
 };
+
+type ContentPayload = Pick<
+    PageProps,
+    | 'events'
+    | 'bcccEvents'
+    | 'cityEvents'
+    | 'spaces'
+    | 'offers'
+    | 'packages'
+    | 'stats'
+    | 'members'
+    | 'tourismMembers'
+    | 'siteSettings'
+>;
 
 type ModalState =
     | { mode: 'create'; type: ContentType; record?: undefined }
@@ -263,8 +285,30 @@ function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
 }
 
-function recordsOf<T>(value?: T[]): T[] {
-    return Array.isArray(value) ? value : [];
+function recordsOf<T>(value?: CollectionLike<T>): T[] {
+    if (Array.isArray(value)) return value;
+
+    if (value && typeof value === 'object' && Array.isArray(value.data)) {
+        return value.data;
+    }
+
+    return [];
+}
+
+function sortRecords(records: GenericRecord[]) {
+    return [...records].sort((a, b) => {
+        const orderA = Number(a.sort_order ?? a.sortOrder ?? 9999);
+        const orderB = Number(b.sort_order ?? b.sortOrder ?? 9999);
+
+        if (Number.isFinite(orderA) && Number.isFinite(orderB) && orderA !== orderB) {
+            return orderA - orderB;
+        }
+
+        const idA = Number(a.id ?? 0);
+        const idB = Number(b.id ?? 0);
+
+        return idB - idA;
+    });
 }
 
 function truthyFlag(value: unknown) {
@@ -525,15 +569,87 @@ function settingValue(settings: SiteSettings, camel: keyof SiteSettings, snake: 
 
 export default function AdminContentIndex() {
     const { props } = usePage<PageProps>();
+    const [syncedPayload, setSyncedPayload] = useState<ContentPayload>({});
+    const [syncingContent, setSyncingContent] = useState(false);
+
+    useEffect(() => {
+    let cancelled = false;
+
+    async function syncContent() {
+        setSyncingContent(true);
+
+        try {
+            const response = await fetch('/admin/content/data', {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) return;
+
+            const payload = (await response.json()) as ContentPayload;
+
+            if (!cancelled) {
+                setSyncedPayload(payload);
+            }
+        } catch {
+            // Keep Inertia props if fetch fails.
+        } finally {
+            if (!cancelled) {
+                setSyncingContent(false);
+            }
+        }
+    }
+
+    syncContent();
+
+    return () => {
+        cancelled = true;
+    };
+    }, []);
+
     const [activeTab, setActiveTab] = useState<ContentTabKey>('overview');
     const [modal, setModal] = useState<ModalState>(null);
 
-    const events = useMemo(() => [...recordsOf(props.events), ...recordsOf(props.bcccEvents), ...recordsOf(props.cityEvents)], [props.events, props.bcccEvents, props.cityEvents]);
-    const spaces = recordsOf(props.spaces);
-    const offers = props.offers?.length ? props.offers : recordsOf(props.packages);
-    const stats = recordsOf(props.stats);
-    const members = props.members?.length ? props.members : recordsOf(props.tourismMembers);
-    const settings = props.siteSettings ?? {};
+    const [previewOpen, setPreviewOpen] = useState(false);
+
+    const source = {
+        ...props,
+        ...syncedPayload,
+    };
+
+    const events = useMemo(
+    () =>
+        sortRecords([
+            ...recordsOf(source.events),
+            ...recordsOf(source.bcccEvents),
+            ...recordsOf(source.cityEvents),
+        ]),
+    [source.events, source.bcccEvents, source.cityEvents],
+);
+
+    const spaces = useMemo(() => sortRecords(recordsOf(source.spaces)), [source.spaces]);
+
+    const offers = useMemo(() => {
+    const directOffers = recordsOf(source.offers);
+    const fallbackPackages = recordsOf(source.packages);
+
+    return sortRecords(directOffers.length > 0 ? directOffers : fallbackPackages);
+}, [source.offers, source.packages]);
+
+    const stats = useMemo(() => sortRecords(recordsOf(source.stats)), [source.stats]);
+
+    const members = useMemo(() => {
+    const directMembers = recordsOf(source.members);
+    const fallbackTourismMembers = recordsOf(source.tourismMembers);
+
+    return sortRecords(directMembers.length > 0 ? directMembers : fallbackTourismMembers);
+}, [source.members, source.tourismMembers]);
+
+    const settings = source.siteSettings ?? {};
 
     const activeType = typeForTab(activeTab);
     const activeTabInfo = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
@@ -568,9 +684,14 @@ export default function AdminContentIndex() {
                 subtitle="Manage public website content in one clean page. Fields with choices also support custom input through Other."
                 actions={
                     <>
-                        <ResourceActionLink href="/" variant="secondary">
-                            Open Public Site
-                        </ResourceActionLink>
+                        <button
+                            type="button"
+                            onClick={() => setPreviewOpen(true)}
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                        >
+                            <Eye className="h-4 w-4" />
+                            Preview Site
+                        </button>
 
                         <ResourceActionLink href="/admin/guidelines-contacts">
                             Guidelines & Contacts
@@ -579,7 +700,11 @@ export default function AdminContentIndex() {
                 }
             >
                 <FlashMessages flash={props.flash} errors={props.errors} />
-
+                {syncingContent ? (
+                    <div className="mb-5 rounded-[1.2rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/80 p-4 text-sm font-semibold text-[#6e604c] dark:border-white/10 dark:bg-white/[0.055] dark:text-white/60">
+                        Syncing latest database content...
+                    </div>
+                ) : null}
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                     <ResourceStatCard label="Events" value={events.length} description={`${events.filter(visibleFlag).length} visible.`} icon={CalendarDays} />
                     <ResourceStatCard label="Facilities" value={spaces.length} description={`${spaces.filter(visibleFlag).length} visible.`} icon={Building2} />
@@ -651,13 +776,14 @@ export default function AdminContentIndex() {
                             ) : null}
 
                             {activeTab === 'overview' ? (
-                                <Link
-                                    href="/"
-                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
-                                >
-                                    <Eye className="h-4 w-4" />
-                                    Preview Site
-                                </Link>
+                                <button
+        type="button"
+        onClick={() => setPreviewOpen(true)}
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+    >
+        <Eye className="h-4 w-4" />
+        Preview Site
+                                </button>
                             ) : null}
 
                             {activeTab === 'settings' ? (
@@ -691,7 +817,101 @@ export default function AdminContentIndex() {
             </ResourcePageShell>
 
             {modal ? <ContentModal modal={modal} onClose={() => setModal(null)} /> : null}
+
+            <SitePreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} />
         </>
+    );
+}
+function SitePreviewModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+    const [loaded, setLoaded] = useState(false);
+
+    useEffect(() => {
+        if (!open) {
+            setLoaded(false);
+            return;
+        }
+
+        function handleEscape(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        }
+
+        document.addEventListener('keydown', handleEscape);
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            document.removeEventListener('keydown', handleEscape);
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [open, onClose]);
+
+    if (!open) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100000] overflow-y-auto bg-[#17120b]/50 px-3 py-4 backdrop-blur-xl dark:bg-black/70 sm:px-5 sm:py-6">
+            <button
+                type="button"
+                onClick={onClose}
+                className="fixed inset-0 cursor-default"
+                aria-label="Close preview"
+            />
+
+            <section className="relative mx-auto flex h-[92svh] w-full max-w-[96rem] flex-col overflow-hidden rounded-[1.6rem] border border-[#d9c7a6]/70 bg-[#f8f5ef] shadow-[0_34px_120px_rgba(0,0,0,0.36)] dark:border-white/10 dark:bg-[#0d0f12]">
+                <header className="flex flex-col gap-3 border-b border-[#eadcc2]/80 bg-white/86 px-4 py-3 backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055] sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Public Site Preview
+                        </p>
+
+                        <h2 className="mt-1 truncate text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">
+                            BCCC EASE Public Website
+                        </h2>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                            href="/"
+                            target="_blank"
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                        >
+                            <Globe2 className="h-4 w-4" />
+                            Open Full Page
+                        </Link>
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-4 text-sm font-semibold text-white transition hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
+                        >
+                            <X className="h-4 w-4" />
+                            Close
+                        </button>
+                    </div>
+                </header>
+
+                <div className="relative flex-1 bg-[#ede3d2] dark:bg-black">
+                    {!loaded ? (
+                        <div className="absolute inset-0 z-10 grid place-items-center bg-[#f8f5ef]/90 text-[#2f2517] dark:bg-[#0d0f12]/90 dark:text-white">
+                            <div className="text-center">
+                                <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[#d9c7a6] border-t-[#2f2517] dark:border-white/20 dark:border-t-white" />
+                                <p className="mt-4 text-sm font-semibold">Loading public preview...</p>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    <iframe
+                        key={open ? 'public-preview-open' : 'public-preview-closed'}
+                        src="/"
+                        title="Public Site Preview"
+                        onLoad={() => setLoaded(true)}
+                        className="h-full w-full border-0 bg-white"
+                    />
+                </div>
+            </section>
+        </div>
     );
 }
 
@@ -802,12 +1022,34 @@ function RecordGrid({
         );
     }
 
+    if (type === 'tourism') {
+        return (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
+                {records.map((record, index) => (
+                    <TourismMemberPortraitCard
+                        key={`${record.id ?? index}`}
+                        record={record}
+                        onEdit={() => onEdit(record)}
+                        onDelete={() => destroy(record)}
+                    />
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {records.map((record, index) => (
-                <article key={`${record.id ?? index}`} className="overflow-hidden rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 shadow-[0_14px_40px_rgba(47,37,23,0.06)] dark:border-white/10 dark:bg-white/[0.035]">
+                <article
+                    key={`${record.id ?? index}`}
+                    className="overflow-hidden rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 shadow-[0_14px_40px_rgba(47,37,23,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(47,37,23,0.12)] dark:border-white/10 dark:bg-white/[0.035]"
+                >
                     {imageOf(record) ? (
-                        <img src={imageOf(record)} alt={titleOf(record, readableType(type))} className="h-40 w-full object-cover" />
+                        <img
+                            src={imageOf(record)}
+                            alt={titleOf(record, readableType(type))}
+                            className="h-40 w-full object-cover"
+                        />
                     ) : (
                         <div className="grid h-40 place-items-center bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
                             <FileImage className="h-8 w-8" />
@@ -830,17 +1072,16 @@ function RecordGrid({
                                 >
                                     {visibleFlag(record) ? 'Visible' : 'Hidden'}
                                 </span>
-
-                                {type === 'tourism' && featuredFlag(record) ? (
-                                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
-                                        Featured
-                                    </span>
-                                ) : null}
                             </div>
                         </div>
 
-                        <h3 className="mt-4 line-clamp-2 text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">{titleOf(record, readableType(type))}</h3>
-                        <p className="mt-2 line-clamp-3 text-sm leading-7 text-[#6e604c] dark:text-white/56">{metaOf(type, record)}</p>
+                        <h3 className="mt-4 line-clamp-2 text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">
+                            {titleOf(record, readableType(type))}
+                        </h3>
+
+                        <p className="mt-2 line-clamp-3 text-sm leading-7 text-[#6e604c] dark:text-white/56">
+                            {metaOf(type, record)}
+                        </p>
 
                         <div className="mt-4 flex flex-wrap gap-2">
                             <button
@@ -864,6 +1105,131 @@ function RecordGrid({
                 </article>
             ))}
         </div>
+    );
+}
+
+function TourismMemberPortraitCard({
+    record,
+    onEdit,
+    onDelete,
+}: {
+    record: GenericRecord;
+    onEdit: () => void;
+    onDelete: () => void;
+}) {
+    const name = titleOf(record, 'Tourism Member');
+    const photo = imageOf(record);
+    const designation = String(record.designation || record.position || record.role || 'Tourism Office Member');
+    const section = String(record.office_section || record.officeSection || record.unit_name || record.unitName || 'CTCAO');
+    const team = String(record.team_label || record.teamLabel || '');
+    const bio = String(record.short_bio || record.shortBio || record.bio || record.description || '');
+    const email = String(record.email || '');
+    const phone = String(record.phone || '');
+
+    return (
+        <article tabIndex={0} className="group relative isolate aspect-[3/4.35] min-h-[26rem] overflow-hidden rounded-[1.55rem] border border-[#d9c7a6]/70 bg-[#17120b] shadow-[0_20px_60px_rgba(47,37,23,0.14)] transition duration-500 hover:-translate-y-1.5 hover:border-[#b08d48]/80 hover:shadow-[0_34px_95px_rgba(47,37,23,0.28)] dark:border-white/10">
+            {photo ? (
+                <img
+                    src={photo}
+                    alt={name}
+                    className="absolute inset-0 h-full w-full object-cover transition duration-[900ms] ease-out group-hover:scale-110 group-hover:saturate-[1.08]"
+                />
+            ) : (
+                <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_35%_18%,rgba(241,216,155,0.28),transparent_34%),linear-gradient(145deg,#2f2517,#0d0f12)] text-[#f1d89b]">
+                    <UsersRound className="h-16 w-16 opacity-70" />
+                </div>
+            )}
+
+            <div className="absolute inset-0 bg-gradient-to-t from-black/92 via-black/28 to-black/12 opacity-80 transition duration-500 group-hover:opacity-100" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,transparent,rgba(0,0,0,0.52))] opacity-0 transition duration-500 group-hover:opacity-100" />
+
+            <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
+                <span
+                    className={
+                        visibleFlag(record)
+                            ? 'rounded-full border border-emerald-300/35 bg-emerald-400/18 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100 backdrop-blur-xl'
+                            : 'rounded-full border border-white/15 bg-black/25 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white/70 backdrop-blur-xl'
+                    }
+                >
+                    {visibleFlag(record) ? 'Active' : 'Hidden'}
+                </span>
+
+                {featuredFlag(record) ? (
+                    <span className="rounded-full border border-[#f1d89b]/35 bg-[#f1d89b]/18 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#ffe7a8] backdrop-blur-xl">
+                        Featured
+                    </span>
+                ) : null}
+            </div>
+
+            <div className="absolute inset-x-0 bottom-0 z-10 p-5">
+                <div className="translate-y-[5.25rem] transition duration-500 ease-out group-hover:translate-y-0 group-focus-within:translate-y-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f1d89b] opacity-0 transition duration-500 group-hover:opacity-100">
+                        {section}
+                    </p>
+
+                    <h3 className="mt-2 text-[1.45rem] font-semibold leading-[1.05] tracking-[-0.055em] text-white drop-shadow">
+                        {name}
+                    </h3>
+
+                    <p className="mt-2 text-sm font-semibold leading-5 text-white/78">
+                        {designation}
+                    </p>
+
+                    {team ? (
+                        <p className="mt-1 text-xs font-bold uppercase tracking-[0.14em] text-white/48">
+                            {team}
+                        </p>
+                    ) : null}
+
+                    <div className="mt-4 max-h-0 overflow-hidden opacity-0 transition-all duration-500 ease-out group-hover:max-h-56 group-hover:opacity-100">
+                        {bio ? (
+                            <p className="line-clamp-4 text-sm leading-6 text-white/72">
+                                {bio}
+                            </p>
+                        ) : (
+                            <p className="text-sm leading-6 text-white/55">
+                                No short bio encoded yet.
+                            </p>
+                        )}
+
+                        <div className="mt-4 grid gap-2 text-xs font-semibold text-white/68">
+                            {email ? (
+                                <span className="truncate">
+                                    {email}
+                                </span>
+                            ) : null}
+
+                            {phone ? (
+                                <span className="truncate">
+                                    {phone}
+                                </span>
+                            ) : null}
+                        </div>
+
+                        <div className="mt-5 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={onEdit}
+                                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-full border border-white/18 bg-white/12 px-4 text-sm font-bold text-white backdrop-blur-xl transition hover:bg-white hover:text-[#17120b]"
+                            >
+                                <Pencil className="h-4 w-4" />
+                                Edit
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={onDelete}
+                                className="inline-flex min-h-10 items-center justify-center rounded-full border border-rose-200/20 bg-rose-600/80 px-4 text-white backdrop-blur-xl transition hover:bg-rose-600"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="pointer-events-none absolute inset-x-5 bottom-4 z-0 h-16 rounded-full bg-[#f1d89b]/20 blur-3xl opacity-0 transition duration-500 group-hover:opacity-100" />
+        </article>
     );
 }
 
@@ -912,10 +1278,24 @@ function ContentModal({ modal, onClose }: { modal: ModalState; onClose: () => vo
                 onClose();
 
                 router.reload({
+                    only: [
+                        'events',
+                        'bcccEvents',
+                        'cityEvents',
+                        'spaces',
+                        'offers',
+                        'packages',
+                        'stats',
+                        'members',
+                        'tourismMembers',
+                        'siteSettings',
+                        'flash',
+                        'errors',
+                    ],
                     preserveScroll: true,
                     preserveState: false,
                 });
-            }, 900);
+            }, 700);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unable to save content.';
 
@@ -1198,8 +1578,38 @@ function SelectOrCustomField({
     required?: boolean;
 }) {
     const currentValue = typeof value === 'string' ? value : '';
-    const isKnown = options.some((option) => option.value === currentValue);
-    const isCustom = currentValue !== '' && !isKnown;
+    const isKnownValue = options.some((option) => option.value === currentValue);
+    const hasExistingCustomValue = currentValue.trim() !== '' && !isKnownValue;
+
+    const [customMode, setCustomMode] = useState(hasExistingCustomValue);
+
+    useEffect(() => {
+        /*
+         * Keep custom field hidden on create.
+         * Show it only when:
+         * 1. User selected "Other — type manually", or
+         * 2. Editing an existing record with a custom saved value.
+         */
+        if (hasExistingCustomValue) {
+            setCustomMode(true);
+        }
+    }, [hasExistingCustomValue]);
+
+    function handleSelect(next: string) {
+        if (next === '__other__') {
+            setCustomMode(true);
+            onChange('');
+            return;
+        }
+
+        setCustomMode(false);
+        onChange(next);
+    }
+
+    function handleCustomInput(next: string) {
+        setCustomMode(true);
+        onChange(next);
+    }
 
     return (
         <div className="grid gap-2">
@@ -1209,18 +1619,9 @@ function SelectOrCustomField({
             </span>
 
             <select
-                value={isCustom ? '__other__' : currentValue}
-                onChange={(event) => {
-                    const next = event.target.value;
-
-                    if (next === '__other__') {
-                        onChange('');
-                        return;
-                    }
-
-                    onChange(next);
-                }}
-                required={required && !isCustom}
+                value={customMode || hasExistingCustomValue ? '__other__' : currentValue}
+                onChange={(event) => handleSelect(event.target.value)}
+                required={required && !customMode && !hasExistingCustomValue}
                 className="min-h-11 rounded-full border border-[#d9c7a6]/70 bg-white px-4 text-sm text-[#21180d] outline-none transition focus:border-[#b08d48] dark:border-white/10 dark:bg-[#161b22] dark:text-white"
             >
                 <option value="">Select {label}</option>
@@ -1234,15 +1635,16 @@ function SelectOrCustomField({
                 <option value="__other__">Other — type manually</option>
             </select>
 
-            {(isCustom || currentValue === '') && (
+            {customMode || hasExistingCustomValue ? (
                 <input
-                    value={isCustom ? currentValue : ''}
-                    onChange={(event) => onChange(event.target.value)}
+                    value={currentValue}
+                    onChange={(event) => handleCustomInput(event.target.value)}
                     required={required}
+                    autoFocus
                     placeholder={`Type custom ${label.toLowerCase()}`}
                     className="min-h-11 rounded-full border border-[#d9c7a6]/70 bg-white px-4 text-sm text-[#21180d] outline-none transition placeholder:text-[#8a7a63] focus:border-[#b08d48] dark:border-white/10 dark:bg-white/7 dark:text-white dark:placeholder:text-white/42"
                 />
-            )}
+            ) : null}
         </div>
     );
 }

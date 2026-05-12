@@ -132,8 +132,11 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::get('/dashboard', [WorkspaceHomeController::class, 'index'])
             ->name('dashboard');
 
-        Route::get('/content', [AdminPublicContentController::class, 'home'])
+        Route::get('/content', [AdminPublicContentController::class, 'index'])
             ->name('content');
+
+        Route::get('/content/data', [AdminPublicContentController::class, 'contentData'])
+            ->name('content.data');
 
         Route::redirect('/home', '/admin/content')
             ->name('home');
