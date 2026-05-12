@@ -2,37 +2,17 @@
 
 namespace App\Models;
 
-use App\Services\NotificationService;
+use App\Services\BookingFinancialSummaryService;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class BookingPayment extends Model
 {
-    protected $fillable = [
-        'booking_id',
-        'payment_method',
-        'payment_gateway',
-        'payment_type',
-        'amount',
-        'transaction_reference',
-        'status',
-        'proof_image_path',
-        'proof_image_name',
-        'proof_image_mime',
-        'remarks',
-        'payer_name',
-        'card_holder_name',
-        'card_last_four',
-        'card_expiration',
-        'marketing_consent',
-        'payment_meta',
-        'paid_at',
-        'verified_at',
-        'approved_at',
-        'declined_at',
-        'failed_at',
-    ];
+    use HasFactory;
+
+    protected $guarded = [];
 
     protected $casts = [
         'amount' => 'decimal:2',
@@ -43,13 +23,54 @@ class BookingPayment extends Model
         'approved_at' => 'datetime',
         'declined_at' => 'datetime',
         'failed_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     protected $appends = [
         'proof_image_url',
+        'display_status',
+        'display_amount',
     ];
 
-    public array $notificationChanges = [];
+    protected static function booted(): void
+    {
+        static::saving(function (BookingPayment $payment) {
+            $now = now();
+
+            if (in_array($payment->status, ['confirmed', 'approved', 'verified', 'paid'], true)) {
+                $payment->paid_at ??= $now;
+            }
+
+            if (in_array($payment->status, ['confirmed', 'approved', 'verified'], true)) {
+                $payment->verified_at ??= $now;
+            }
+
+            if (in_array($payment->status, ['confirmed', 'approved'], true)) {
+                $payment->approved_at ??= $now;
+            }
+
+            if ($payment->status === 'declined') {
+                $payment->declined_at ??= $now;
+            }
+
+            if ($payment->status === 'failed') {
+                $payment->failed_at ??= $now;
+            }
+        });
+
+        static::saved(function (BookingPayment $payment) {
+            if ($payment->booking) {
+                app(BookingFinancialSummaryService::class)->syncBookingPaymentStatus($payment->booking);
+            }
+        });
+
+        static::deleted(function (BookingPayment $payment) {
+            if ($payment->booking) {
+                app(BookingFinancialSummaryService::class)->syncBookingPaymentStatus($payment->booking);
+            }
+        });
+    }
 
     public function booking(): BelongsTo
     {
@@ -58,75 +79,67 @@ class BookingPayment extends Model
 
     public function getProofImageUrlAttribute(): ?string
     {
-        if (! $this->proof_image_path || ! $this->booking_id || ! $this->id) {
+        if (! $this->proof_image_path) {
             return null;
         }
 
-        $version = $this->updated_at?->timestamp ?? $this->created_at?->timestamp ?? time();
-
-        return url("/my-bookings/{$this->booking_id}/payments/{$this->id}/proof") . '?v=' . $version;
+        return Storage::disk('public')->url($this->proof_image_path);
     }
 
-    protected static function booted(): void
+    public function getDisplayStatusAttribute(): string
     {
-        static::created(function (BookingPayment $payment) {
-            if (app()->runningInConsole()) {
-                return;
-            }
+        return match ($this->status) {
+            'paid' => 'Paid',
+            'confirmed' => 'Confirmed',
+            'approved' => 'Approved',
+            'verified' => 'Verified',
+            'declined' => 'Declined',
+            'failed' => 'Failed',
+            'pending' => 'Pending Review',
+            default => ucfirst((string) ($this->status ?: 'Pending')),
+        };
+    }
 
-            $booking = method_exists($payment, 'booking')
-                ? $payment->booking()->first()
-                : Booking::find($payment->booking_id);
+    public function getDisplayAmountAttribute(): string
+    {
+        return '₱' . number_format((float) $this->amount, 2);
+    }
 
-            if (! $booking) {
-                return;
-            }
+    public function scopeConfirmed($query)
+    {
+        return $query->whereIn('status', [
+            'paid',
+            'success',
+            'successful',
+            'completed',
+            'confirmed',
+            'approved',
+            'verified',
+            'settled',
+        ]);
+    }
 
-            try {
-                app(NotificationService::class)->paymentCreated($payment, $booking, Auth::user());
-            } catch (\Throwable $exception) {
-                report($exception);
-            }
-        });
+    public function scopePending($query)
+    {
+        return $query->whereIn('status', [
+            'pending',
+            'submitted',
+            'processing',
+            'review',
+            'for_review',
+            'under_review',
+        ]);
+    }
 
-        static::updating(function (BookingPayment $payment) {
-            $changes = [];
-
-            foreach ($payment->getDirty() as $field => $newValue) {
-                if ($field === 'updated_at') {
-                    continue;
-                }
-
-                $changes[$field] = [$payment->getOriginal($field), $newValue];
-            }
-
-            $payment->notificationChanges = $changes;
-        });
-
-        static::updated(function (BookingPayment $payment) {
-            if (app()->runningInConsole()) {
-                return;
-            }
-
-            $changes = $payment->notificationChanges ?? [];
-
-            if (empty($changes)) {
-                return;
-            }
-
-            $booking = method_exists($payment, 'booking')
-                ? $payment->booking()->first()
-                : Booking::find($payment->booking_id);
-
-            if (! $booking) {
-                return;
-            }
-
-            try {
-                app(NotificationService::class)->paymentUpdated($payment, $booking, Auth::user(), $changes);
-            } catch (\Throwable $exception) {
-                report($exception);
-            }
-        });
+    public function scopeDeclined($query)
+    {
+        return $query->whereIn('status', [
+            'declined',
+            'failed',
+            'cancelled',
+            'canceled',
+            'void',
+            'rejected',
+        ]);
     }
 }

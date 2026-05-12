@@ -2,11 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
-use Database\Seeders\PublicSiteContentSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -15,11 +11,25 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-        $this->call([PublicSiteContentSeeder::class,]);
-        $this->call(UsersTableSeeder::class);
-        $this->call(RolePermissionSeeder::class);
-        
-        $this->call(DemoSeeder::class);
+        $this->call([
+            PublicSiteContentSeeder::class,
+            UsersTableSeeder::class,
+            RolePermissionSeeder::class,
+
+            /*
+             * Current BCCC booking package/service source of truth.
+             *
+             * This seeds only:
+             * - Full Hall
+             * - Main Hall
+             * - LED Wall
+             * - VIP Lounge
+             * - Board Room
+             *
+             * Foyer & Lobby and Backstage are NOT selectable services.
+             * They are only Full Hall support notes.
+             */
+            BcccVenuePackageSeeder::class,
+        ]);
     }
 }

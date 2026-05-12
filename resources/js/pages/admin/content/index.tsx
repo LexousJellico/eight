@@ -2,11 +2,11 @@ import {
     ResourceActionLink,
     ResourceEmptyState,
     ResourcePageShell,
-    ResourceSection,
     ResourceStatCard,
 } from '@/components/admin-resource/resource-page-shell';
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import type { LucideIcon } from 'lucide-react';
 import {
     BarChart3,
     Building2,
@@ -14,7 +14,6 @@ import {
     Check,
     Eye,
     FileImage,
-    FileText,
     Globe2,
     ImagePlus,
     LayoutPanelTop,
@@ -28,56 +27,85 @@ import {
     UsersRound,
     X,
 } from 'lucide-react';
-import type { ChangeEvent, FormEvent, ReactNode } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 import { useMemo, useState } from 'react';
+import { notifyError, notifySuccess } from '@/components/shared/app-notice-center';
 
 type ContentType = 'event' | 'space' | 'package' | 'stat' | 'tourism';
-
-type ContentTabKey =
-    | 'overview'
-    | 'events'
-    | 'facilities'
-    | 'offers'
-    | 'stats'
-    | 'tourism'
-    | 'settings';
+type ContentTabKey = 'overview' | 'events' | 'facilities' | 'offers' | 'stats' | 'tourism' | 'settings';
+type FormPayloadValue = string | boolean | File | null;
 
 type GenericRecord = {
     id?: number | string;
+
     title?: string | null;
     name?: string | null;
     label?: string | null;
     value?: string | number | null;
     subtitle?: string | null;
     description?: string | null;
+
     category?: string | null;
     event_category?: string | null;
     starts_at?: string | null;
     startsAt?: string | null;
     event_date?: string | null;
     date?: string | null;
+
     capacity?: string | number | null;
     price_label?: string | null;
     priceLabel?: string | null;
+
+    full_name?: string | null;
+    fullName?: string | null;
+    designation?: string | null;
+    office_section?: string | null;
+    officeSection?: string | null;
+    unit_name?: string | null;
+    unitName?: string | null;
+    team_label?: string | null;
+    teamLabel?: string | null;
+    reports_to_name?: string | null;
+    reportsToName?: string | null;
+    tree_level?: string | number | null;
+    treeLevel?: string | number | null;
+    short_bio?: string | null;
+    shortBio?: string | null;
+    details?: string[] | string | null;
+    details_text?: string | null;
+    detailsText?: string | null;
+    photo?: string | null;
+    photo_url?: string | null;
+    photoUrl?: string | null;
+    photo_path?: string | null;
+    photoPath?: string | null;
+    is_featured?: boolean | number | string | null;
+    isFeatured?: boolean | number | string | null;
+    featured?: boolean | number | string | null;
+
     position?: string | null;
     role?: string | null;
     email?: string | null;
     phone?: string | null;
     bio?: string | null;
+
     image?: string | null;
     image_url?: string | null;
     imageUrl?: string | null;
     image_path?: string | null;
     imagePath?: string | null;
+
     external_url?: string | null;
     externalUrl?: string | null;
+
     homepage_visible?: boolean | number | string | null;
     homepageVisible?: boolean;
     is_active?: boolean | number | string | null;
+    active?: boolean | number | string | null;
+
     sort_order?: number | string | null;
     sortOrder?: number | string | null;
-    created_at?: string | null;
-    updated_at?: string | null;
+
     [key: string]: unknown;
 };
 
@@ -120,76 +148,115 @@ type PageProps = {
     errors?: Record<string, string>;
 };
 
-type ContentTab = {
-    key: ContentTabKey;
-    title: string;
-    subtitle: string;
-    icon: typeof LayoutPanelTop;
-};
-
 type ModalState =
-    | {
-          mode: 'create';
-          type: ContentType;
-          record?: undefined;
-      }
-    | {
-          mode: 'edit';
-          type: ContentType;
-          record: GenericRecord;
-      }
+    | { mode: 'create'; type: ContentType; record?: undefined }
+    | { mode: 'edit'; type: ContentType; record: GenericRecord }
     | null;
 
-type FormPayloadValue = string | boolean | File | null;
+type Choice = {
+    label: string;
+    value: string;
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Admin', href: '/admin/dashboard' },
     { title: 'Public Content', href: '/admin/content' },
 ];
 
-const tabs: ContentTab[] = [
-    {
-        key: 'overview',
-        title: 'Overview',
-        subtitle: 'Publishing summary',
-        icon: LayoutPanelTop,
-    },
-    {
-        key: 'events',
-        title: 'Events',
-        subtitle: 'BCCC and City highlights',
-        icon: CalendarDays,
-    },
-    {
-        key: 'facilities',
-        title: 'Facilities',
-        subtitle: 'Venue spaces',
-        icon: Building2,
-    },
-    {
-        key: 'offers',
-        title: 'Offers',
-        subtitle: 'Promos and packages',
-        icon: Sparkles,
-    },
-    {
-        key: 'stats',
-        title: 'Stats',
-        subtitle: 'Homepage counters',
-        icon: BarChart3,
-    },
-    {
-        key: 'tourism',
-        title: 'Tourism Office',
-        subtitle: 'Profiles and hierarchy',
-        icon: UsersRound,
-    },
-    {
-        key: 'settings',
-        title: 'Settings',
-        subtitle: 'Footer and contact',
-        icon: Settings2,
-    },
+const tabs: Array<{
+    key: ContentTabKey;
+    title: string;
+    subtitle: string;
+    icon: LucideIcon;
+}> = [
+    { key: 'overview', title: 'Overview', subtitle: 'Quick summary', icon: LayoutPanelTop },
+    { key: 'events', title: 'Events', subtitle: 'BCCC and City highlights', icon: CalendarDays },
+    { key: 'facilities', title: 'Facilities', subtitle: 'Venue spaces', icon: Building2 },
+    { key: 'offers', title: 'Offers', subtitle: 'Packages and promos', icon: Sparkles },
+    { key: 'stats', title: 'Stats', subtitle: 'Homepage counters', icon: BarChart3 },
+    { key: 'tourism', title: 'Tourism Office', subtitle: 'Members and hierarchy', icon: UsersRound },
+    { key: 'settings', title: 'Settings', subtitle: 'Footer and contact', icon: Settings2 },
+];
+
+const EVENT_CATEGORY_OPTIONS: Choice[] = [
+    { label: 'BCCC Event', value: 'BCCC Event' },
+    { label: 'Baguio City Event', value: 'Baguio City Event' },
+    { label: 'Convention', value: 'Convention' },
+    { label: 'Cultural Event', value: 'Cultural Event' },
+    { label: 'Government Program', value: 'Government Program' },
+    { label: 'Exhibit / Trade Fair', value: 'Exhibit / Trade Fair' },
+    { label: 'Meeting / Seminar', value: 'Meeting / Seminar' },
+    { label: 'Conference', value: 'Conference' },
+    { label: 'Summit', value: 'Summit' },
+    { label: 'Workshop', value: 'Workshop' },
+    { label: 'Concert / Performance', value: 'Concert / Performance' },
+];
+
+const FACILITY_CAPACITY_OPTIONS: Choice[] = [
+    { label: 'Flexible capacity', value: 'Flexible capacity' },
+    { label: 'Small group', value: 'Small group' },
+    { label: '50 guests', value: '50 guests' },
+    { label: '100 guests', value: '100 guests' },
+    { label: '250 guests', value: '250 guests' },
+    { label: '500 guests', value: '500 guests' },
+    { label: '1,000+ guests', value: '1,000+ guests' },
+    { label: '2,000+ guests', value: '2,000+ guests' },
+];
+
+const DESIGNATION_OPTIONS: Choice[] = [
+    { label: 'Department Head', value: 'Department Head' },
+    { label: 'Office Head', value: 'Office Head' },
+    { label: 'Tourism Officer', value: 'Tourism Officer' },
+    { label: 'Culture and Arts Officer', value: 'Culture and Arts Officer' },
+    { label: 'BCCC Administrator', value: 'BCCC Administrator' },
+    { label: 'Events Coordinator', value: 'Events Coordinator' },
+    { label: 'MICE Coordinator', value: 'MICE Coordinator' },
+    { label: 'Administrative Staff', value: 'Administrative Staff' },
+    { label: 'Technical Staff', value: 'Technical Staff' },
+    { label: 'ICT / Software Support', value: 'ICT / Software Support' },
+];
+
+const TOURISM_OFFICE_SECTIONS: Choice[] = [
+    { label: 'City Tourism, Culture and Arts Office', value: 'CTCAO' },
+    { label: 'BCCC Administration', value: 'BCCC Administration' },
+    { label: 'Tourism Operations', value: 'Tourism Operations' },
+    { label: 'Culture and Arts', value: 'Culture and Arts' },
+    { label: 'Events Coordination', value: 'Events Coordination' },
+    { label: 'MICE / Convention Support', value: 'MICE / Convention Support' },
+    { label: 'Information and Assistance', value: 'Information and Assistance' },
+    { label: 'Technical / ICT Support', value: 'Technical / ICT Support' },
+];
+
+const TOURISM_TEAM_LABELS: Choice[] = [
+    { label: 'Executive / Head Office', value: 'Executive / Head Office' },
+    { label: 'Administration', value: 'Administration' },
+    { label: 'Operations', value: 'Operations' },
+    { label: 'Events', value: 'Events' },
+    { label: 'Tourism', value: 'Tourism' },
+    { label: 'Culture and Arts', value: 'Culture and Arts' },
+    { label: 'MICE', value: 'MICE' },
+    { label: 'Technical', value: 'Technical' },
+    { label: 'Software / System', value: 'Software / System' },
+];
+
+const TREE_LEVEL_OPTIONS: Choice[] = [
+    { label: 'Level 1 — Head / Director', value: '1' },
+    { label: 'Level 2 — Division / Section Lead', value: '2' },
+    { label: 'Level 3 — Coordinator / Supervisor', value: '3' },
+    { label: 'Level 4 — Staff / Member', value: '4' },
+    { label: 'Level 5 — Support / Assistant', value: '5' },
+];
+
+const UNIT_NAME_OPTIONS: Choice[] = [
+    { label: 'Administration', value: 'Administration' },
+    { label: 'Operations', value: 'Operations' },
+    { label: 'Events', value: 'Events' },
+    { label: 'Tourism Services', value: 'Tourism Services' },
+    { label: 'Culture and Arts', value: 'Culture and Arts' },
+    { label: 'MICE Registry', value: 'MICE Registry' },
+    { label: 'Technical', value: 'Technical' },
+    { label: 'ICT / Software', value: 'ICT / Software' },
+    { label: 'Front Desk / Assistance', value: 'Front Desk / Assistance' },
 ];
 
 function cx(...classes: Array<string | false | null | undefined>) {
@@ -200,30 +267,35 @@ function recordsOf<T>(value?: T[]): T[] {
     return Array.isArray(value) ? value : [];
 }
 
+function truthyFlag(value: unknown) {
+    return value === true || value === 1 || value === '1' || value === 'true';
+}
+
 function visibleFlag(item: GenericRecord) {
-    return (
-        item.homepageVisible === true ||
-        item.homepage_visible === true ||
-        item.homepage_visible === 1 ||
-        item.homepage_visible === '1' ||
-        item.is_active === true ||
-        item.is_active === 1 ||
-        item.is_active === '1'
-    );
+    return truthyFlag(item.homepageVisible) || truthyFlag(item.homepage_visible) || truthyFlag(item.is_active) || truthyFlag(item.active);
+}
+
+function featuredFlag(item: GenericRecord) {
+    return truthyFlag(item.is_featured) || truthyFlag(item.isFeatured) || truthyFlag(item.featured);
 }
 
 function titleOf(record: GenericRecord, fallback: string) {
-    return String(record.title || record.name || record.label || fallback);
+    return String(record.title || record.name || record.full_name || record.fullName || record.label || fallback);
 }
 
 function imageOf(record: GenericRecord) {
-    return (
+    return String(
         record.image_url ||
-        record.imageUrl ||
-        record.image_path ||
-        record.imagePath ||
-        record.image ||
-        ''
+            record.imageUrl ||
+            record.image_path ||
+            record.imagePath ||
+            record.image ||
+            record.photo_url ||
+            record.photoUrl ||
+            record.photo_path ||
+            record.photoPath ||
+            record.photo ||
+            '',
     );
 }
 
@@ -244,33 +316,134 @@ function metaOf(type: ContentType, record: GenericRecord) {
         return `Value: ${String(record.value ?? '—')}`;
     }
 
-    return String(record.position || record.role || 'Tourism office profile');
+    return String(record.designation || record.position || record.role || record.office_section || record.officeSection || 'Tourism office profile');
 }
 
 function endpointFor(type: ContentType, record?: GenericRecord) {
     const id = record?.id;
 
-    if (type === 'event') {
-        return id ? `/admin/events/${id}` : '/admin/events';
-    }
-
-    if (type === 'space') {
-        return id ? `/admin/spaces/${id}` : '/admin/spaces';
-    }
-
-    if (type === 'package') {
-        return id ? `/admin/packages/${id}` : '/admin/packages';
-    }
-
-    if (type === 'stat') {
-        return id ? `/admin/stats/${id}` : '/admin/stats';
-    }
+    if (type === 'event') return id ? `/admin/events/${id}` : '/admin/events';
+    if (type === 'space') return id ? `/admin/spaces/${id}` : '/admin/spaces';
+    if (type === 'package') return id ? `/admin/packages/${id}` : '/admin/packages';
+    if (type === 'stat') return id ? `/admin/stats/${id}` : '/admin/stats';
 
     return id ? `/admin/tourism-members/${id}` : '/admin/tourism-members';
 }
 
-function deleteEndpointFor(type: ContentType, record: GenericRecord) {
-    return endpointFor(type, record);
+function typeForTab(tab: ContentTabKey): ContentType | null {
+    if (tab === 'events') return 'event';
+    if (tab === 'facilities') return 'space';
+    if (tab === 'offers') return 'package';
+    if (tab === 'stats') return 'stat';
+    if (tab === 'tourism') return 'tourism';
+
+    return null;
+}
+
+function readableType(type: ContentType) {
+    if (type === 'event') return 'Event';
+    if (type === 'space') return 'Facility';
+    if (type === 'package') return 'Offer';
+    if (type === 'stat') return 'Homepage Stat';
+
+    return 'Tourism Member';
+}
+
+function panelDescription(tab: ContentTabKey) {
+    const descriptions: Record<ContentTabKey, string> = {
+        overview: 'Quick workflow guide for managing public website content.',
+        events: 'Create BCCC event highlights and Baguio City event cards shown on the public website.',
+        facilities: 'Create venue spaces shown on the public Facilities page and homepage showcase.',
+        offers: 'Create promotional offers and public packages.',
+        stats: 'Create homepage counters and venue quick facts.',
+        tourism: 'Create Tourism Office members. The form has choices, but every choice field also supports custom input.',
+        settings: 'Update footer contact details, public links, and map references.',
+    };
+
+    return descriptions[tab];
+}
+
+function detailsToText(value: unknown) {
+    if (Array.isArray(value)) return value.filter(Boolean).join('\n');
+    if (typeof value === 'string') return value;
+
+    return '';
+}
+
+function csrfToken() {
+    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+}
+
+function extractErrorMessage(data: unknown, fallback = 'The content could not be saved. Please check the form fields.') {
+    if (!data || typeof data !== 'object') {
+        return fallback;
+    }
+
+    const payload = data as {
+        message?: string;
+        errors?: Record<string, string[] | string>;
+    };
+
+    const fieldErrors = Object.entries(payload.errors ?? {})
+        .map(([field, messages]) => {
+            if (Array.isArray(messages)) return `${field}: ${messages.join(', ')}`;
+
+            return `${field}: ${messages}`;
+        })
+        .join('\n');
+
+    return fieldErrors || payload.message || fallback;
+}
+
+async function submitContentRequest(endpoint: string, payload: FormData) {
+    const response = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken(),
+        },
+        body: payload,
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json().catch(() => null) : null;
+
+    if (!response.ok) {
+        throw new Error(extractErrorMessage(data, `Save failed. Server returned ${response.status}.`));
+    }
+
+    return data;
+}
+
+function appendContentPayload(payload: FormData, type: ContentType, form: Record<string, FormPayloadValue>) {
+    Object.entries(form).forEach(([key, value]) => {
+        if (value === null || value === undefined) return;
+
+        if (value instanceof File) {
+            payload.append(key, value);
+            return;
+        }
+
+        if (typeof value === 'boolean') {
+            payload.append(key, value ? '1' : '0');
+            return;
+        }
+
+        payload.append(key, String(value));
+    });
+
+    if (type === 'tourism') {
+        payload.set('active', Boolean(form.is_active) ? '1' : '0');
+        payload.set('featured', Boolean(form.is_featured) ? '1' : '0');
+        payload.set('is_active', Boolean(form.is_active) ? '1' : '0');
+        payload.set('is_featured', Boolean(form.is_featured) ? '1' : '0');
+
+        if (typeof form.details_text === 'string') {
+            payload.set('details_text', form.details_text);
+        }
+    }
 }
 
 function defaultForm(type: ContentType, record?: GenericRecord): Record<string, FormPayloadValue> {
@@ -281,7 +454,7 @@ function defaultForm(type: ContentType, record?: GenericRecord): Record<string, 
             event_category: String(record?.event_category ?? record?.category ?? 'BCCC Event'),
             starts_at: String(record?.starts_at ?? record?.startsAt ?? record?.event_date ?? record?.date ?? ''),
             description: String(record?.description ?? ''),
-            image_path: String(record?.image_path ?? record?.imagePath ?? imageOf(record ?? {}) ?? ''),
+            image_path: String(record?.image_path ?? record?.imagePath ?? imageOf(record ?? {})),
             external_url: String(record?.external_url ?? record?.externalUrl ?? ''),
             homepage_visible: visibleFlag(record ?? {}) || !record,
             sort_order: String(record?.sort_order ?? record?.sortOrder ?? ''),
@@ -294,9 +467,9 @@ function defaultForm(type: ContentType, record?: GenericRecord): Record<string, 
             title: String(record?.title ?? record?.name ?? ''),
             name: String(record?.name ?? record?.title ?? ''),
             subtitle: String(record?.subtitle ?? ''),
-            capacity: String(record?.capacity ?? ''),
+            capacity: String(record?.capacity ?? 'Flexible capacity'),
             description: String(record?.description ?? ''),
-            image_path: String(record?.image_path ?? record?.imagePath ?? imageOf(record ?? {}) ?? ''),
+            image_path: String(record?.image_path ?? record?.imagePath ?? imageOf(record ?? {})),
             homepage_visible: visibleFlag(record ?? {}) || !record,
             sort_order: String(record?.sort_order ?? record?.sortOrder ?? ''),
             image: null,
@@ -309,7 +482,7 @@ function defaultForm(type: ContentType, record?: GenericRecord): Record<string, 
             subtitle: String(record?.subtitle ?? ''),
             price_label: String(record?.price_label ?? record?.priceLabel ?? ''),
             description: String(record?.description ?? ''),
-            image_path: String(record?.image_path ?? record?.imagePath ?? imageOf(record ?? {}) ?? ''),
+            image_path: String(record?.image_path ?? record?.imagePath ?? imageOf(record ?? {})),
             external_url: String(record?.external_url ?? record?.externalUrl ?? ''),
             homepage_visible: visibleFlag(record ?? {}) || !record,
             sort_order: String(record?.sort_order ?? record?.sortOrder ?? ''),
@@ -328,50 +501,22 @@ function defaultForm(type: ContentType, record?: GenericRecord): Record<string, 
     }
 
     return {
-        name: String(record?.name ?? record?.title ?? ''),
-        position: String(record?.position ?? record?.role ?? ''),
+        full_name: String(record?.full_name ?? record?.fullName ?? record?.name ?? record?.title ?? ''),
+        designation: String(record?.designation ?? record?.position ?? record?.role ?? ''),
+        office_section: String(record?.office_section ?? record?.officeSection ?? 'CTCAO'),
+        unit_name: String(record?.unit_name ?? record?.unitName ?? ''),
+        team_label: String(record?.team_label ?? record?.teamLabel ?? ''),
+        reports_to_name: String(record?.reports_to_name ?? record?.reportsToName ?? ''),
+        tree_level: String(record?.tree_level ?? record?.treeLevel ?? '4'),
         email: String(record?.email ?? ''),
         phone: String(record?.phone ?? ''),
-        bio: String(record?.bio ?? record?.description ?? ''),
-        image_path: String(record?.image_path ?? record?.imagePath ?? imageOf(record ?? {}) ?? ''),
-        homepage_visible: visibleFlag(record ?? {}) || !record,
+        short_bio: String(record?.short_bio ?? record?.shortBio ?? record?.bio ?? record?.description ?? ''),
+        details_text: String(record?.details_text ?? record?.detailsText ?? detailsToText(record?.details)),
+        is_active: visibleFlag(record ?? {}) || !record,
+        is_featured: featuredFlag(record ?? {}),
         sort_order: String(record?.sort_order ?? record?.sortOrder ?? ''),
-        image: null,
+        photo: null,
     };
-}
-
-function readableType(type: ContentType) {
-    if (type === 'event') {
-        return 'Event Highlight';
-    }
-
-    if (type === 'space') {
-        return 'Venue Space';
-    }
-
-    if (type === 'package') {
-        return 'Offer / Package';
-    }
-
-    if (type === 'stat') {
-        return 'Homepage Stat';
-    }
-
-    return 'Tourism Member';
-}
-
-function panelDescription(tab: ContentTabKey) {
-    const descriptions: Record<ContentTabKey, string> = {
-        overview: 'Quick publishing workflow and public website content status.',
-        events: 'Create and edit BCCC event highlights and Baguio City event cards.',
-        facilities: 'Create and edit venue spaces displayed on the public website.',
-        offers: 'Create and edit promotional offer cards and public packages.',
-        stats: 'Create and edit homepage counters and venue quick facts.',
-        tourism: 'Create and edit Tourism Office profiles and official people sections.',
-        settings: 'Update footer, contact, map, and external public website links.',
-    };
-
-    return descriptions[tab];
 }
 
 function settingValue(settings: SiteSettings, camel: keyof SiteSettings, snake: keyof SiteSettings) {
@@ -379,54 +524,36 @@ function settingValue(settings: SiteSettings, camel: keyof SiteSettings, snake: 
 }
 
 export default function AdminContentIndex() {
-    const page = usePage<PageProps>();
-    const props = page.props;
-
+    const { props } = usePage<PageProps>();
     const [activeTab, setActiveTab] = useState<ContentTabKey>('overview');
     const [modal, setModal] = useState<ModalState>(null);
 
-    const events = useMemo(
-        () => [
-            ...recordsOf(props.events),
-            ...recordsOf(props.bcccEvents),
-            ...recordsOf(props.cityEvents),
-        ],
-        [props.events, props.bcccEvents, props.cityEvents],
-    );
-
+    const events = useMemo(() => [...recordsOf(props.events), ...recordsOf(props.bcccEvents), ...recordsOf(props.cityEvents)], [props.events, props.bcccEvents, props.cityEvents]);
     const spaces = recordsOf(props.spaces);
     const offers = props.offers?.length ? props.offers : recordsOf(props.packages);
     const stats = recordsOf(props.stats);
     const members = props.members?.length ? props.members : recordsOf(props.tourismMembers);
     const settings = props.siteSettings ?? {};
 
-    const publicEvents = events.filter(visibleFlag);
-    const publicSpaces = spaces.filter(visibleFlag);
-    const publicOffers = offers.filter(visibleFlag);
+    const activeType = typeForTab(activeTab);
+    const activeTabInfo = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
 
-    const active = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
-    const ActiveIcon = active.icon;
+    const activeRecords =
+        activeTab === 'events'
+            ? events
+            : activeTab === 'facilities'
+              ? spaces
+              : activeTab === 'offers'
+                ? offers
+                : activeTab === 'stats'
+                  ? stats
+                  : activeTab === 'tourism'
+                    ? members
+                    : [];
 
-    function createFor(tab: ContentTabKey) {
-        if (tab === 'events') {
-            setModal({ mode: 'create', type: 'event' });
-        }
-
-        if (tab === 'facilities') {
-            setModal({ mode: 'create', type: 'space' });
-        }
-
-        if (tab === 'offers') {
-            setModal({ mode: 'create', type: 'package' });
-        }
-
-        if (tab === 'stats') {
-            setModal({ mode: 'create', type: 'stat' });
-        }
-
-        if (tab === 'tourism') {
-            setModal({ mode: 'create', type: 'tourism' });
-        }
+    function openCreate() {
+        if (!activeType) return;
+        setModal({ mode: 'create', type: activeType });
     }
 
     return (
@@ -438,7 +565,7 @@ export default function AdminContentIndex() {
                 eyebrow="Frontend Configuration"
                 icon={Globe2}
                 breadcrumbs={breadcrumbs}
-                subtitle="Create and maintain public website sections, event highlights, venue spaces, offers, tourism office profiles, homepage counters, footer details, and public links."
+                subtitle="Manage public website content in one clean page. Fields with choices also support custom input through Other."
                 actions={
                     <>
                         <ResourceActionLink href="/" variant="secondary">
@@ -451,274 +578,159 @@ export default function AdminContentIndex() {
                     </>
                 }
             >
-                {props.flash?.success || props.flash?.message ? (
-                    <div className="mb-5 rounded-[1.2rem] border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100">
-                        {props.flash.success || props.flash.message}
-                    </div>
-                ) : null}
-
-                {props.flash?.error ? (
-                    <div className="mb-5 rounded-[1.2rem] border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
-                        {props.flash.error}
-                    </div>
-                ) : null}
-
-                {props.errors && Object.keys(props.errors).length > 0 ? (
-                    <div className="mb-5 rounded-[1.2rem] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-                        <p>Please check the form fields below:</p>
-                        <ul className="mt-2 list-disc space-y-1 pl-5">
-                            {Object.entries(props.errors).map(([field, error]) => (
-                                <li key={field}>
-                                    {field}: {error}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                ) : null}
+                <FlashMessages flash={props.flash} errors={props.errors} />
 
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-                    <ResourceStatCard
-                        label="Events"
-                        value={events.length}
-                        description={`${publicEvents.length} marked visible.`}
-                        icon={CalendarDays}
-                    />
-
-                    <ResourceStatCard
-                        label="Facilities"
-                        value={spaces.length}
-                        description={`${publicSpaces.length} marked visible.`}
-                        icon={Building2}
-                    />
-
-                    <ResourceStatCard
-                        label="Offers"
-                        value={offers.length}
-                        description={`${publicOffers.length} marked visible.`}
-                        icon={Sparkles}
-                    />
-
-                    <ResourceStatCard
-                        label="Stats"
-                        value={stats.length}
-                        description="Homepage metric counters."
-                        icon={BarChart3}
-                    />
-
-                    <ResourceStatCard
-                        label="Tourism"
-                        value={members.length}
-                        description="Tourism office profiles."
-                        icon={UsersRound}
-                    />
-
-                    <ResourceStatCard
-                        label="Contact"
-                        value={settings.email ? 'Set' : 'Missing'}
-                        description={settings.email || 'No email configured.'}
-                        icon={Mail}
-                    />
+                    <ResourceStatCard label="Events" value={events.length} description={`${events.filter(visibleFlag).length} visible.`} icon={CalendarDays} />
+                    <ResourceStatCard label="Facilities" value={spaces.length} description={`${spaces.filter(visibleFlag).length} visible.`} icon={Building2} />
+                    <ResourceStatCard label="Offers" value={offers.length} description={`${offers.filter(visibleFlag).length} visible.`} icon={Sparkles} />
+                    <ResourceStatCard label="Stats" value={stats.length} description="Homepage counters." icon={BarChart3} />
+                    <ResourceStatCard label="Tourism" value={members.length} description={`${members.filter(visibleFlag).length} active.`} icon={UsersRound} />
+                    <ResourceStatCard label="Contact" value={settings.email ? 'Set' : 'Missing'} description={settings.email || 'No email configured.'} icon={Mail} />
                 </div>
 
-                <div className="mt-5">
-                    <section className="rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/82 p-3 shadow-[0_18px_58px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]">
-                        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-7">
-                            {tabs.map((tab) => {
-                                const Icon = tab.icon;
-                                const selected = activeTab === tab.key;
+                <section className="mt-5 rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/82 p-3 shadow-[0_18px_58px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]">
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-7">
+                        {tabs.map((tab) => {
+                            const Icon = tab.icon;
+                            const selected = activeTab === tab.key;
 
-                                return (
-                                    <button
-                                        key={tab.key}
-                                        type="button"
-                                        onClick={() => setActiveTab(tab.key)}
+                            return (
+                                <button
+                                    key={tab.key}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab.key)}
+                                    className={cx(
+                                        'group flex min-h-[5rem] items-center gap-3 rounded-[1.15rem] border px-3 py-3 text-left transition duration-200',
+                                        selected
+                                            ? 'border-[#b08d48]/80 bg-[#2f2517] text-white shadow-[0_18px_44px_rgba(47,37,23,0.20)] dark:border-white/20 dark:bg-white dark:text-[#17120b]'
+                                            : 'border-[#eadcc2]/80 bg-[#fffaf0]/70 text-[#4a3b27] hover:border-[#b08d48]/70 hover:bg-white dark:border-white/10 dark:bg-white/[0.035] dark:text-white/68 dark:hover:bg-white/9',
+                                    )}
+                                >
+                                    <span
                                         className={cx(
-                                            'group flex min-h-[5rem] items-center gap-3 rounded-[1.15rem] border px-3 py-3 text-left transition duration-200',
+                                            'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
                                             selected
-                                                ? 'border-[#b08d48]/80 bg-[#2f2517] text-white shadow-[0_18px_44px_rgba(47,37,23,0.20)] dark:border-white/20 dark:bg-white dark:text-[#17120b]'
-                                                : 'border-[#eadcc2]/80 bg-[#fffaf0]/70 text-[#4a3b27] hover:border-[#b08d48]/70 hover:bg-white dark:border-white/10 dark:bg-white/[0.035] dark:text-white/68 dark:hover:bg-white/9',
+                                                ? 'bg-white/14 text-white dark:bg-[#17120b]/8 dark:text-[#17120b]'
+                                                : 'bg-[#efe3cd] text-[#8b672d] group-hover:bg-[#f7ecd8] dark:bg-white/8 dark:text-[#f1d89b]',
                                         )}
                                     >
-                                        <span
-                                            className={cx(
-                                                'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
-                                                selected
-                                                    ? 'bg-white/14 text-white dark:bg-[#17120b]/8 dark:text-[#17120b]'
-                                                    : 'bg-[#efe3cd] text-[#8b672d] group-hover:bg-[#f7ecd8] dark:bg-white/8 dark:text-[#f1d89b]',
-                                            )}
-                                        >
-                                            <Icon className="h-4.5 w-4.5" />
-                                        </span>
+                                        <Icon className="h-4.5 w-4.5" />
+                                    </span>
 
-                                        <span className="min-w-0">
-                                            <span className="block truncate text-sm font-bold">
-                                                {tab.title}
-                                            </span>
-                                            <span
-                                                className={cx(
-                                                    'mt-0.5 block truncate text-[11px] font-medium',
-                                                    selected ? 'text-white/62 dark:text-[#17120b]/58' : 'opacity-62',
-                                                )}
-                                            >
-                                                {tab.subtitle}
-                                            </span>
+                                    <span className="min-w-0">
+                                        <span className="block truncate text-sm font-bold">{tab.title}</span>
+                                        <span className={cx('mt-0.5 block truncate text-[11px] font-medium', selected ? 'text-white/62 dark:text-[#17120b]/58' : 'opacity-62')}>
+                                            {tab.subtitle}
                                         </span>
-                                    </button>
-                                );
-                            })}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                <section className="mt-5 overflow-hidden rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/82 shadow-[0_18px_58px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]">
+                    <div className="flex flex-col gap-4 border-b border-[#eadcc2]/80 p-5 dark:border-white/10 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">{activeTabInfo.subtitle}</p>
+                            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#21180d] dark:text-white">{activeTabInfo.title}</h2>
+                            <p className="mt-2 max-w-[70ch] text-sm leading-7 text-[#6e604c] dark:text-white/56">{panelDescription(activeTab)}</p>
                         </div>
-                    </section>
-                </div>
 
-                <div className="mt-5">
-                    <ResourceSection
-                        title={active.title}
-                        eyebrow={active.subtitle}
-                        description={panelDescription(activeTab)}
-                        actions={
-                            <PanelActions
-                                activeTab={activeTab}
-                                activeIcon={ActiveIcon}
-                                onCreate={() => createFor(activeTab)}
-                            />
-                        }
-                    >
-                        {activeTab === 'overview' ? <OverviewPanel /> : null}
+                        <div className="flex flex-wrap gap-2">
+                            {activeType ? (
+                                <button
+                                    type="button"
+                                    onClick={openCreate}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Create {readableType(activeType)}
+                                </button>
+                            ) : null}
 
-                        {activeTab === 'events' ? (
+                            {activeTab === 'overview' ? (
+                                <Link
+                                    href="/"
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                >
+                                    <Eye className="h-4 w-4" />
+                                    Preview Site
+                                </Link>
+                            ) : null}
+
+                            {activeTab === 'settings' ? (
+                                <button
+                                    type="submit"
+                                    form="site-settings-form"
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
+                                >
+                                    <Save className="h-4 w-4" />
+                                    Save Settings
+                                </button>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    <div className="p-5">
+                        {activeTab === 'overview' ? (
+                            <OverviewPanel />
+                        ) : activeTab === 'settings' ? (
+                            <SettingsPanel settings={settings} />
+                        ) : activeType ? (
                             <RecordGrid
-                                type="event"
-                                records={events}
-                                emptyIcon={CalendarDays}
-                                emptyTitle="No public events found"
-                                onCreate={() => setModal({ mode: 'create', type: 'event' })}
-                                onEdit={(record) => setModal({ mode: 'edit', type: 'event', record })}
+                                type={activeType}
+                                records={activeRecords}
+                                onCreate={openCreate}
+                                onEdit={(record) => setModal({ mode: 'edit', type: activeType, record })}
                             />
                         ) : null}
-
-                        {activeTab === 'facilities' ? (
-                            <RecordGrid
-                                type="space"
-                                records={spaces}
-                                emptyIcon={Building2}
-                                emptyTitle="No venue spaces found"
-                                onCreate={() => setModal({ mode: 'create', type: 'space' })}
-                                onEdit={(record) => setModal({ mode: 'edit', type: 'space', record })}
-                            />
-                        ) : null}
-
-                        {activeTab === 'offers' ? (
-                            <RecordGrid
-                                type="package"
-                                records={offers}
-                                emptyIcon={Sparkles}
-                                emptyTitle="No offers found"
-                                onCreate={() => setModal({ mode: 'create', type: 'package' })}
-                                onEdit={(record) => setModal({ mode: 'edit', type: 'package', record })}
-                            />
-                        ) : null}
-
-                        {activeTab === 'stats' ? (
-                            <RecordGrid
-                                type="stat"
-                                records={stats}
-                                emptyIcon={BarChart3}
-                                emptyTitle="No homepage stats found"
-                                onCreate={() => setModal({ mode: 'create', type: 'stat' })}
-                                onEdit={(record) => setModal({ mode: 'edit', type: 'stat', record })}
-                            />
-                        ) : null}
-
-                        {activeTab === 'tourism' ? (
-                            <RecordGrid
-                                type="tourism"
-                                records={members}
-                                emptyIcon={UsersRound}
-                                emptyTitle="No tourism profiles found"
-                                onCreate={() => setModal({ mode: 'create', type: 'tourism' })}
-                                onEdit={(record) => setModal({ mode: 'edit', type: 'tourism', record })}
-                            />
-                        ) : null}
-
-                        {activeTab === 'settings' ? <SettingsPanel settings={settings} /> : null}
-                    </ResourceSection>
-                </div>
+                    </div>
+                </section>
             </ResourcePageShell>
 
-            {modal ? (
-                <ContentModal
-                    modal={modal}
-                    onClose={() => setModal(null)}
-                />
+            {modal ? <ContentModal modal={modal} onClose={() => setModal(null)} /> : null}
+        </>
+    );
+}
+
+function FlashMessages({ flash, errors }: { flash?: PageProps['flash']; errors?: Record<string, string> }) {
+    return (
+        <>
+            {flash?.success || flash?.message ? (
+                <div className="mb-5 rounded-[1.2rem] border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+                    {flash.success || flash.message}
+                </div>
+            ) : null}
+
+            {flash?.error ? (
+                <div className="mb-5 rounded-[1.2rem] border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
+                    {flash.error}
+                </div>
+            ) : null}
+
+            {errors && Object.keys(errors).length > 0 ? (
+                <div className="mb-5 rounded-[1.2rem] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
+                    <p>Please check the form fields:</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                        {Object.entries(errors).map(([field, error]) => (
+                            <li key={field}>
+                                {field}: {error}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
             ) : null}
         </>
     );
 }
 
-function PanelActions({
-    activeTab,
-    activeIcon: ActiveIcon,
-    onCreate,
-}: {
-    activeTab: ContentTabKey;
-    activeIcon: typeof LayoutPanelTop;
-    onCreate: () => void;
-}) {
-    if (activeTab === 'overview') {
-        return (
-            <Link
-                href="/"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
-            >
-                <Eye className="h-4 w-4" />
-                Preview Website
-            </Link>
-        );
-    }
-
-    if (activeTab === 'settings') {
-        return (
-            <button
-                type="submit"
-                form="site-settings-form"
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
-            >
-                <Save className="h-4 w-4" />
-                Save Settings
-            </button>
-        );
-    }
-
-    return (
-        <button
-            type="button"
-            onClick={onCreate}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
-        >
-            <Plus className="h-4 w-4" />
-            Create {activeTab === 'facilities' ? 'Facility' : activeTab.slice(0, -1)}
-            <ActiveIcon className="h-4 w-4 opacity-70" />
-        </button>
-    );
-}
-
 function OverviewPanel() {
     const steps = [
-        {
-            title: '1. Create',
-            description: 'Use the tabs above, then click Create. The form now opens directly inside this page.',
-            icon: Plus,
-        },
-        {
-            title: '2. Review',
-            description: 'Check titles, descriptions, images, visibility flags, and public wording before publishing.',
-            icon: Eye,
-        },
-        {
-            title: '3. Publish',
-            description: 'Open the public website and verify each section on desktop, tablet, and mobile.',
-            icon: Globe2,
-        },
+        { title: 'Choose a section', description: 'Use the tabs above: Events, Facilities, Offers, Stats, Tourism, or Settings.', icon: LayoutPanelTop },
+        { title: 'Create or edit', description: 'Click Create, then fill the simplified form with choices or custom “Other” inputs.', icon: Plus },
+        { title: 'Preview website', description: 'After saving, open the public site and check if the content displays correctly.', icon: Eye },
     ];
 
     return (
@@ -727,21 +739,13 @@ function OverviewPanel() {
                 const Icon = item.icon;
 
                 return (
-                    <article
-                        key={item.title}
-                        className="rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 p-4 dark:border-white/10 dark:bg-white/[0.035]"
-                    >
+                    <article key={item.title} className="rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 p-5 dark:border-white/10 dark:bg-white/[0.035]">
                         <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
                             <Icon className="h-5 w-5" />
                         </span>
 
-                        <h3 className="mt-4 text-sm font-semibold text-[#21180d] dark:text-white">
-                            {item.title}
-                        </h3>
-
-                        <p className="mt-2 text-sm leading-6 text-[#6e604c] dark:text-white/52">
-                            {item.description}
-                        </p>
+                        <h3 className="mt-4 text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">{item.title}</h3>
+                        <p className="mt-2 text-sm leading-7 text-[#6e604c] dark:text-white/56">{item.description}</p>
                     </article>
                 );
             })}
@@ -752,29 +756,26 @@ function OverviewPanel() {
 function RecordGrid({
     type,
     records,
-    emptyIcon,
-    emptyTitle,
     onCreate,
     onEdit,
 }: {
     type: ContentType;
     records: GenericRecord[];
-    emptyIcon: typeof CalendarDays;
-    emptyTitle: string;
     onCreate: () => void;
     onEdit: (record: GenericRecord) => void;
 }) {
     function destroy(record: GenericRecord) {
-        if (!record.id) {
-            return;
-        }
+        if (!record.id) return;
+        if (!window.confirm(`Delete "${titleOf(record, readableType(type))}"?`)) return;
 
-        if (!window.confirm(`Delete "${titleOf(record, readableType(type))}"?`)) {
-            return;
-        }
-
-        router.delete(deleteEndpointFor(type, record), {
+        router.delete(endpointFor(type, record), {
             preserveScroll: true,
+            onSuccess: () => {
+                notifySuccess(`${readableType(type)} deleted successfully.`, 'Deleted successfully');
+            },
+            onError: () => {
+                notifyError(`Unable to delete this ${readableType(type).toLowerCase()}.`, 'Delete failed');
+            },
         });
     }
 
@@ -782,9 +783,9 @@ function RecordGrid({
         return (
             <div>
                 <ResourceEmptyState
-                    icon={emptyIcon}
-                    title={emptyTitle}
-                    description="Create records so this section can appear correctly on the public website."
+                    icon={LayoutPanelTop}
+                    title={`No ${readableType(type)} records yet`}
+                    description="Create a record so this section can appear on the public website."
                 />
 
                 <div className="mt-4 flex justify-center">
@@ -804,16 +805,9 @@ function RecordGrid({
     return (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {records.map((record, index) => (
-                <article
-                    key={`${record.id ?? index}`}
-                    className="overflow-hidden rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 shadow-[0_14px_40px_rgba(47,37,23,0.06)] dark:border-white/10 dark:bg-white/[0.035]"
-                >
+                <article key={`${record.id ?? index}`} className="overflow-hidden rounded-[1.25rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 shadow-[0_14px_40px_rgba(47,37,23,0.06)] dark:border-white/10 dark:bg-white/[0.035]">
                     {imageOf(record) ? (
-                        <img
-                            src={String(imageOf(record))}
-                            alt={titleOf(record, readableType(type))}
-                            className="h-40 w-full object-cover"
-                        />
+                        <img src={imageOf(record)} alt={titleOf(record, readableType(type))} className="h-40 w-full object-cover" />
                     ) : (
                         <div className="grid h-40 place-items-center bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
                             <FileImage className="h-8 w-8" />
@@ -826,24 +820,27 @@ function RecordGrid({
                                 <LayoutPanelTop className="h-4 w-4" />
                             </span>
 
-                            <span
-                                className={
-                                    visibleFlag(record)
-                                        ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200'
-                                        : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-white/10 dark:text-white/52'
-                                }
-                            >
-                                {visibleFlag(record) ? 'Visible' : 'Hidden'}
-                            </span>
+                            <div className="flex flex-wrap justify-end gap-1.5">
+                                <span
+                                    className={
+                                        visibleFlag(record)
+                                            ? 'rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200'
+                                            : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-white/10 dark:text-white/52'
+                                    }
+                                >
+                                    {visibleFlag(record) ? 'Visible' : 'Hidden'}
+                                </span>
+
+                                {type === 'tourism' && featuredFlag(record) ? (
+                                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-200">
+                                        Featured
+                                    </span>
+                                ) : null}
+                            </div>
                         </div>
 
-                        <h3 className="mt-4 line-clamp-2 text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">
-                            {titleOf(record, readableType(type))}
-                        </h3>
-
-                        <p className="mt-2 line-clamp-3 text-sm leading-7 text-[#6e604c] dark:text-white/56">
-                            {metaOf(type, record)}
-                        </p>
+                        <h3 className="mt-4 line-clamp-2 text-lg font-semibold tracking-[-0.04em] text-[#21180d] dark:text-white">{titleOf(record, readableType(type))}</h3>
+                        <p className="mt-2 line-clamp-3 text-sm leading-7 text-[#6e604c] dark:text-white/56">{metaOf(type, record)}</p>
 
                         <div className="mt-4 flex flex-wrap gap-2">
                             <button
@@ -870,77 +867,68 @@ function RecordGrid({
     );
 }
 
-function ContentModal({
-    modal,
-    onClose,
-}: {
-    modal: ModalState;
-    onClose: () => void;
-}) {
-    const [form, setForm] = useState<Record<string, FormPayloadValue>>(() =>
-        modal ? defaultForm(modal.type, modal.record) : {},
-    );
+function ContentModal({ modal, onClose }: { modal: ModalState; onClose: () => void }) {
+    const [form, setForm] = useState<Record<string, FormPayloadValue>>(() => (modal ? defaultForm(modal.type, modal.record) : {}));
     const [processing, setProcessing] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
 
-    if (!modal) {
-        return null;
-    }
-
-    const title = modal.mode === 'create'
-        ? `Create ${readableType(modal.type)}`
-        : `Edit ${readableType(modal.type)}`;
+    if (!modal) return null;
 
     function update(field: string, value: FormPayloadValue) {
         setForm((current) => ({
             ...current,
             [field]: value,
         }));
+
+        setErrorMessage('');
+        setSuccessMessage('');
     }
 
-    function submit(event: FormEvent) {
+    async function submit(event: FormEvent) {
         event.preventDefault();
+
+        if (processing) return;
+
         setProcessing(true);
+        setErrorMessage('');
+        setSuccessMessage('');
 
         const payload = new FormData();
-
-        Object.entries(form).forEach(([key, value]) => {
-            if (value === null || value === undefined) {
-                return;
-            }
-
-            if (value instanceof File) {
-                payload.append(key, value);
-                return;
-            }
-
-            if (typeof value === 'boolean') {
-                payload.append(key, value ? '1' : '0');
-                return;
-            }
-
-            payload.append(key, String(value));
-        });
+        appendContentPayload(payload, modal.type, form);
 
         if (modal.mode === 'edit') {
             payload.append('_method', 'PUT');
         }
 
-        router.post(endpointFor(modal.type, modal.record), payload, {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => onClose(),
-            onFinish: () => setProcessing(false),
-        });
+        try {
+            const result = await submitContentRequest(endpointFor(modal.type, modal.record), payload);
+            const message = extractSuccessMessage(result);
+
+            setSuccessMessage(message);
+            notifySuccess(message, 'Saved successfully');
+
+            window.setTimeout(() => {
+                onClose();
+
+                router.reload({
+                    preserveScroll: true,
+                    preserveState: false,
+                });
+            }, 900);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to save content.';
+
+            setErrorMessage(message);
+            notifyError(message, 'Save failed');
+        } finally {
+            setProcessing(false);
+        }
     }
 
     return (
         <div className="fixed inset-0 z-[99999] overflow-y-auto bg-[#17120b]/45 px-3 py-6 backdrop-blur-xl dark:bg-black/60">
-            <button
-                type="button"
-                onClick={onClose}
-                className="fixed inset-0 cursor-default"
-                aria-label="Close modal"
-            />
+            <button type="button" onClick={onClose} className="fixed inset-0 cursor-default" aria-label="Close modal" />
 
             <div className="relative mx-auto max-w-3xl overflow-hidden rounded-[1.75rem] border border-[#d9c7a6]/70 bg-white shadow-[0_30px_100px_rgba(0,0,0,0.28)] dark:border-white/10 dark:bg-[#101419]">
                 <div className="flex items-start justify-between gap-4 border-b border-[#eadcc2]/80 p-5 dark:border-white/10">
@@ -950,35 +938,45 @@ function ContentModal({
                         </p>
 
                         <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#21180d] dark:text-white">
-                            {title}
+                            {modal.mode === 'create' ? 'Create' : 'Edit'} {readableType(modal.type)}
                         </h2>
 
                         <p className="mt-2 text-sm leading-7 text-[#6e604c] dark:text-white/56">
-                            Fill the fields below, then save. The item will be stored and shown in this same content manager page.
+                            Use the simple fields and choices below. Select Other when you need to type a custom value.
                         </p>
                     </div>
 
                     <button
                         type="button"
                         onClick={onClose}
-                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9c7a6]/70 bg-white text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                        disabled={processing}
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9c7a6]/70 bg-white text-[#2f2517] transition hover:bg-[#f7f0e3] disabled:opacity-50 dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
                     >
                         <X className="h-4 w-4" />
                     </button>
                 </div>
 
                 <form onSubmit={submit} className="grid gap-4 p-5">
-                    <DynamicFields
-                        type={modal.type}
-                        form={form}
-                        onChange={update}
-                    />
+                    {errorMessage ? (
+                        <div className="whitespace-pre-line rounded-[1.1rem] border border-rose-200 bg-rose-50 p-4 text-sm font-semibold leading-6 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
+                            {errorMessage}
+                        </div>
+                    ) : null}
+
+                    {successMessage ? (
+                        <div className="rounded-[1.1rem] border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100">
+                            {successMessage}
+                        </div>
+                    ) : null}
+
+                    <DynamicFields type={modal.type} form={form} onChange={update} />
 
                     <div className="flex flex-col-reverse gap-2 border-t border-[#eadcc2]/80 pt-4 dark:border-white/10 sm:flex-row sm:justify-end">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                            disabled={processing}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
                         >
                             Cancel
                         </button>
@@ -998,6 +996,14 @@ function ContentModal({
     );
 }
 
+function extractSuccessMessage(result: unknown) {
+    if (result && typeof result === 'object' && 'message' in result) {
+        return String((result as { message?: string }).message || 'Saved successfully.');
+    }
+
+    return 'Saved successfully.';
+}
+
 function DynamicFields({
     type,
     form,
@@ -1012,12 +1018,18 @@ function DynamicFields({
             <>
                 <div className="grid gap-3 md:grid-cols-2">
                     <TextField label="Title" value={form.title} onChange={(value) => onChange('title', value)} required />
-                    <TextField label="Category" value={form.category} onChange={(value) => {
-                        onChange('category', value);
-                        onChange('event_category', value);
-                    }} placeholder="BCCC Event / Baguio City Event" />
+                    <SelectOrCustomField
+                        label="Category"
+                        value={form.category}
+                        onChange={(value) => {
+                            onChange('category', value);
+                            onChange('event_category', value);
+                        }}
+                        options={EVENT_CATEGORY_OPTIONS}
+                        required
+                    />
                     <TextField label="Event Date" value={form.starts_at} onChange={(value) => onChange('starts_at', value)} type="date" />
-                    <TextField label="External URL" value={form.external_url} onChange={(value) => onChange('external_url', value)} />
+                    <TextField label="External URL" value={form.external_url} onChange={(value) => onChange('external_url', value)} placeholder="Optional link" />
                 </div>
                 <TextArea label="Description" value={form.description} onChange={(value) => onChange('description', value)} />
                 <ImageFields form={form} onChange={onChange} />
@@ -1030,13 +1042,18 @@ function DynamicFields({
         return (
             <>
                 <div className="grid gap-3 md:grid-cols-2">
-                    <TextField label="Title / Name" value={form.title} onChange={(value) => {
-                        onChange('title', value);
-                        onChange('name', value);
-                    }} required />
-                    <TextField label="Subtitle" value={form.subtitle} onChange={(value) => onChange('subtitle', value)} />
-                    <TextField label="Capacity" value={form.capacity} onChange={(value) => onChange('capacity', value)} />
-                    <TextField label="Sort Order" value={form.sort_order} onChange={(value) => onChange('sort_order', value)} type="number" />
+                    <TextField
+                        label="Facility Name"
+                        value={form.title}
+                        onChange={(value) => {
+                            onChange('title', value);
+                            onChange('name', value);
+                        }}
+                        required
+                    />
+                    <TextField label="Subtitle" value={form.subtitle} onChange={(value) => onChange('subtitle', value)} placeholder="Optional short label" />
+                    <SelectOrCustomField label="Capacity" value={form.capacity} onChange={(value) => onChange('capacity', value)} options={FACILITY_CAPACITY_OPTIONS} />
+                    <TextField label="Sort Order" value={form.sort_order} onChange={(value) => onChange('sort_order', value)} type="number" placeholder="Optional" />
                 </div>
                 <TextArea label="Description" value={form.description} onChange={(value) => onChange('description', value)} />
                 <ImageFields form={form} onChange={onChange} />
@@ -1052,7 +1069,7 @@ function DynamicFields({
                     <TextField label="Title" value={form.title} onChange={(value) => onChange('title', value)} required />
                     <TextField label="Subtitle" value={form.subtitle} onChange={(value) => onChange('subtitle', value)} />
                     <TextField label="Price Label" value={form.price_label} onChange={(value) => onChange('price_label', value)} placeholder="Starts at ₱..." />
-                    <TextField label="External URL" value={form.external_url} onChange={(value) => onChange('external_url', value)} />
+                    <TextField label="External URL" value={form.external_url} onChange={(value) => onChange('external_url', value)} placeholder="Optional link" />
                 </div>
                 <TextArea label="Description" value={form.description} onChange={(value) => onChange('description', value)} />
                 <ImageFields form={form} onChange={onChange} />
@@ -1067,7 +1084,7 @@ function DynamicFields({
                 <div className="grid gap-3 md:grid-cols-2">
                     <TextField label="Label" value={form.label} onChange={(value) => onChange('label', value)} required />
                     <TextField label="Value" value={form.value} onChange={(value) => onChange('value', value)} required />
-                    <TextField label="Sort Order" value={form.sort_order} onChange={(value) => onChange('sort_order', value)} type="number" />
+                    <TextField label="Sort Order" value={form.sort_order} onChange={(value) => onChange('sort_order', value)} type="number" placeholder="Optional" />
                 </div>
                 <TextArea label="Description" value={form.description} onChange={(value) => onChange('description', value)} />
                 <VisibilityFields form={form} onChange={onChange} />
@@ -1078,14 +1095,57 @@ function DynamicFields({
     return (
         <>
             <div className="grid gap-3 md:grid-cols-2">
-                <TextField label="Name" value={form.name} onChange={(value) => onChange('name', value)} required />
-                <TextField label="Position" value={form.position} onChange={(value) => onChange('position', value)} />
-                <TextField label="Email" value={form.email} onChange={(value) => onChange('email', value)} type="email" />
-                <TextField label="Phone" value={form.phone} onChange={(value) => onChange('phone', value)} />
+                <TextField label="Full Name" value={form.full_name} onChange={(value) => onChange('full_name', value)} required />
+
+                <SelectOrCustomField
+                    label="Designation"
+                    value={form.designation}
+                    onChange={(value) => onChange('designation', value)}
+                    options={DESIGNATION_OPTIONS}
+                    required
+                />
+
+                <SelectOrCustomField
+                    label="Office Section"
+                    value={form.office_section}
+                    onChange={(value) => onChange('office_section', value)}
+                    options={TOURISM_OFFICE_SECTIONS}
+                    required
+                />
+
+                <SelectOrCustomField
+                    label="Unit Name"
+                    value={form.unit_name}
+                    onChange={(value) => onChange('unit_name', value)}
+                    options={UNIT_NAME_OPTIONS}
+                />
+
+                <SelectOrCustomField
+                    label="Team Label"
+                    value={form.team_label}
+                    onChange={(value) => onChange('team_label', value)}
+                    options={TOURISM_TEAM_LABELS}
+                />
+
+                <TextField label="Reports To" value={form.reports_to_name} onChange={(value) => onChange('reports_to_name', value)} placeholder="Supervisor or office head" />
+
+                <SelectOrCustomField
+                    label="Tree Level"
+                    value={form.tree_level}
+                    onChange={(value) => onChange('tree_level', value)}
+                    options={TREE_LEVEL_OPTIONS}
+                    required
+                />
+
+                <TextField label="Sort Order" value={form.sort_order} onChange={(value) => onChange('sort_order', value)} type="number" placeholder="Optional" />
+                <TextField label="Email" value={form.email} onChange={(value) => onChange('email', value)} type="email" placeholder="name@example.com" />
+                <TextField label="Phone" value={form.phone} onChange={(value) => onChange('phone', value)} placeholder="09XXXXXXXXX" />
             </div>
-            <TextArea label="Bio" value={form.bio} onChange={(value) => onChange('bio', value)} />
-            <ImageFields form={form} onChange={onChange} />
-            <VisibilityFields form={form} onChange={onChange} />
+
+            <TextArea label="Short Bio" value={form.short_bio} onChange={(value) => onChange('short_bio', value)} />
+            <TextArea label="Details / Responsibilities" value={form.details_text} onChange={(value) => onChange('details_text', value)} />
+            <TourismPhotoField form={form} onChange={onChange} />
+            <TourismVisibilityFields form={form} onChange={onChange} />
         </>
     );
 }
@@ -1124,20 +1184,73 @@ function TextField({
     );
 }
 
-function TextArea({
+function SelectOrCustomField({
     label,
     value,
     onChange,
+    options,
+    required = false,
 }: {
     label: string;
     value: FormPayloadValue;
     onChange: (value: string) => void;
+    options: Choice[];
+    required?: boolean;
 }) {
+    const currentValue = typeof value === 'string' ? value : '';
+    const isKnown = options.some((option) => option.value === currentValue);
+    const isCustom = currentValue !== '' && !isKnown;
+
     return (
-        <label className="grid gap-2">
+        <div className="grid gap-2">
             <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
                 {label}
+                {required ? ' *' : ''}
             </span>
+
+            <select
+                value={isCustom ? '__other__' : currentValue}
+                onChange={(event) => {
+                    const next = event.target.value;
+
+                    if (next === '__other__') {
+                        onChange('');
+                        return;
+                    }
+
+                    onChange(next);
+                }}
+                required={required && !isCustom}
+                className="min-h-11 rounded-full border border-[#d9c7a6]/70 bg-white px-4 text-sm text-[#21180d] outline-none transition focus:border-[#b08d48] dark:border-white/10 dark:bg-[#161b22] dark:text-white"
+            >
+                <option value="">Select {label}</option>
+
+                {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+
+                <option value="__other__">Other — type manually</option>
+            </select>
+
+            {(isCustom || currentValue === '') && (
+                <input
+                    value={isCustom ? currentValue : ''}
+                    onChange={(event) => onChange(event.target.value)}
+                    required={required}
+                    placeholder={`Type custom ${label.toLowerCase()}`}
+                    className="min-h-11 rounded-full border border-[#d9c7a6]/70 bg-white px-4 text-sm text-[#21180d] outline-none transition placeholder:text-[#8a7a63] focus:border-[#b08d48] dark:border-white/10 dark:bg-white/7 dark:text-white dark:placeholder:text-white/42"
+                />
+            )}
+        </div>
+    );
+}
+
+function TextArea({ label, value, onChange }: { label: string; value: FormPayloadValue; onChange: (value: string) => void }) {
+    return (
+        <label className="grid gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">{label}</span>
 
             <textarea
                 value={typeof value === 'string' ? value : ''}
@@ -1149,68 +1262,78 @@ function TextArea({
     );
 }
 
-function ImageFields({
-    form,
-    onChange,
-}: {
-    form: Record<string, FormPayloadValue>;
-    onChange: (field: string, value: FormPayloadValue) => void;
-}) {
+function ImageFields({ form, onChange }: { form: Record<string, FormPayloadValue>; onChange: (field: string, value: FormPayloadValue) => void }) {
     function handleFile(event: ChangeEvent<HTMLInputElement>) {
-        const file = event.target.files?.[0] ?? null;
-        onChange('image', file);
+        onChange('image', event.target.files?.[0] ?? null);
     }
 
     return (
         <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-            <TextField
-                label="Image Path / URL"
-                value={form.image_path}
-                onChange={(value) => onChange('image_path', value)}
-                placeholder="/marketing/images/..."
-            />
+            <TextField label="Image Path / URL" value={form.image_path} onChange={(value) => onChange('image_path', value)} placeholder="/marketing/images/..." />
 
             <label className="grid gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                    Upload Image
-                </span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Upload Image</span>
 
                 <span className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12">
                     <ImagePlus className="h-4 w-4" />
                     Choose
                     <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
                 </span>
+
+                {form.image instanceof File ? <p className="text-sm font-semibold text-[#6e604c] dark:text-white/56">Selected: {form.image.name}</p> : null}
             </label>
         </div>
     );
 }
 
-function VisibilityFields({
-    form,
-    onChange,
-}: {
-    form: Record<string, FormPayloadValue>;
-    onChange: (field: string, value: FormPayloadValue) => void;
-}) {
+function TourismPhotoField({ form, onChange }: { form: Record<string, FormPayloadValue>; onChange: (field: string, value: FormPayloadValue) => void }) {
+    function handleFile(event: ChangeEvent<HTMLInputElement>) {
+        onChange('photo', event.target.files?.[0] ?? null);
+    }
+
+    return (
+        <label className="grid gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Profile Photo</span>
+
+            <span className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12">
+                <ImagePlus className="h-4 w-4" />
+                Choose Photo
+                <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
+            </span>
+
+            {form.photo instanceof File ? <p className="text-sm font-semibold text-[#6e604c] dark:text-white/56">Selected: {form.photo.name}</p> : null}
+        </label>
+    );
+}
+
+function VisibilityFields({ form, onChange }: { form: Record<string, FormPayloadValue>; onChange: (field: string, value: FormPayloadValue) => void }) {
     return (
         <div className="grid gap-3 rounded-[1.15rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 p-4 dark:border-white/10 dark:bg-white/[0.035] md:grid-cols-2">
             <label className="flex items-center gap-3">
-                <input
-                    type="checkbox"
-                    checked={Boolean(form.homepage_visible)}
-                    onChange={(event) => onChange('homepage_visible', event.target.checked)}
-                    className="h-4 w-4 rounded border-[#d9c7a6]"
-                />
-
-                <span className="text-sm font-semibold text-[#21180d] dark:text-white">
-                    Show on homepage / public site
-                </span>
+                <input type="checkbox" checked={Boolean(form.homepage_visible)} onChange={(event) => onChange('homepage_visible', event.target.checked)} className="h-4 w-4 rounded border-[#d9c7a6]" />
+                <span className="text-sm font-semibold text-[#21180d] dark:text-white">Show on homepage / public site</span>
             </label>
 
             <div className="flex items-center gap-2 text-sm text-[#6e604c] dark:text-white/56">
                 <Check className="h-4 w-4 text-emerald-600" />
                 Saved items return here after submission.
             </div>
+        </div>
+    );
+}
+
+function TourismVisibilityFields({ form, onChange }: { form: Record<string, FormPayloadValue>; onChange: (field: string, value: FormPayloadValue) => void }) {
+    return (
+        <div className="grid gap-3 rounded-[1.15rem] border border-[#eadcc2]/80 bg-[#fffaf0]/72 p-4 dark:border-white/10 dark:bg-white/[0.035] md:grid-cols-2">
+            <label className="flex items-center gap-3">
+                <input type="checkbox" checked={Boolean(form.is_active)} onChange={(event) => onChange('is_active', event.target.checked)} className="h-4 w-4 rounded border-[#d9c7a6]" />
+                <span className="text-sm font-semibold text-[#21180d] dark:text-white">Active / visible on public site</span>
+            </label>
+
+            <label className="flex items-center gap-3">
+                <input type="checkbox" checked={Boolean(form.is_featured)} onChange={(event) => onChange('is_featured', event.target.checked)} className="h-4 w-4 rounded border-[#d9c7a6]" />
+                <span className="text-sm font-semibold text-[#21180d] dark:text-white">Featured tourism profile</span>
+            </label>
         </div>
     );
 }
@@ -1231,10 +1354,7 @@ function SettingsPanel({ settings }: { settings: SiteSettings }) {
     const [processing, setProcessing] = useState(false);
 
     function update(field: keyof typeof form, value: string) {
-        setForm((current) => ({
-            ...current,
-            [field]: value,
-        }));
+        setForm((current) => ({ ...current, [field]: value }));
     }
 
     function submit(event: FormEvent) {
@@ -1243,6 +1363,12 @@ function SettingsPanel({ settings }: { settings: SiteSettings }) {
 
         router.put('/admin/site-settings', form, {
             preserveScroll: true,
+            onSuccess: () => {
+                notifySuccess('Site settings saved successfully.', 'Saved successfully');
+            },
+            onError: () => {
+                notifyError('Unable to save site settings. Please check the fields.', 'Save failed');
+            },
             onFinish: () => setProcessing(false),
         });
     }

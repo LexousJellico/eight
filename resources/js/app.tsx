@@ -13,6 +13,7 @@ import '../css/backend-booking-laptop-polish.css';
 import '../css/backend-booking-hotel-flow.css';
 import '../css/backend-booking-universal-responsive.css';
 import '../css/backend-booking-motion-responsive-final.css';
+import AppNoticeCenter from '@/components/shared/app-notice-center';
 
 import ActionFeedbackPopup from '@/components/action-feedback-popup';
 import AppErrorBoundary from '@/components/system/app-error-boundary';
@@ -150,7 +151,12 @@ createInertiaApp({
     },
 
     setup({ el, App, props }) {
-        createRoot(el).render(<App {...props} />);
+        createRoot(el).render(
+            <>
+                <App {...props} />
+                <AppNoticeCenter />
+            </>,
+        );
     },
 
     progress: {

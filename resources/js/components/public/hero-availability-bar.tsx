@@ -13,7 +13,6 @@ import {
     statusDescription,
     statusDot,
     statusLabel,
-    statusTone,
     todayKey,
     type AvailabilityRangeResponse,
     type AvailabilityStatus,
@@ -21,6 +20,7 @@ import {
 } from '@/lib/public-availability';
 import type { VenueOption } from '@/types/public-content';
 import { Link } from '@inertiajs/react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
     AlertTriangle,
     ArrowRight,
@@ -35,8 +35,8 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { type FormEvent, useMemo, useState } from 'react';
+import type { FormEvent, ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Props = {
     venueOptions: VenueOption[];
@@ -44,17 +44,26 @@ type Props = {
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
+const blockOrderPreview = [
+    { key: 'AM', display: blockMeta.AM.display },
+    { key: 'PM', display: blockMeta.PM.display },
+    { key: 'EVE', display: blockMeta.EVE.display },
+];
+
 function readableNumber(value?: number | null) {
     return Number(value ?? 0).toLocaleString('en-PH');
 }
 
-function asRangePayload(payload: unknown, form: {
-    from: string;
-    to: string;
-    venue: string;
-    eventType: string;
-    guests: string;
-}): AvailabilityRangeResponse {
+function asRangePayload(
+    payload: unknown,
+    form: {
+        from: string;
+        to: string;
+        venue: string;
+        eventType: string;
+        guests: string;
+    },
+): AvailabilityRangeResponse {
     const raw = payload as Partial<AvailabilityRangeResponse> & Partial<PublicDayStatus>;
 
     if (Array.isArray(raw.results)) {
@@ -108,18 +117,80 @@ function asRangePayload(payload: unknown, form: {
     };
 }
 
+function useAvailabilityDockLayout() {
+    const dockRef = useRef<HTMLElement | null>(null);
+    const [footerLift, setFooterLift] = useState(0);
+
+    useEffect(() => {
+        const footer = document.querySelector<HTMLElement>('footer');
+        const previousBodyPadding = document.body.style.paddingBottom;
+        const previousFooterPaddingTop = footer?.style.paddingTop ?? '';
+
+        function dockHeight() {
+            return Math.ceil(dockRef.current?.getBoundingClientRect().height ?? 132);
+        }
+
+        function update() {
+            const height = dockHeight();
+            const footerElement = document.querySelector<HTMLElement>('footer');
+
+            document.body.style.paddingBottom = `${height + 18}px`;
+
+            if (footerElement) {
+                footerElement.style.paddingTop = `${height + 24}px`;
+
+                const rect = footerElement.getBoundingClientRect();
+                const overlap = Math.max(0, window.innerHeight - rect.top);
+
+                setFooterLift(overlap);
+                return;
+            }
+
+            setFooterLift(0);
+        }
+
+        update();
+
+        const observer = new ResizeObserver(update);
+
+        if (dockRef.current) {
+            observer.observe(dockRef.current);
+        }
+
+        window.addEventListener('scroll', update, { passive: true });
+        window.addEventListener('resize', update);
+
+        return () => {
+            observer.disconnect();
+            window.removeEventListener('scroll', update);
+            window.removeEventListener('resize', update);
+
+            document.body.style.paddingBottom = previousBodyPadding;
+
+            if (footer) {
+                footer.style.paddingTop = previousFooterPaddingTop;
+            }
+        };
+    }, []);
+
+    return {
+        dockRef,
+        footerLift,
+    };
+}
+
 function FieldShell({
     label,
     icon,
     children,
 }: {
     label: string;
-    icon: React.ReactNode;
-    children: React.ReactNode;
+    icon: ReactNode;
+    children: ReactNode;
 }) {
     return (
-        <label className="group block rounded-[1.05rem] border border-[#d9c7a6]/70 bg-white/84 px-3 py-2.5 shadow-[0_12px_30px_rgba(47,37,23,0.06)] transition focus-within:border-[#b08d48] focus-within:ring-4 focus-within:ring-[#b08d48]/12 dark:border-white/10 dark:bg-white/7">
-            <span className="mb-1.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+        <label className="group grid min-w-0 gap-1 rounded-[1rem] border border-[#d9c7a6]/70 bg-white/86 px-3 py-2 shadow-sm transition focus-within:border-[#b08d48] focus-within:ring-4 focus-within:ring-[#b08d48]/15 dark:border-white/10 dark:bg-white/[0.075]">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#8b672d] dark:text-[#f1d89b]">
                 {icon}
                 {label}
             </span>
@@ -128,94 +199,108 @@ function FieldShell({
         </label>
     );
 }
+function availabilityTone(status: AvailabilityStatus | string) {
+    const normalized = normalizeStatus(status);
 
+    if (normalized === 'available') {
+        return {
+            shell: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100',
+            icon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
+            badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
+            accent: 'text-emerald-700 dark:text-emerald-200',
+        };
+    }
+
+    if (normalized === 'limited' || normalized === 'public_booked') {
+        return {
+            shell: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100',
+            icon: 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
+            badge: 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
+            accent: 'text-amber-700 dark:text-amber-200',
+        };
+    }
+
+    return {
+        shell: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100',
+        icon: 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200',
+        badge: 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200',
+        accent: 'text-rose-700 dark:text-rose-200',
+    };
+}
+
+function blockTone(isAvailable?: boolean) {
+    if (isAvailable) {
+        return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100';
+    }
+
+    return 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100';
+}
 function ResultStatusIcon({ status }: { status: AvailabilityStatus | string }) {
     const normalized = normalizeStatus(status);
 
     if (normalized === 'available') {
-        return <CheckCircle2 className="h-4 w-4" />;
+        return <CheckCircle2 className="h-5 w-5" />;
     }
 
     if (normalized === 'limited' || normalized === 'public_booked') {
-        return <CircleAlert className="h-4 w-4" />;
+        return <AlertTriangle className="h-5 w-5" />;
     }
 
-    return <AlertTriangle className="h-4 w-4" />;
+    return <CircleAlert className="h-5 w-5" />;
 }
 
 function DayResultCard({ day }: { day: PublicDayStatus }) {
     const status = deriveDayStatus(day);
     const blocks = normalizeBlocks(day.blocks);
 
+    const availableBlocks = blocks.filter((block) => block.is_available);
+    const unavailableBlocks = blocks.filter((block) => !block.is_available);
+
     return (
-        <article className="rounded-[1.15rem] border border-black/10 bg-white/74 p-3 dark:border-white/10 dark:bg-white/7">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+        <article className="rounded-[1.2rem] border border-[#eadcc2]/80 bg-white/76 p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.045]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
                         {day.date}
                     </p>
-                    <h4 className="mt-1 text-sm font-semibold text-[#21180d] dark:text-white">
-                        {day.title || statusLabel(status)}
+
+                    <h4 className="mt-1 text-lg font-semibold tracking-[-0.035em] text-[#21180d] dark:text-white">
+                        {statusLabel(status)}
                     </h4>
                 </div>
 
-                <span className={cx('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]', statusTone(status))}>
-                    <ResultStatusIcon status={status} />
+                <span className={cx('w-fit rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em]', statusDot(status))}>
                     {statusLabel(status)}
                 </span>
             </div>
 
-            <p className="mt-2 text-xs leading-5 text-[#6e604c] dark:text-white/58">
-                {day.description || statusDescription(status)}
-            </p>
+            {availableBlocks.length > 0 ? (
+                <div className="mt-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                        Available time
+                    </p>
 
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                {blocks.map((block) => (
-                    <div
-                        key={String(block.key)}
-                        className={cx(
-                            'rounded-xl border px-2.5 py-2 text-xs',
-                            block.is_available
-                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100'
-                                : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100',
-                        )}
-                    >
-                        <p className="font-bold uppercase tracking-[0.14em]">
-                            {block.key} · {block.label}
-                        </p>
-                        <p className="mt-1 opacity-75">
-                            {block.from} – {block.to}
-                        </p>
-                        <p className="mt-1 font-semibold">
-                            {block.is_available ? 'Open' : block.reason || 'Closed'}
-                        </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {availableBlocks.map((block) => (
+                            <span
+                                key={block.key}
+                                className="inline-flex min-h-9 items-center gap-2 rounded-full bg-emerald-50 px-3 text-sm font-bold text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-100 dark:ring-emerald-400/20"
+                            >
+                                {block.key} · {block.label}
+                            </span>
+                        ))}
                     </div>
-                ))}
-            </div>
-
-            {day.event_titles?.length ? (
-                <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
-                    <p className="font-bold uppercase tracking-[0.16em]">Visible Events</p>
-                    <ul className="mt-2 space-y-1">
-                        {day.event_titles.map((title) => (
-                            <li key={title}>• {title}</li>
-                        ))}
-                    </ul>
                 </div>
-            ) : null}
+            ) : (
+                <p className="mt-4 rounded-[1rem] bg-rose-50 p-3 text-sm font-semibold leading-6 text-rose-800 ring-1 ring-rose-200 dark:bg-rose-400/10 dark:text-rose-100 dark:ring-rose-400/20">
+                    No available time block for this date.
+                </p>
+            )}
 
-            {day.calendar_blocks?.length ? (
-                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-                    <p className="font-bold uppercase tracking-[0.16em]">Calendar Blocks</p>
-                    <ul className="mt-2 space-y-1">
-                        {day.calendar_blocks.map((block, index) => (
-                            <li key={`${block.title || 'block'}-${index}`}>
-                                • {block.title || 'Calendar block'}
-                                {block.area ? ` — ${block.area}` : ''}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+            {unavailableBlocks.length > 0 && availableBlocks.length > 0 ? (
+                <p className="mt-3 text-sm leading-6 text-[#6e604c] dark:text-white/56">
+                    Some time blocks are already unavailable. You can still continue using the available time shown above.
+                </p>
             ) : null}
         </article>
     );
@@ -236,153 +321,150 @@ function AvailabilityResultModal({
 }) {
     const reduceMotion = useReducedMotion();
 
+    const normalized = result ? normalizeStatus(result.status) : 'limited';
+    const canProceed = result?.can_proceed !== false && normalized !== 'blocked' && normalized !== 'private_booked';
+
+    const resultTitle =
+        normalized === 'available'
+            ? 'Good news, this schedule is available.'
+            : normalized === 'limited' || normalized === 'public_booked'
+              ? 'Some time blocks are still available.'
+              : 'This schedule is not available.';
+
+    const resultMessage =
+        normalized === 'available'
+            ? 'You may continue with your booking request.'
+            : normalized === 'limited' || normalized === 'public_booked'
+              ? 'Please choose from the available time blocks shown below.'
+              : 'Please choose another date, area, or check the full calendar.';
+
     return (
         <AnimatePresence>
             {open ? (
                 <motion.div
-                    className="fixed inset-0 z-[999990] grid place-items-center bg-white/72 px-4 py-6 backdrop-blur-2xl dark:bg-slate-950/58"
+                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/45 px-3 py-6 backdrop-blur-xl"
                     initial={reduceMotion ? false : { opacity: 0 }}
-                    animate={reduceMotion ? undefined : { opacity: 1 }}
-                    exit={reduceMotion ? undefined : { opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
                     onClick={(event) => {
                         if (event.target === event.currentTarget) {
                             onClose();
                         }
                     }}
                 >
-                    <motion.section
-                        className="max-h-[calc(100vh-3rem)] w-full max-w-5xl overflow-hidden rounded-[1.8rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/96 shadow-[0_30px_100px_rgba(47,37,23,0.24)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/96"
-                        initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.98, filter: 'blur(10px)' }}
-                        animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                        exit={reduceMotion ? undefined : { opacity: 0, y: 18, scale: 0.98, filter: 'blur(10px)' }}
-                        transition={{ duration: 0.28, ease }}
-                        role="dialog"
-                        aria-modal="true"
+                    <motion.div
+                        className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-[1.7rem] border border-[#d9c7a6]/70 bg-[#f8f5ef] text-[#21180d] shadow-[0_30px_110px_rgba(0,0,0,0.32)] dark:border-white/10 dark:bg-[#101419] dark:text-white"
+                        initial={reduceMotion ? false : { opacity: 0, y: 20, scale: 0.97, filter: 'blur(10px)' }}
+                        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, y: 12, scale: 0.97, filter: 'blur(10px)' }}
+                        transition={{ duration: 0.32, ease }}
                     >
-                        <div className="flex items-start justify-between gap-4 border-b border-[#d9c7a6]/60 p-5 dark:border-white/10">
+                        <div className="flex items-start justify-between gap-4 border-b border-[#eadcc2]/80 p-5 dark:border-white/10">
                             <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                                    Availability Status
+                                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                    Availability Result
                                 </p>
-                                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
-                                    {loading ? 'Checking selected schedule' : result?.title || 'Availability Result'}
+
+                                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em]">
+                                    {loading ? 'Checking schedule...' : resultTitle}
                                 </h3>
+
+                                {result ? (
+                                    <p className="mt-2 text-sm leading-6 text-[#6e604c] dark:text-white/58">
+                                        {formatRangeLabel(result.from, result.to)} · {result.venue}
+                                    </p>
+                                ) : null}
                             </div>
 
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-black/10 bg-white/70 text-[#2f2517] transition hover:bg-white dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#d9c7a6]/70 bg-white/80 text-[#2f2517] transition hover:bg-[#fffaf0] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
                                 aria-label="Close availability result"
                             >
                                 <X className="h-4 w-4" />
                             </button>
                         </div>
 
-                        <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        <div className="max-h-[calc(90vh-6rem)] overflow-y-auto p-5">
                             {loading ? (
-                                <div className="grid min-h-[22rem] place-items-center text-center">
+                                <div className="grid min-h-[18rem] place-items-center text-center">
                                     <div>
-                                        <BcccLogoLoader
-                                            logoSrc="/marketing/images/logo/bccc-seal.png"
-                                            label="Checking availability"
-                                            showLabel={false}
-                                            size="lg"
-                                        />
-                                        <h4 className="mt-5 text-xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
-                                            Checking availability
+                                        <BcccLogoLoader size="md" />
+
+                                        <h4 className="mt-5 text-xl font-bold text-[#21180d] dark:text-white">
+                                            Please wait
                                         </h4>
-                                        <p className="mt-2 max-w-md text-sm leading-7 text-[#6e604c] dark:text-white/58">
-                                            {message || 'Please wait while the system reviews the selected range, venue area, and calendar blocks.'}
+
+                                        <p className="mx-auto mt-2 max-w-[54ch] text-sm leading-6 text-[#6e604c] dark:text-white/58">
+                                            Checking the selected date and venue area.
                                         </p>
                                     </div>
                                 </div>
                             ) : message && !result ? (
-                                <div className="rounded-[1.35rem] border border-rose-200 bg-rose-50 p-5 text-rose-900 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
-                                    <div className="flex items-start gap-3">
-                                        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-                                        <div>
-                                            <h4 className="text-base font-semibold">Unable to complete the check</h4>
-                                            <p className="mt-2 text-sm leading-7">{message}</p>
-                                        </div>
-                                    </div>
+                                <div className="rounded-[1.2rem] border border-rose-200 bg-rose-50 p-5 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
+                                    <h4 className="text-lg font-bold">Unable to check availability</h4>
+                                    <p className="mt-2 text-sm leading-6">{message}</p>
                                 </div>
                             ) : result ? (
-                                <div className="space-y-5">
-                                    <div className={cx('rounded-[1.35rem] border p-4', statusTone(result.status))}>
-                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                            <div>
-                                                <span className="inline-flex items-center gap-2 rounded-full border border-current/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em]">
-                                                    <ResultStatusIcon status={result.status} />
-                                                    {statusLabel(result.status)}
-                                                </span>
+                                <div className="grid gap-5">
+                                    <section
+                                        className={cx(
+                                            'rounded-[1.35rem] border p-5',
+                                            normalized === 'available'
+                                                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100'
+                                                : normalized === 'limited' || normalized === 'public_booked'
+                                                  ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100'
+                                                  : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100',
+                                        )}
+                                    >
+                                        <div className="flex gap-3">
+                                            <span className="mt-0.5">
+                                                <ResultStatusIcon status={result.status} />
+                                            </span>
 
-                                                <h4 className="mt-3 text-xl font-semibold tracking-[-0.045em]">
-                                                    {result.title}
+                                            <div>
+                                                <h4 className="text-xl font-bold">
+                                                    {resultTitle}
                                                 </h4>
 
-                                                <p className="mt-2 text-sm leading-7 opacity-80">
-                                                    {formatRangeLabel(result.from, result.to)} · {result.venue}
+                                                <p className="mt-2 text-sm leading-6">
+                                                    {resultMessage}
                                                 </p>
-
-                                                <p className="mt-2 text-sm leading-7 opacity-80">
-                                                    {result.description}
-                                                </p>
-
-                                                {result.note ? (
-                                                    <p className="mt-2 text-sm leading-7 opacity-80">
-                                                        {result.note}
-                                                    </p>
-                                                ) : null}
-                                            </div>
-
-                                            <div className="grid min-w-[16rem] gap-2 rounded-[1.15rem] bg-white/55 p-3 text-sm dark:bg-white/7">
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <span>Days checked</span>
-                                                    <strong>{readableNumber(result.days_count || result.results.length)}</strong>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <span>Available</span>
-                                                    <strong>{readableNumber(result.available_days)}</strong>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <span>Limited</span>
-                                                    <strong>{readableNumber(result.limited_days)}</strong>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <span>Blocked/Reserved</span>
-                                                    <strong>{readableNumber(result.blocked_days)}</strong>
-                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </section>
 
-                                    <div className="grid gap-3">
-                                        {result.results.map((day) => (
-                                            <DayResultCard key={day.date} day={day} />
-                                        ))}
-                                    </div>
-
-                                    <div className="rounded-[1.35rem] border border-[#d9c7a6]/70 bg-white/75 p-4 dark:border-white/10 dark:bg-white/7">
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                                            Booking Summary
+                                    <section>
+                                        <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                            Available Schedule
                                         </p>
 
-                                        <p className="mt-2 text-sm leading-7 text-[#6e604c] dark:text-white/58">
-                                            Range: {formatRangeLabel(result.from, result.to)} · Area: {result.venue} · Event:{' '}
-                                            {result.event_type || 'Not specified'} · Guests: {result.guests || 'Not specified'}
+                                        <div className="grid gap-3">
+                                            {result.results.map((day) => (
+                                                <DayResultCard key={day.date} day={day} />
+                                            ))}
+                                        </div>
+                                    </section>
+
+                                    <section className="rounded-[1.25rem] border border-[#eadcc2]/80 bg-white/76 p-5 dark:border-white/10 dark:bg-white/[0.045]">
+                                        <p className="text-sm leading-6 text-[#6e604c] dark:text-white/58">
+                                            {canProceed
+                                                ? 'Ready to continue? The booking form will use your selected date, area, event type, and guest count.'
+                                                : 'Try another date or check the full calendar for open schedules.'}
                                         </p>
 
-                                        <p className="mt-2 text-sm leading-7 text-[#6e604c] dark:text-white/58">
-                                            {result.recommended_action || 'Review each date and available block before continuing.'}
-                                        </p>
-
-                                        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-                                            {result.can_proceed !== false ? (
+                                        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                            {canProceed ? (
                                                 <Link
-                                                    href={rangeBookingHref(result)}
-                                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_16px_40px_rgba(47,37,23,0.18)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
+                                                    href={rangeBookingHref({
+                                                        from: result.from,
+                                                        to: result.to,
+                                                        venue: result.venue,
+                                                        eventType: result.event_type,
+                                                        guests: result.guests,
+                                                    })}
+                                                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-bold text-white transition hover:bg-[#4a3921] dark:bg-[#f1d89b] dark:text-[#17120b]"
                                                 >
                                                     Continue to Booking
                                                     <ArrowRight className="h-4 w-4" />
@@ -390,20 +472,52 @@ function AvailabilityResultModal({
                                             ) : null}
 
                                             <Link
-                                                href={`/calendar?venue=${encodeURIComponent(result.venue)}`}
-                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                                href="/calendar"
+                                                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-bold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white"
                                             >
-                                                Open Full Calendar
+                                                View Calendar
+                                                <LayoutGrid className="h-4 w-4" />
                                             </Link>
                                         </div>
-                                    </div>
+                                    </section>
                                 </div>
                             ) : null}
                         </div>
-                    </motion.section>
+                    </motion.div>
                 </motion.div>
             ) : null}
         </AnimatePresence>
+    );
+}
+
+function SummaryStat({
+    label,
+    value,
+    tone = 'neutral',
+}: {
+    label: string;
+    value?: string | number | null;
+    tone?: 'neutral' | 'success' | 'warning' | 'danger';
+}) {
+    const toneClass =
+        tone === 'success'
+            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-100'
+            : tone === 'warning'
+              ? 'bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-100'
+              : tone === 'danger'
+                ? 'bg-rose-50 text-rose-800 dark:bg-rose-400/10 dark:text-rose-100'
+                : 'bg-white/76 text-[#21180d] dark:bg-white/[0.045] dark:text-white';
+
+    return (
+        <div className={cx('rounded-[1.2rem] border border-[#eadcc2]/80 p-4 shadow-sm dark:border-white/10', toneClass)}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">
+                {label}
+            </p>
+
+            <p className="mt-2 text-3xl font-semibold tracking-[-0.06em]">
+                {value ?? '—'}
+            </p>
+        </div>
     );
 }
 
@@ -421,6 +535,8 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
     const [modalMessage, setModalMessage] = useState('');
     const [result, setResult] = useState<AvailabilityRangeResponse | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
+
+    const { dockRef, footerLift } = useAvailabilityDockLayout();
 
     const selectedVenue = useMemo(
         () => options.find((item) => item.value === venue) ?? null,
@@ -479,6 +595,7 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
                     guests,
                 }),
             );
+
             setModalMessage('');
         } catch (error) {
             setModalMessage(error instanceof Error ? error.message : 'Unable to check availability right now.');
@@ -489,19 +606,28 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
 
     return (
         <>
-            <section className="sticky bottom-0 z-[99960] -mt-2 border-y border-[#d9c7a6]/70 bg-[#fffaf0]/90 px-3 py-3 shadow-[0_-18px_70px_rgba(47,37,23,0.14)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/90 sm:px-4 lg:px-6">
-                <div className="mx-auto w-full max-w-[1920px]">
-                    <form
-                        onSubmit={handleSubmit}
-                        className="grid gap-2 xl:grid-cols-[1.1fr_1.1fr_1.35fr_1.35fr_0.85fr_auto]"
-                    >
-                        <FieldShell label="Date From" icon={<CalendarDays className="h-3.5 w-3.5" />}>
+            <motion.section
+    ref={dockRef}
+    className="fixed inset-x-0 z-[8500] w-screen px-0"
+    style={{
+        bottom: `calc(${footerLift}px + env(safe-area-inset-bottom))`,
+    }}
+    initial={{ y: 28, opacity: 0, filter: 'blur(10px)' }}
+    animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+    transition={{ duration: 0.42, ease }}
+    aria-label="Sticky availability checker"
+>
+    <div className="w-full rounded-none border-y border-[#d9c7a6]/80 bg-[#fffaf0]/96 p-2 shadow-[0_-12px_60px_rgba(47,37,23,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/96">
+    <form
+    onSubmit={handleSubmit}
+    className="mx-auto grid w-full max-w-[1800px] gap-2 px-3 sm:px-4 lg:grid-cols-[1fr_1fr_1.1fr_1.1fr_0.85fr_auto] lg:px-6"
+>
+                        <FieldShell label="From" icon={<CalendarDays className="h-3.5 w-3.5" />}>
                             <input
                                 type="date"
                                 value={dateFrom}
                                 onChange={(event) => {
                                     const next = event.target.value;
-
                                     setDateFrom(next);
 
                                     if (!dateTo || next > dateTo) {
@@ -512,7 +638,7 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
                             />
                         </FieldShell>
 
-                        <FieldShell label="Date To" icon={<CalendarDays className="h-3.5 w-3.5" />}>
+                        <FieldShell label="To" icon={<CalendarDays className="h-3.5 w-3.5" />}>
                             <input
                                 type="date"
                                 value={dateTo}
@@ -536,7 +662,7 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
                             </select>
                         </FieldShell>
 
-                        <FieldShell label="Venue Area" icon={<LayoutGrid className="h-3.5 w-3.5" />}>
+                        <FieldShell label="Area" icon={<LayoutGrid className="h-3.5 w-3.5" />}>
                             <select
                                 value={venue}
                                 onChange={(event) => setVenue(event.target.value)}
@@ -565,30 +691,33 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="inline-flex min-h-[4.65rem] items-center justify-center gap-2 rounded-[1.05rem] bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_44px_rgba(47,37,23,0.22)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-[#17120b]"
+                            className="inline-flex min-h-[4.1rem] items-center justify-center gap-2 rounded-[1rem] bg-[#2f2517] px-5 text-sm font-bold uppercase tracking-[0.08em] text-white shadow-[0_16px_40px_rgba(47,37,23,0.20)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] disabled:cursor-not-allowed disabled:opacity-65 dark:bg-[#f1d89b] dark:text-[#17120b]"
                         >
                             {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                             {loading ? 'Checking' : 'Check'}
                         </button>
                     </form>
 
-                    <div className="mt-2 flex flex-col gap-2 text-xs text-[#6e604c] dark:text-white/58 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
+                    <div className="mx-auto mt-2 flex w-full max-w-[1800px] flex-col gap-2 px-3 sm:px-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+                        <div className="min-w-0 text-xs leading-5 text-[#6e604c] dark:text-white/56">
                             {selectedVenue ? (
-                                <span>
-                                    {selectedVenue.label}
+                                <>
+                                    <span className="font-bold text-[#2f2517] dark:text-white">{selectedVenue.label}</span>
                                     {selectedVenue.category ? ` • ${selectedVenue.category}` : ''}
                                     {selectedVenue.capacity ? ` • Capacity: ${selectedVenue.capacity}` : ''}
-                                </span>
+                                </>
                             ) : (
-                                <span>Select a venue area to begin checking availability.</span>
+                                'Select a venue area to begin checking availability.'
                             )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                             {blockOrderPreview.map((item) => (
-                                <span key={item.key} className="inline-flex items-center gap-1 rounded-full border border-[#d9c7a6]/70 bg-white/70 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] dark:border-white/10 dark:bg-white/7">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-[#9d7b3d] dark:bg-[#f1d89b]" />
+                                <span
+                                    key={item.key}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-[#d9c7a6]/70 bg-white/70 px-2.5 py-1 text-[11px] font-bold text-[#6e604c] dark:border-white/10 dark:bg-white/7 dark:text-white/56"
+                                >
+                                    <Clock3 className="h-3 w-3 text-[#9d7b3d] dark:text-[#f1d89b]" />
                                     {item.key} {item.display}
                                 </span>
                             ))}
@@ -596,13 +725,12 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
                     </div>
 
                     {validationMessage ? (
-                        <div className="mt-2 flex items-start gap-2 rounded-[1rem] border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">
-                            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <div className="mx-auto mt-2 max-w-[1800px] rounded-[0.9rem] border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
                             {validationMessage}
                         </div>
                     ) : null}
                 </div>
-            </section>
+            </motion.section>
 
             <AvailabilityResultModal
                 open={modalOpen}
@@ -614,9 +742,3 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
         </>
     );
 }
-
-const blockOrderPreview = [
-    { key: 'AM', display: blockMeta.AM.display },
-    { key: 'PM', display: blockMeta.PM.display },
-    { key: 'EVE', display: blockMeta.EVE.display },
-];

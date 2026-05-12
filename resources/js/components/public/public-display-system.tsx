@@ -1,32 +1,48 @@
 import type { LucideIcon } from 'lucide-react';
 import { LayoutGrid } from 'lucide-react';
-import type { ReactNode } from 'react';
 
 export type PublicImageRecord = {
     id?: number | string;
+    slug?: string | number | null;
+
     title?: string | null;
     name?: string | null;
     label?: string | null;
     subtitle?: string | null;
     description?: string | null;
+    bio?: string | null;
+
     image?: string | null;
     image_url?: string | null;
     imageUrl?: string | null;
     image_path?: string | null;
     imagePath?: string | null;
+
+    gallery_image_1?: string | null;
+    gallery_image_2?: string | null;
+    gallery_image_3?: string | null;
+    galleryImage1?: string | null;
+    galleryImage2?: string | null;
+    galleryImage3?: string | null;
+
     category?: string | null;
     event_category?: string | null;
     starts_at?: string | null;
     startsAt?: string | null;
     date?: string | null;
+    event_date?: string | null;
+
     position?: string | null;
     role?: string | null;
     capacity?: string | number | null;
+
     external_url?: string | null;
     externalUrl?: string | null;
+
     homepage_visible?: boolean | number | string | null;
     homepageVisible?: boolean;
     is_active?: boolean | number | string | null;
+
     [key: string]: unknown;
 };
 
@@ -39,7 +55,7 @@ export function titleOf(item?: PublicImageRecord | null, fallback = 'Untitled') 
 }
 
 export function descriptionOf(item?: PublicImageRecord | null, fallback = '') {
-    return String(item?.description || item?.subtitle || fallback);
+    return String(item?.description || item?.bio || item?.subtitle || fallback);
 }
 
 export function imageOf(item?: PublicImageRecord | null) {
@@ -57,18 +73,28 @@ export function visibleRecords<T extends PublicImageRecord>(items?: T[]) {
     const records = Array.isArray(items) ? items : [];
 
     return records.filter((item) => {
-        const explicit =
+        const explicitVisible =
             item.homepageVisible === true ||
             item.homepage_visible === true ||
             item.homepage_visible === 1 ||
             item.homepage_visible === '1';
+
+        const explicitHidden =
+            item.homepageVisible === false ||
+            item.homepage_visible === false ||
+            item.homepage_visible === 0 ||
+            item.homepage_visible === '0';
 
         const active =
             item.is_active === true ||
             item.is_active === 1 ||
             item.is_active === '1';
 
-        return explicit || active || item.homepage_visible === undefined;
+        if (explicitHidden) {
+            return false;
+        }
+
+        return explicitVisible || active || item.homepage_visible === undefined;
     });
 }
 
@@ -118,46 +144,6 @@ export function SectionIntro({
     );
 }
 
-export function EditorialFrame({
-    left,
-    main,
-    right,
-    footer,
-    label = 'main',
-}: {
-    left?: ReactNode;
-    main: ReactNode;
-    right?: ReactNode;
-    footer?: ReactNode;
-    label?: string;
-}) {
-    return (
-        <div className="public-grid-frame">
-            <aside className="public-frame-panel">
-                <span className="public-frame-label green">Aside</span>
-                <div className="mt-4">{left}</div>
-            </aside>
-
-            <main className="public-frame-panel">
-                <span className="public-frame-label blue">{label}</span>
-                <div className="mt-4">{main}</div>
-            </main>
-
-            <aside className="public-frame-panel">
-                <span className="public-frame-label">Aside</span>
-                <div className="mt-4">{right}</div>
-            </aside>
-
-            {footer ? (
-                <div className="col-span-full public-frame-panel">
-                    <span className="public-frame-label gold">Footer</span>
-                    <div className="mt-4">{footer}</div>
-                </div>
-            ) : null}
-        </div>
-    );
-}
-
 export function EmptyPublicPanel({
     icon: Icon = LayoutGrid,
     title,
@@ -171,9 +157,11 @@ export function EmptyPublicPanel({
         <div className="grid min-h-[18rem] place-items-center rounded-[1.5rem] border border-dashed border-[#d9c7a6]/70 bg-white/55 p-8 text-center dark:border-white/10 dark:bg-white/[0.035]">
             <div>
                 <Icon className="mx-auto h-10 w-10 text-[#b08d48] dark:text-[#f1d89b]" />
+
                 <h3 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-[#21180d] dark:text-white">
                     {title}
                 </h3>
+
                 <p className="public-readable mx-auto mt-3 max-w-[62ch] text-sm text-[#6e604c] dark:text-white/56">
                     {description}
                 </p>

@@ -1,25 +1,25 @@
 import FacilitiesLayeredShowcase from '@/components/public/facilities-layered-showcase';
 import {
-    EditorialFrame,
     EmptyPublicPanel,
-    SectionIntro,
-    cx,
-    descriptionOf,
-    imageOf,
     titleOf,
     visibleRecords,
     type PublicImageRecord,
 } from '@/components/public/public-display-system';
+import PublicLayout from '@/layouts/public-layout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     Building2,
+    CalendarDays,
     CheckCircle2,
-    LayoutGrid,
+    ClipboardList,
+    Clock,
     MapPin,
-    Sparkles,
+    MonitorSpeaker,
+    ShieldCheck,
     UsersRound,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { useMemo } from 'react';
 
 type FacilitiesPageProps = {
@@ -28,210 +28,255 @@ type FacilitiesPageProps = {
     facilities?: PublicImageRecord[];
 };
 
-function capacityOf(item: PublicImageRecord) {
-    return item.capacity ? String(item.capacity) : 'Flexible capacity';
+function titleKey(item: PublicImageRecord, index: number) {
+    return String(item.id ?? item.slug ?? item.title ?? item.name ?? `facility-${index}`);
 }
 
-function facilityUrl(item: PublicImageRecord) {
-    const slug = item.slug || item.id;
+function uniqueSpaces(items: PublicImageRecord[]) {
+    const seen = new Set<string>();
 
-    return slug ? `/facilities/${slug}` : '/facilities';
+    return items.filter((item, index) => {
+        const key = titleKey(item, index);
+
+        if (seen.has(key)) {
+            return false;
+        }
+
+        seen.add(key);
+        return true;
+    });
+}
+
+function getFacilityNames(items: PublicImageRecord[]) {
+    return items
+        .map((item) => titleOf(item, 'Facility'))
+        .filter(Boolean)
+        .slice(0, 10);
 }
 
 export default function FacilitiesPage() {
     const { props } = usePage<FacilitiesPageProps>();
 
     const spaces = useMemo(
-        () => visibleRecords([
-            ...(props.spaces ?? []),
-            ...(props.venueSpaces ?? []),
-            ...(props.facilities ?? []),
-        ]),
+        () =>
+            uniqueSpaces(
+                visibleRecords([
+                    ...(props.spaces ?? []),
+                    ...(props.venueSpaces ?? []),
+                    ...(props.facilities ?? []),
+                ]),
+            ),
         [props.spaces, props.venueSpaces, props.facilities],
     );
 
-    const featured = spaces[0];
-    const secondary = spaces.slice(1, 7);
+    const facilityNames = getFacilityNames(spaces);
 
     return (
-        <>
+        <PublicLayout>
             <Head title="Facilities" />
 
-            <main className="public-display-page min-h-screen">
-                <section className="public-section-shell py-16 lg:py-20">
-                    <EditorialFrame
-                        label="Facilities"
-                        left={
-                            <div className="space-y-3">
-                                <p className="public-frame-label green">Nav</p>
+            <main className="min-h-screen bg-[#f8f5ef] text-[#201a12] dark:bg-[#0d0f12] dark:text-white">
+                {spaces.length > 0 ? (
+                    <FacilitiesLayeredShowcase items={spaces} />
+                ) : (
+                    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+                        <EmptyPublicPanel
+                            icon={Building2}
+                            title="No facilities configured"
+                            description="Facilities created in the Content Manager will appear on this page."
+                        />
+                    </section>
+                )}
 
-                                {spaces.slice(0, 6).map((space, index) => (
-                                    <a
-                                        key={space.id ?? index}
-                                        href={`#space-${space.id ?? index}`}
-                                        className="block rounded-full border border-[#d9c7a6]/70 bg-white/65 px-4 py-2 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
-                                    >
-                                        {titleOf(space, `Space ${index + 1}`)}
-                                    </a>
-                                ))}
+                <section className="facility-info-section border-y border-[#e7dbc5]/80 bg-[#fffaf0]/82 px-4 py-16 dark:border-white/10 dark:bg-white/[0.035] sm:px-6 lg:px-8">
+                    <div className="mx-auto grid max-w-[1600px] gap-10 lg:grid-cols-[minmax(0,0.92fr)_minmax(22rem,0.45fr)] lg:items-start">
+                        <div className="facility-readable">
+                            <p className="facility-kicker">Facility Information</p>
 
-                                {spaces.length === 0 ? (
-                                    <p className="text-sm leading-7 text-[#6e604c] dark:text-white/56">
-                                        Venue spaces from the Content Manager will appear here.
-                                    </p>
-                                ) : null}
+                            <h2 className="facility-heading mt-4">
+                                Choosing the right BCCC space for your event
+                            </h2>
+
+                            <div className="mt-6 space-y-5 text-left text-[16px] leading-[1.6] text-[#6e604c] dark:text-white/62 md:text-[18px]">
+                                <p>
+                                    The Baguio Convention and Cultural Center offers spaces that can support civic programs,
+                                    conventions, cultural events, seminars, meetings, exhibits, and public activities. Each area
+                                    should be selected based on guest count, event format, required time block, technical setup,
+                                    and expected movement of participants.
+                                </p>
+
+                                <p>
+                                    Before submitting a reservation, review the facility capacity, preferred date, event type,
+                                    setup requirements, ingress and egress needs, and whether the activity requires additional
+                                    support such as audio, visual equipment, registration areas, holding rooms, or parking access.
+                                </p>
                             </div>
-                        }
-                        main={
-                            <div>
-                                <SectionIntro
-                                    kicker="Our Spaces"
-                                    title="Facilities designed for civic, cultural, and convention use"
-                                    description="Explore BCCC spaces through a large image-led layout with layered supporting cards and readable descriptions."
+
+                            {facilityNames.length > 0 ? (
+                                <div className="mt-8">
+                                    <p className="text-[14px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                        Available spaces
+                                    </p>
+
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        {facilityNames.map((name) => (
+                                            <span
+                                                key={name}
+                                                className="rounded-full border border-[#d9c7a6]/70 bg-white/76 px-4 py-2 text-[14px] font-semibold text-[#3f3526] shadow-sm dark:border-white/10 dark:bg-white/7 dark:text-white/72"
+                                            >
+                                                {name}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            <div className="mt-9 flex flex-wrap gap-3">
+                                <Link
+                                    href="/calendar"
+                                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/80 bg-white px-6 text-[15px] font-bold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                >
+                                    View Calendar
+                                    <ArrowRight className="h-4 w-4" />
+                                </Link>
+
+                                <Link
+                                    href="/bookings/create"
+                                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-6 text-[15px] font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-[#f1d89b] dark:text-[#17120b] dark:hover:bg-white"
+                                >
+                                    Check Availability
+                                    <ArrowRight className="h-4 w-4" />
+                                </Link>
+                            </div>
+                        </div>
+
+                        <aside className="rounded-[1.5rem] border border-[#d9c7a6]/70 bg-white/76 p-6 shadow-[0_22px_70px_rgba(47,37,23,0.08)] dark:border-white/10 dark:bg-white/[0.055]">
+                            <p className="facility-kicker">Quick Planning Notes</p>
+
+                            <div className="mt-5 grid gap-4">
+                                <InfoLine
+                                    icon={CalendarDays}
+                                    title="Date and time block"
+                                    description="Confirm the preferred date, range, and whether the event needs AM, PM, evening, half-day, whole-day, or additional hours."
                                 />
 
-                                <div className="mt-8 grid gap-3 md:grid-cols-3">
-                                    <MiniStat icon={Building2} label="Spaces" value={spaces.length.toString()} />
-                                    <MiniStat icon={LayoutGrid} label="Layout" value="Layered" />
-                                    <MiniStat icon={Sparkles} label="Display" value="Premium" />
-                                </div>
-                            </div>
-                        }
-                        right={
-                            <div className="space-y-3">
-                                <p className="public-frame-label">Featured</p>
+                                <InfoLine
+                                    icon={UsersRound}
+                                    title="Expected attendance"
+                                    description="Match the space with the estimated number of guests, staff, organizers, exhibitors, and visitors."
+                                />
 
-                                {featured ? (
-                                    <article className="overflow-hidden rounded-[1.2rem] border border-[#eadcc2]/80 bg-white/70 dark:border-white/10 dark:bg-white/[0.035]">
-                                        {imageOf(featured) ? (
-                                            <img
-                                                src={imageOf(featured)}
-                                                alt={titleOf(featured, 'Featured facility')}
-                                                className="h-40 w-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="grid h-40 place-items-center bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
-                                                <Building2 className="h-10 w-10" />
-                                            </div>
-                                        )}
+                                <InfoLine
+                                    icon={MonitorSpeaker}
+                                    title="Technical support"
+                                    description="Identify audio, visual, LED wall, staging, lighting, internet, and presentation needs before final review."
+                                />
 
-                                        <div className="p-4">
-                                            <h3 className="text-lg font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
-                                                {titleOf(featured, 'Featured facility')}
-                                            </h3>
-                                            <p className="mt-2 text-sm leading-6 text-[#6e604c] dark:text-white/56">
-                                                {capacityOf(featured)}
-                                            </p>
-                                        </div>
-                                    </article>
-                                ) : (
-                                    <p className="text-sm leading-7 text-[#6e604c] dark:text-white/56">
-                                        Create facilities from the Content Manager.
-                                    </p>
-                                )}
+                                <InfoLine
+                                    icon={ShieldCheck}
+                                    title="Policy readiness"
+                                    description="Prepare required letters, supporting documents, payment requirements, and compliance details when applicable."
+                                />
                             </div>
-                        }
-                        footer={
-                            <p className="public-readable text-sm text-[#6e604c] dark:text-white/58">
-                                Body text is kept left-aligned with comfortable line height and readable line width, while visual browsing uses smooth layered movement.
-                            </p>
-                        }
-                    />
+                        </aside>
+                    </div>
                 </section>
 
-                <FacilitiesLayeredShowcase items={spaces} />
+                <section className="facility-info-section px-4 py-16 sm:px-6 lg:px-8">
+                    <div className="mx-auto max-w-[1600px]">
+                        <div className="facility-readable">
+                            <p className="facility-kicker">Before You Book</p>
 
-                <section className="public-section-shell py-16">
-                    <SectionIntro
-                        kicker="Venue Directory"
-                        title="All public facility cards"
-                        description="Each card links to a detailed facility page. Keep descriptions clear and concise for faster scanning."
-                    />
+                            <h2 className="facility-subheading mt-4">
+                                Facility use depends on availability, event requirements, and administrative review.
+                            </h2>
 
-                    {spaces.length > 0 ? (
-                        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                            {spaces.map((space, index) => (
-                                <article
-                                    key={space.id ?? index}
-                                    id={`space-${space.id ?? index}`}
-                                    className="public-smooth-card overflow-hidden rounded-[1.5rem] border border-[#d9c7a6]/70 bg-white/78 shadow-[0_20px_60px_rgba(47,37,23,0.08)] dark:border-white/10 dark:bg-white/[0.05]"
-                                >
-                                    {imageOf(space) ? (
-                                        <img
-                                            src={imageOf(space)}
-                                            alt={titleOf(space, 'Facility')}
-                                            className="h-64 w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="grid h-64 place-items-center bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
-                                            <Building2 className="h-12 w-12" />
-                                        </div>
-                                    )}
-
-                                    <div className="p-5">
-                                        <div className="flex flex-wrap gap-2">
-                                            <span className="inline-flex items-center gap-2 rounded-full bg-[#f4ead8] px-3 py-1.5 text-xs font-bold text-[#7a5a24] dark:bg-white/10 dark:text-[#f1d89b]">
-                                                <UsersRound className="h-3.5 w-3.5" />
-                                                {capacityOf(space)}
-                                            </span>
-
-                                            <span className="inline-flex items-center gap-2 rounded-full bg-[#f4ead8] px-3 py-1.5 text-xs font-bold text-[#7a5a24] dark:bg-white/10 dark:text-[#f1d89b]">
-                                                <MapPin className="h-3.5 w-3.5" />
-                                                BCCC
-                                            </span>
-                                        </div>
-
-                                        <h3 className="mt-4 text-2xl font-semibold tracking-[-0.055em] text-[#21180d] dark:text-white">
-                                            {titleOf(space, 'Facility')}
-                                        </h3>
-
-                                        <p className="public-readable mt-3 line-clamp-4 text-sm text-[#6e604c] dark:text-white/56">
-                                            {descriptionOf(space, 'A BCCC venue space available for public events, programs, and reservations.')}
-                                        </p>
-
-                                        <Link
-                                            href={facilityUrl(space)}
-                                            className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
-                                        >
-                                            View Facility
-                                            <ArrowRight className="h-4 w-4" />
-                                        </Link>
-                                    </div>
-                                </article>
-                            ))}
+                            <p className="mt-5 text-left text-[16px] leading-[1.6] text-[#6e604c] dark:text-white/62 md:text-[18px]">
+                                The public availability display is intended to help clients plan earlier, but final booking
+                                confirmation still depends on schedule validation, venue fit, required documents, payment status,
+                                and approval by the authorized BCCC personnel.
+                            </p>
                         </div>
-                    ) : (
-                        <div className="mt-8">
-                            <EmptyPublicPanel
-                                icon={Building2}
-                                title="No facilities configured"
-                                description="Facilities created in the Content Manager will appear on this page."
+
+                        <div className="mt-9 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                            <FacilityGuideCard
+                                icon={ClipboardList}
+                                title="Prepare event details"
+                                description="Prepare the event title, purpose, organization name, guest count, target date, and preferred time block."
+                            />
+
+                            <FacilityGuideCard
+                                icon={MapPin}
+                                title="Select the correct area"
+                                description="Choose the facility that best matches your program flow, setup scale, access needs, and participant movement."
+                            />
+
+                            <FacilityGuideCard
+                                icon={Clock}
+                                title="Review booking timing"
+                                description="Some bookings may require lead time for setup, technical coordination, payment processing, and document review."
+                            />
+
+                            <FacilityGuideCard
+                                icon={CheckCircle2}
+                                title="Wait for validation"
+                                description="Submitted requests are reviewed for schedule conflicts, completeness, facility fit, and policy compliance."
                             />
                         </div>
-                    )}
+                    </div>
                 </section>
             </main>
-        </>
+        </PublicLayout>
     );
 }
 
-function MiniStat({
+function InfoLine({
     icon: Icon,
-    label,
-    value,
+    title,
+    description,
 }: {
-    icon: typeof Building2;
-    label: string;
-    value: string;
+    icon: LucideIcon;
+    title: string;
+    description: string;
 }) {
     return (
-        <article className="rounded-[1.15rem] border border-[#eadcc2]/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.035]">
-            <Icon className="h-5 w-5 text-[#9d7b3d] dark:text-[#f1d89b]" />
-            <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                {label}
-            </p>
-            <p className="mt-1 text-xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
-                {value}
+        <div className="grid grid-cols-[2.75rem_1fr] gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
+                <Icon className="h-5 w-5" />
+            </span>
+
+            <div className="text-left">
+                <h3 className="text-[20px] font-semibold leading-[1.25] tracking-[-0.035em] text-[#21180d] dark:text-white">
+                    {title}
+                </h3>
+
+                <p className="mt-2 text-[15px] leading-[1.6] text-[#6e604c] dark:text-white/58">
+                    {description}
+                </p>
+            </div>
+        </div>
+    );
+}
+
+function FacilityGuideCard({
+    icon: Icon,
+    title,
+    description,
+}: {
+    icon: LucideIcon;
+    title: string;
+    description: string;
+}) {
+    return (
+        <article className="rounded-[1.4rem] border border-[#d9c7a6]/70 bg-white/76 p-6 text-left shadow-[0_18px_55px_rgba(47,37,23,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(47,37,23,0.11)] dark:border-white/10 dark:bg-white/[0.045]">
+            <Icon className="h-7 w-7 text-[#9d7b3d] dark:text-[#f1d89b]" />
+
+            <h3 className="mt-5 text-[24px] font-semibold leading-[1.25] tracking-[-0.045em] text-[#21180d] dark:text-white">
+                {title}
+            </h3>
+
+            <p className="mt-3 text-[16px] leading-[1.6] text-[#6e604c] dark:text-white/58">
+                {description}
             </p>
         </article>
     );
