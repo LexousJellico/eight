@@ -2,7 +2,6 @@ import BackendNotificationBell from '@/components/backend/backend-notification-b
 import {
     backendBookingCreateHref,
     backendCalendarHref,
-    backendHomeHref,
     backendNavSections,
     backendRoleLabel,
     filterBackendSectionsByPermission,
@@ -21,7 +20,6 @@ import {
     CalendarDays,
     ChevronDown,
     Globe2,
-    LayoutDashboard,
     LogOut,
     Menu,
     Moon,
@@ -270,7 +268,6 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
     const title = resolveTitle(breadcrumbs);
-    const homeHref = backendHomeHref(role);
     const bookingHref = backendBookingCreateHref(role);
     const calendarHref = backendCalendarHref(role);
 
@@ -358,14 +355,6 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
                     </div>
 
                     <div className="hidden items-center gap-2 xl:flex">
-                        <Link
-                            href={homeHref}
-                            className="inline-flex h-11 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white/72 px-4 text-xs font-bold uppercase tracking-[0.14em] text-[#2f2517] shadow-[0_14px_34px_rgba(47,37,23,0.08)] transition hover:-translate-y-0.5 hover:border-[#b08d48]/70 hover:bg-white dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
-                        >
-                            <LayoutDashboard className="h-4 w-4" />
-                            Dashboard
-                        </Link>
-
                         <Link
                             href={calendarHref}
                             className="inline-flex h-11 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white/72 px-4 text-xs font-bold uppercase tracking-[0.14em] text-[#2f2517] shadow-[0_14px_34px_rgba(47,37,23,0.08)] transition hover:-translate-y-0.5 hover:border-[#b08d48]/70 hover:bg-white dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"

@@ -6,7 +6,6 @@ import { PaymentProofPanel } from '@/components/bookings/payment-proof-panel';
 import {
     bookingBasePath,
     bookingEditPath,
-    bookingProofPath,
     bookingSurveyPath,
     cleanLabel,
     formatDateTime,
@@ -23,7 +22,6 @@ import {
     CheckCircle2,
     Clock3,
     Edit3,
-    FileImage,
     Mail,
     MapPin,
     Phone,
@@ -117,15 +115,6 @@ function primaryClient(booking: BookingLike): string {
         safeText(booking.client_name, '') ||
         safeText(booking.client_email, '') ||
         'Client not set'
-    );
-}
-
-function proofUrl(booking: BookingLike): string {
-    return safeText(
-        booking.survey_proof_image_url ??
-            booking.survey_proof_image ??
-            booking.surveyProofImageUrl,
-        '',
     );
 }
 
@@ -355,7 +344,6 @@ export function BookingShowPage() {
     const isUser = role === 'user';
     const currentBooking = booking;
     const timeline = eventTimeline(currentBooking);
-    const surveyProof = proofUrl(currentBooking);
 
     function deleteBooking() {
         if (!window.confirm('Delete this booking record? This action cannot be undone.')) {
@@ -471,15 +459,7 @@ export function BookingShowPage() {
                                 className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12 xl:flex-none"
                             >
                                 <ShieldCheck className="h-4 w-4" />
-                                Survey
-                            </Link>
-
-                            <Link
-                                href={bookingProofPath(role, booking.id)}
-                                className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12 xl:flex-none"
-                            >
-                                <FileImage className="h-4 w-4" />
-                                Survey Proof
+                                MICE Report
                             </Link>
                         </div>
                     </div>
@@ -605,47 +585,19 @@ export function BookingShowPage() {
                             </div>
                         </SectionCard>
 
-                        <SectionCard eyebrow="Survey Proof" title="Inspection proof">
-                            {surveyProof ? (
-                                <a
-                                    href={surveyProof}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="group block overflow-hidden rounded-[1.2rem] border border-[#eadcc2]/80 bg-white/70 transition hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/[0.035]"
-                                >
-                                    <img
-                                        src={surveyProof}
-                                        alt="Survey proof"
-                                        className="h-64 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-                                    />
-
-                                    <div className="border-t border-[#eadcc2]/80 p-4 dark:border-white/10">
-                                        <p className="text-sm font-semibold text-[#21180d] dark:text-white">
-                                            Open proof image
-                                        </p>
-
-                                        <p className="mt-1 text-xs leading-5 text-[#6e604c] dark:text-white/52">
-                                            Uploaded survey proof for this booking.
-                                        </p>
-                                    </div>
-                                </a>
-                            ) : (
-                                <EmptyPanel
-                                    icon={FileImage}
-                                    title="No survey proof uploaded"
-                                    description="Survey proof can be uploaded from the survey proof page."
-                                />
-                            )}
-
-                            {!surveyProof ? (
+                        <SectionCard eyebrow="MICE Report" title="Required report status">
+                            <div className="rounded-[1.2rem] border border-[#eadcc2]/80 bg-[#fffaf0]/76 p-4 dark:border-white/10 dark:bg-white/[0.035]">
+                                <p className="text-sm leading-7 text-[#6e604c] dark:text-white/56">
+                                    The legacy survey proof upload has been replaced by the built-in MICE report. Clients must complete the MICE report before submitting payment proof.
+                                </p>
                                 <Link
-                                    href={bookingProofPath(role, booking.id)}
+                                    href={bookingSurveyPath(role, booking.id)}
                                     className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white transition hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
                                 >
-                                    <FileImage className="h-4 w-4" />
-                                    Open Upload Page
+                                    <ShieldCheck className="h-4 w-4" />
+                                    Open MICE Report
                                 </Link>
-                            ) : null}
+                            </div>
                         </SectionCard>
 
                         <SectionCard eyebrow="Contact" title="Client contact">
@@ -653,7 +605,6 @@ export function BookingShowPage() {
                                 <DetailCard label="Client" value={booking.client_name} icon={UserRound} />
                                 <DetailCard label="Email" value={booking.client_email} icon={Mail} />
                                 <DetailCard label="Phone" value={booking.client_contact_number} icon={Phone} />
-                                <DetailCard label="Survey Email" value={booking.survey_email} icon={Mail} />
                             </div>
                         </SectionCard>
                     </aside>

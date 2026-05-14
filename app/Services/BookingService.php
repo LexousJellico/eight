@@ -1132,12 +1132,40 @@ class BookingService implements BookingServiceInterface
 
     protected function bookingItemsTotal(Booking $booking): float
     {
+        $metaTotal = $this->paymentMetaTotal($booking);
+
+        if ($metaTotal !== null && $metaTotal > 0) {
+            return $metaTotal;
+        }
+
         return (float) $booking->bookingServices->reduce(function ($carry, $item) {
             $price = (float) ($item->service->price ?? 0);
             $quantity = max(1, (int) ($item->quantity ?? 1));
 
             return $carry + ($price * $quantity);
         }, 0.0);
+    }
+
+    protected function paymentMetaTotal(Booking $booking): ?float
+    {
+        $meta = $booking->payment_meta ?? null;
+
+        if (is_string($meta)) {
+            $decoded = json_decode($meta, true);
+            $meta = is_array($decoded) ? $decoded : null;
+        }
+
+        if (! is_array($meta)) {
+            return null;
+        }
+
+        foreach (['estimated_total', 'grand_total', 'total_payable', 'total_amount', 'amount_due'] as $key) {
+            if (isset($meta[$key]) && is_numeric($meta[$key]) && (float) $meta[$key] > 0) {
+                return (float) $meta[$key];
+            }
+        }
+
+        return null;
     }
 
     protected function confirmedPaymentTotal(Booking $booking): float

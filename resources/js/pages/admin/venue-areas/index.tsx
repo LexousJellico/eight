@@ -31,6 +31,8 @@ type VenueArea = {
     min_capacity?: number | null;
     max_capacity?: number | null;
     is_active?: boolean | number | string | null;
+    options_note?: string | null;
+    sort_order?: number | string | null;
     services_count?: number | null;
     rental_options_count?: number | null;
     created_at?: string | null;
@@ -105,8 +107,15 @@ function VenueAreaForm({ selected, mode }: { selected?: VenueArea | null; mode: 
     const basePath = currentBasePath();
     const isEdit = mode === 'edit' && Boolean(selected?.id);
 
-    const { data, setData, post, put, processing, errors } = useForm<{ name: string }>({
+    const { data, setData, post, put, processing, errors } = useForm({
         name: String(selected?.name ?? selected?.title ?? ''),
+        description: String(selected?.description ?? ''),
+        capacity: String(selected?.capacity ?? ''),
+        min_capacity: String(selected?.min_capacity ?? ''),
+        max_capacity: String(selected?.max_capacity ?? ''),
+        options_note: String(selected?.options_note ?? ''),
+        is_active: activeFlag(selected ?? {}),
+        sort_order: String(selected?.sort_order ?? ''),
     });
 
     function submit(event: FormEvent) {
@@ -143,19 +152,115 @@ function VenueAreaForm({ selected, mode }: { selected?: VenueArea | null; mode: 
                 onSubmit={submit}
                 className="rounded-[1.35rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/75 p-5 shadow-[0_16px_46px_rgba(47,37,23,0.08)] dark:border-white/10 dark:bg-white/[0.035]"
             >
-                <label className="grid gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                        Venue Area Name
-                    </span>
-                    <input
-                        value={data.name}
-                        onChange={(event) => setData('name', event.target.value)}
-                        placeholder="Example: Full Hall"
-                        className="min-h-12 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
-                        required
-                    />
-                    {errors.name ? <p className="text-sm font-semibold text-rose-600">{errors.name}</p> : null}
-                </label>
+                <div className="grid gap-4 lg:grid-cols-2">
+                    <label className="grid gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Venue Area Name
+                        </span>
+                        <input
+                            value={data.name}
+                            onChange={(event) => setData('name', event.target.value)}
+                            placeholder="Example: Full Hall"
+                            className="min-h-12 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+                            required
+                        />
+                        {errors.name ? <p className="text-sm font-semibold text-rose-600">{errors.name}</p> : null}
+                    </label>
+
+                    <label className="grid gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Display Capacity
+                        </span>
+                        <input
+                            value={data.capacity}
+                            onChange={(event) => setData('capacity', event.target.value)}
+                            placeholder="Example: Up to 2,500 guests"
+                            className="min-h-12 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+                        />
+                        {errors.capacity ? <p className="text-sm font-semibold text-rose-600">{errors.capacity}</p> : null}
+                    </label>
+
+                    <label className="grid gap-2 lg:col-span-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Description
+                        </span>
+                        <textarea
+                            value={data.description}
+                            onChange={(event) => setData('description', event.target.value)}
+                            rows={4}
+                            placeholder="Short operational description used by setup and reference screens."
+                            className="rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 py-3 text-sm font-medium text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+                        />
+                        {errors.description ? <p className="text-sm font-semibold text-rose-600">{errors.description}</p> : null}
+                    </label>
+
+                    <label className="grid gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Minimum Capacity
+                        </span>
+                        <input
+                            type="number"
+                            min="0"
+                            value={data.min_capacity}
+                            onChange={(event) => setData('min_capacity', event.target.value)}
+                            className="min-h-12 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+                        />
+                        {errors.min_capacity ? <p className="text-sm font-semibold text-rose-600">{errors.min_capacity}</p> : null}
+                    </label>
+
+                    <label className="grid gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Maximum Capacity
+                        </span>
+                        <input
+                            type="number"
+                            min="0"
+                            value={data.max_capacity}
+                            onChange={(event) => setData('max_capacity', event.target.value)}
+                            className="min-h-12 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+                        />
+                        {errors.max_capacity ? <p className="text-sm font-semibold text-rose-600">{errors.max_capacity}</p> : null}
+                    </label>
+
+                    <label className="grid gap-2 lg:col-span-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Options / Booking Note
+                        </span>
+                        <textarea
+                            value={data.options_note}
+                            onChange={(event) => setData('options_note', event.target.value)}
+                            rows={3}
+                            placeholder="Example: Requires Whole Day, Half Day, and Additional Hours rental options."
+                            className="rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 py-3 text-sm font-medium text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+                        />
+                        {errors.options_note ? <p className="text-sm font-semibold text-rose-600">{errors.options_note}</p> : null}
+                    </label>
+
+                    <label className="grid gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                            Sort Order
+                        </span>
+                        <input
+                            type="number"
+                            min="0"
+                            value={data.sort_order}
+                            onChange={(event) => setData('sort_order', event.target.value)}
+                            placeholder="999"
+                            className="min-h-12 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#21180d] outline-none transition focus:border-[#9d7b3d] focus:ring-4 focus:ring-[#d8b56d]/20 dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
+                        />
+                        {errors.sort_order ? <p className="text-sm font-semibold text-rose-600">{errors.sort_order}</p> : null}
+                    </label>
+
+                    <label className="flex min-h-12 items-center gap-3 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#21180d] dark:border-white/10 dark:bg-white/[0.05] dark:text-white">
+                        <input
+                            type="checkbox"
+                            checked={Boolean(data.is_active)}
+                            onChange={(event) => setData('is_active', event.target.checked)}
+                            className="h-4 w-4 accent-[#8b672d]"
+                        />
+                        Active area
+                    </label>
+                </div>
 
                 <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
                     <Link
@@ -269,7 +374,7 @@ export default function AdminVenueAreasIndex() {
                                     </h3>
 
                                     <p className="mt-2 line-clamp-3 text-sm leading-7 text-[#6e604c] dark:text-white/56">
-                                        {item.description || 'No description provided.'}
+                                        {item.description || item.options_note || 'No description provided.'}
                                     </p>
 
                                     <div className="mt-4 grid grid-cols-2 gap-2">

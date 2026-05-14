@@ -141,7 +141,7 @@ export default function FacilitiesPage() {
                                 </Link>
 
                                 <Link
-                                    href="/bookings/create"
+                                    href="/book"
                                     className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-6 text-[15px] font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-[#f1d89b] dark:text-[#17120b] dark:hover:bg-white"
                                 >
                                     Check Availability

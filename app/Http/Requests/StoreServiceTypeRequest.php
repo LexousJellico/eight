@@ -15,6 +15,13 @@ class StoreServiceTypeRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255', 'unique:service_types,name'],
+            'description' => ['nullable', 'string'],
+            'capacity' => ['nullable', 'string', 'max:255'],
+            'min_capacity' => ['nullable', 'integer', 'min:0'],
+            'max_capacity' => ['nullable', 'integer', 'min:0', 'gte:min_capacity'],
+            'options_note' => ['nullable', 'string'],
+            'is_active' => ['nullable', 'boolean'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
         ];
     }
 }

@@ -53,6 +53,7 @@ class BookingResource extends JsonResource
         ));
 
         $miceReportStatus = $this->miceReportStatus();
+        $financialSummary = $this->financial_summary ?? [];
 
         return [
             'id' => $this->id,
@@ -136,13 +137,14 @@ class BookingResource extends JsonResource
             'items' => $items,
             'payments' => $payments,
             'lifecycle_events' => $lifecycleEvents,
+            'financial_summary' => $financialSummary,
 
             'totals' => [
-                'items_total' => round((float) $itemsTotal, 2),
-                'payments_total' => round((float) $confirmedPaymentsTotal, 2),
-                'submitted_payments_total' => round((float) $submittedPaymentsTotal, 2),
-                'confirmed_payments_total' => round((float) $confirmedPaymentsTotal, 2),
-                'remaining_balance' => round(max(0, (float) $itemsTotal - (float) $confirmedPaymentsTotal), 2),
+                'items_total' => round((float) ($financialSummary['total'] ?? $itemsTotal), 2),
+                'payments_total' => round((float) ($financialSummary['paid'] ?? $confirmedPaymentsTotal), 2),
+                'submitted_payments_total' => round((float) (($financialSummary['paid'] ?? 0) + ($financialSummary['pending'] ?? 0) ?: $submittedPaymentsTotal), 2),
+                'confirmed_payments_total' => round((float) ($financialSummary['paid'] ?? $confirmedPaymentsTotal), 2),
+                'remaining_balance' => round((float) ($financialSummary['balance'] ?? max(0, (float) $itemsTotal - (float) $confirmedPaymentsTotal)), 2),
             ],
         ];
     }

@@ -380,7 +380,7 @@ export default function FacilitiesLayeredShowcase({ items = [] }: Props) {
                                 <ArrowRight className="h-4 w-4" />
                             </Link>
 
-                            <Link href="/bookings/create">
+                            <Link href="/book">
                                 Check Availability
                                 <ArrowRight className="h-4 w-4" />
                             </Link>

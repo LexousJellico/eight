@@ -311,6 +311,35 @@ function sortRecords(records: GenericRecord[]) {
     });
 }
 
+function uniqueRecords(records: GenericRecord[]) {
+    const seen = new Set<string>();
+
+    return records.filter((record, index) => {
+        const id = record.id ? `id:${record.id}` : `row:${record.title || record.name || index}:${record.date || record.event_date || ''}`;
+
+        if (seen.has(id)) {
+            return false;
+        }
+
+        seen.add(id);
+        return true;
+    });
+}
+
+const CONTENT_TAB_STORAGE_KEY = 'bccc-admin-content-active-tab';
+
+function storedContentTab(): ContentTabKey {
+    if (typeof window === 'undefined') return 'overview';
+
+    const hash = window.location.hash.replace('#', '') as ContentTabKey;
+    if (tabs.some((tab) => tab.key === hash)) return hash;
+
+    const stored = window.sessionStorage.getItem(CONTENT_TAB_STORAGE_KEY) as ContentTabKey | null;
+    if (stored && tabs.some((tab) => tab.key === stored)) return stored;
+
+    return 'overview';
+}
+
 function truthyFlag(value: unknown) {
     return value === true || value === 1 || value === '1' || value === 'true';
 }
@@ -611,7 +640,7 @@ export default function AdminContentIndex() {
     };
     }, []);
 
-    const [activeTab, setActiveTab] = useState<ContentTabKey>('overview');
+    const [activeTab, setActiveTab] = useState<ContentTabKey>(() => storedContentTab());
     const [modal, setModal] = useState<ModalState>(null);
 
     const [previewOpen, setPreviewOpen] = useState(false);
@@ -623,11 +652,11 @@ export default function AdminContentIndex() {
 
     const events = useMemo(
     () =>
-        sortRecords([
+        sortRecords(uniqueRecords([
             ...recordsOf(source.events),
             ...recordsOf(source.bcccEvents),
             ...recordsOf(source.cityEvents),
-        ]),
+        ])),
     [source.events, source.bcccEvents, source.cityEvents],
 );
 
@@ -666,6 +695,21 @@ export default function AdminContentIndex() {
                   : activeTab === 'tourism'
                     ? members
                     : [];
+
+    function selectTab(tab: ContentTabKey) {
+        setActiveTab(tab);
+
+        if (typeof window !== 'undefined') {
+            window.sessionStorage.setItem(CONTENT_TAB_STORAGE_KEY, tab);
+            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${tab}`);
+        }
+    }
+
+    function handleSaved(content?: ContentPayload) {
+        if (content) {
+            setSyncedPayload(content);
+        }
+    }
 
     function openCreate() {
         if (!activeType) return;
@@ -724,7 +768,7 @@ export default function AdminContentIndex() {
                                 <button
                                     key={tab.key}
                                     type="button"
-                                    onClick={() => setActiveTab(tab.key)}
+                                    onClick={() => selectTab(tab.key)}
                                     className={cx(
                                         'group flex min-h-[5rem] items-center gap-3 rounded-[1.15rem] border px-3 py-3 text-left transition duration-200',
                                         selected
@@ -816,7 +860,7 @@ export default function AdminContentIndex() {
                 </section>
             </ResourcePageShell>
 
-            {modal ? <ContentModal modal={modal} onClose={() => setModal(null)} /> : null}
+            {modal ? <ContentModal modal={modal} onClose={() => setModal(null)} onSaved={handleSaved} /> : null}
 
             <SitePreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} />
         </>
@@ -1233,7 +1277,7 @@ function TourismMemberPortraitCard({
     );
 }
 
-function ContentModal({ modal, onClose }: { modal: ModalState; onClose: () => void }) {
+function ContentModal({ modal, onClose, onSaved }: { modal: ModalState; onClose: () => void; onSaved: (content?: ContentPayload) => void }) {
     const [form, setForm] = useState<Record<string, FormPayloadValue>>(() => (modal ? defaultForm(modal.type, modal.record) : {}));
     const [processing, setProcessing] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
@@ -1278,25 +1322,8 @@ function ContentModal({ modal, onClose }: { modal: ModalState; onClose: () => vo
             notifySuccess(message, 'Saved successfully');
 
             window.setTimeout(() => {
+                onSaved((result?.content ?? undefined) as ContentPayload | undefined);
                 onClose();
-
-                router.reload({
-                    only: [
-                        'events',
-                        'bcccEvents',
-                        'cityEvents',
-                        'spaces',
-                        'offers',
-                        'packages',
-                        'stats',
-                        'members',
-                        'tourismMembers',
-                        'siteSettings',
-                        'flash',
-                        'errors',
-                    ],
-                    preserveUrl: true,
-                                    });
             }, 700);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unable to save content.';

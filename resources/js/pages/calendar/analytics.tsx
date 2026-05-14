@@ -236,28 +236,32 @@ export default function CalendarAnalytics({
         ? `${analyticsPath}/print?${queryString}`
         : `${analyticsPath}/print`;
 
-    const totalActivity = getSummary(summary, [
-        'total_activity',
-        'activity_total',
-    ]);
     const occupiedBlocks = getSummary(summary, [
         'occupied_blocks',
         'occupied_block_days',
     ]);
     const bookings = getSummary(summary, [
+        'bookings_in_range',
         'bookings',
         'booking_count',
         'total_bookings',
     ]);
     const calendarBlocks = getSummary(summary, [
+        'calendar_blocks_in_range',
         'calendar_blocks',
         'block_count',
     ]);
     const publicEvents = getSummary(summary, [
+        'public_events_in_range',
         'public_events',
         'public_event_count',
     ]);
-    const rangeDays = getSummary(summary, ['range_days', 'total_days', 'days']);
+    const explicitActivity = getSummary(summary, [
+        'total_activity',
+        'activity_total',
+    ]);
+    const totalActivity = explicitActivity || occupiedBlocks + calendarBlocks + publicEvents;
+    const rangeDays = getSummary(summary, ['range_days', 'total_days', 'days']) || date_series.length;
 
     const maxBlockUsage = maxValue(block_usage, countValue);
     const maxStatusMix = maxValue(block_status_mix, countValue);

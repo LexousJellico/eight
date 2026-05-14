@@ -2503,25 +2503,14 @@ export function BookingFormPage() {
           ))}
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Survey / Reference Email">
-            <input
-              value={data.survey_email}
-              onChange={(event) => setData('survey_email', event.target.value)}
-              className="backend-booking-input"
-              type="email"
-              placeholder="Email used for survey/reference proof"
-            />
-          </Field>
-
-          <Field label="Survey Proof Image">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => setData('survey_proof_image', event.target.files?.[0] ?? null)}
-              className="backend-booking-file"
-            />
-          </Field>
+        <div className="booking-mice-required-card">
+          <div>
+            <p>MICE report requirement</p>
+            <h3>Complete the MICE report before payment proof submission.</h3>
+          </div>
+          <span>
+            The old survey proof fields were removed from this step. After the booking request is created, the client must complete the built-in MICE report from the booking page before any payment proof can be accepted.
+          </span>
         </div>
 
         <div className="grid gap-3">
@@ -2670,8 +2659,7 @@ export function BookingFormPage() {
           <ReviewBlock title="Guidelines and Status" icon={ShieldCheck} onEdit={() => goToStep(4)}>
             <ReviewGrid
               items={[
-                ['Survey Email', data.survey_email],
-                ['Proof Image', data.survey_proof_image?.name || 'No new file selected'],
+                ['MICE Report', 'Required before payment proof submission'],
                 ['Booking Status', data.booking_status],
                 ['Payment Status', data.payment_status],
                 ['Public Calendar Title', data.public_calendar_title],

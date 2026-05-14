@@ -603,6 +603,8 @@ class AdminPublicContentController extends Controller
         $isActive = $this->booleanInput($data, 'is_active', $this->booleanInput($data, 'active', true));
         $isFeatured = $this->booleanInput($data, 'is_featured', $this->booleanInput($data, 'featured', false));
 
+        $photo = $this->storeSingleImage($request, 'photo', 'tourism-members');
+
         $member = $this->saveModel(new TourismMember(), [
             'full_name' => $data['full_name'],
             'name' => $data['full_name'],
@@ -620,8 +622,10 @@ class AdminPublicContentController extends Controller
             'bio' => $data['short_bio'] ?? null,
             'description' => $data['short_bio'] ?? null,
             'details' => $this->detailsTextToArray($data['details_text'] ?? null),
-            'photo_path' => $this->storeSingleImage($request, 'photo', 'tourism-members'),
-            'photo' => null,
+            'photo_path' => $photo,
+            'photo' => $photo,
+            'image_path' => $photo,
+            'image_url' => $photo,
             'is_active' => $isActive,
             'active' => $isActive,
             'is_featured' => $isFeatured,
@@ -685,6 +689,9 @@ class AdminPublicContentController extends Controller
             'description' => $data['short_bio'] ?? null,
             'details' => $this->detailsTextToArray($data['details_text'] ?? null),
             'photo_path' => $photo,
+            'photo' => $photo,
+            'image_path' => $photo,
+            'image_url' => $photo,
             'is_active' => $isActive,
             'active' => $isActive,
             'is_featured' => $isFeatured,

@@ -198,7 +198,7 @@ export default function GuidelinesPage() {
           </div>
 
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/bookings/create" className="bccc-button-primary">
+            <Link href="/book" className="bccc-button-primary">
               Start Booking
               <ArrowRight className="h-4 w-4" />
             </Link>

@@ -171,7 +171,7 @@ export default function FacilityShowPage() {
                                 </div>
 
                                 <Link
-                                    href="/bookings/create"
+                                    href="/book"
                                     className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#f1d89b] px-6 text-sm font-bold text-[#17120b] transition hover:-translate-y-0.5 hover:bg-white"
                                 >
                                     Check Availability

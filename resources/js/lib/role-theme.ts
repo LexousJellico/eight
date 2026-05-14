@@ -107,5 +107,5 @@ export function roleCalendarHref(role?: string | null): string {
     if (normalized === 'manager') return '/manager/calendar';
     if (normalized === 'staff') return '/staff/calendar';
 
-    return '/calendar';
+    return '/my-calendar';
 }

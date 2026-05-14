@@ -1,4 +1,5 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { ResourcePageShell } from '@/components/admin-resource/resource-page-shell';
+import { Link, useForm } from '@inertiajs/react';
 import {
     ArrowLeft,
     Building2,
@@ -6,7 +7,7 @@ import {
     ClipboardList,
     Save,
 } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 type RegistryFormMode = 'create' | 'edit';
 
@@ -129,11 +130,27 @@ export default function MiceRegistryForm({
     };
 
     return (
-        <>
-            <Head title={pageTitle} />
-
-            <main className="min-h-screen bg-[#f7f2ea] px-4 py-6 text-[#2f2418] sm:px-6 lg:px-10">
-                <div className="mx-auto max-w-6xl">
+        <ResourcePageShell
+            title={pageTitle}
+            description="Encode and maintain official MICE-related event information inside the backend workspace."
+            eyebrow="Reports / MICE Registry"
+            icon={ClipboardList}
+            breadcrumbs={[
+                { title: 'Reports', href: cancelUrl },
+                { title: 'MICE Registry', href: cancelUrl },
+                { title: isEdit ? 'Edit Record' : 'Create Record', href: finalSubmitUrl },
+            ]}
+            actions={
+                <Link
+                    href={cancelUrl}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-[#d8c5a6] bg-white px-5 py-3 text-sm font-semibold text-[#5f4527] shadow-sm transition hover:-translate-y-0.5 hover:border-[#b58a48] hover:bg-[#fff8ec]"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Registry
+                </Link>
+            }
+        >
+            <div className="mx-auto max-w-6xl">
                     <div className="mb-6 flex flex-col gap-4 rounded-[2rem] border border-[#dfd1bb] bg-white/90 p-5 shadow-[0_24px_80px_rgba(57,39,19,0.10)] backdrop-blur md:flex-row md:items-center md:justify-between">
                         <div>
                             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#d4b27a]/50 bg-[#fff8ec] px-4 py-1.5 text-xs font-semibold tracking-[0.24em] text-[#8b6634] uppercase">
@@ -453,7 +470,6 @@ export default function MiceRegistryForm({
                         </div>
                     </form>
                 </div>
-            </main>
 
             <style>{`
                 .form-input {
@@ -478,7 +494,7 @@ export default function MiceRegistryForm({
                     color: #a3917a;
                 }
             `}</style>
-        </>
+        </ResourcePageShell>
     );
 }
 
@@ -491,7 +507,7 @@ function Field({
     label: string;
     error?: string;
     required?: boolean;
-    children: React.ReactNode;
+    children: ReactNode;
 }) {
     return (
         <label className="block">

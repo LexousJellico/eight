@@ -311,6 +311,8 @@ class CalendarAnalyticsController extends Controller
             'public_events_in_range' => $publicEvents->count(),
             'calendar_blocks_in_range' => $calendarBlocks->count(),
             'occupied_block_days' => array_sum($blockUsage),
+            'total_activity' => (int) collect($dateSeries)->sum('total_activity'),
+            'range_days' => $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1,
             'booked_guest_volume' => (int) $bookings->sum(fn ($booking) => (int) ($booking->number_of_guests ?? 0)),
             'tracked_areas' => count($areaUsageRows),
             'peak_daily_activity' => (int) (collect($dateSeries)->max('total_activity') ?? 0),

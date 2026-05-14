@@ -45,7 +45,9 @@ type RentalOption = {
     is_active?: boolean | number | string | null;
 };
 
-type CollectionLike<T> = T[] | { data?: T[] } | null | undefined;
+type PaginationLink = { url?: string | null; label?: string | null; active?: boolean };
+
+type CollectionLike<T> = T[] | { data?: T[]; links?: PaginationLink[] } | null | undefined;
 
 type PageProps = {
     mode?: 'index' | 'create' | 'edit' | 'show' | string;
@@ -82,6 +84,49 @@ function collection<T>(value: CollectionLike<T> | unknown): T[] {
     }
 
     return [];
+}
+
+function linksOf(value: CollectionLike<unknown> | unknown): PaginationLink[] {
+    if (value && typeof value === 'object' && Array.isArray((value as { links?: PaginationLink[] }).links)) {
+        return (value as { links: PaginationLink[] }).links;
+    }
+
+    return [];
+}
+
+function paginationLabel(label?: string | null) {
+    return String(label || '').replace(/<[^>]*>/g, '').replace(/&laquo;|&raquo;/g, '').trim();
+}
+
+function Pagination({ links }: { links: PaginationLink[] }) {
+    if (!links.length) return null;
+
+    return (
+        <div className="flex flex-wrap gap-2 border-t border-[#eadcc2]/80 bg-[#fffaf0]/60 p-4 dark:border-white/10 dark:bg-white/[0.035]">
+            {links.map((link, index) =>
+                link.url ? (
+                    <Link
+                        key={`${link.label}-${index}`}
+                        href={link.url}
+                        preserveScroll
+                        className={`rounded-full border px-3 py-2 text-xs font-bold ${
+                            link.active
+                                ? 'border-[#2f2517] bg-[#2f2517] text-white dark:border-white dark:bg-white dark:text-[#17120b]'
+                                : 'border-[#d9c7a6]/70 bg-white text-[#2f2517] hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12'
+                        }`}
+                        aria-label={paginationLabel(link.label)}
+                        dangerouslySetInnerHTML={{ __html: link.label || '' }}
+                    />
+                ) : (
+                    <span
+                        key={`${link.label}-${index}`}
+                        className="rounded-full border border-[#d9c7a6]/50 bg-white/50 px-3 py-2 text-xs font-bold text-[#8a7a64] dark:border-white/10 dark:bg-white/[0.035] dark:text-white/40"
+                        dangerouslySetInnerHTML={{ __html: link.label || '' }}
+                    />
+                ),
+            )}
+        </div>
+    );
 }
 
 function currentBasePath() {
@@ -281,7 +326,9 @@ export default function AdminRentalOptionsIndex() {
     const mode = String(props.mode ?? 'index');
     const selected = props.service ?? props.rentalOption ?? null;
 
-    const rows = collection<RentalOption>(props.rentalOptions ?? props.services);
+    const sourceCollection = props.rentalOptions ?? props.services;
+    const rows = collection<RentalOption>(sourceCollection);
+    const paginationLinks = linksOf(sourceCollection);
     const areas = collection<VenueArea>(props.venueAreas ?? props.serviceTypes);
     const showForm = mode === 'create' || mode === 'edit';
     const assignedCount = rows.filter((item) => item.service_type_id || item.venue_area_id || item.service_type).length;
@@ -344,7 +391,7 @@ export default function AdminRentalOptionsIndex() {
                                 <span className="text-right">Actions</span>
                             </div>
 
-                            <div className="divide-y divide-[#eadcc2]/80 dark:divide-white/10">
+                            <div className="max-h-[46rem] divide-y divide-[#eadcc2]/80 overflow-y-auto overscroll-contain dark:divide-white/10">
                                 {rows.map((item, index) => (
                                     <article key={item.id ?? index} className="grid gap-3 bg-white/62 px-4 py-4 text-sm dark:bg-white/[0.035] lg:grid-cols-[1fr_1fr_0.55fr_0.45fr] lg:items-center">
                                         <div>
@@ -383,6 +430,7 @@ export default function AdminRentalOptionsIndex() {
                                     </article>
                                 ))}
                             </div>
+                            <Pagination links={paginationLinks} />
                         </div>
                     )}
                 </ResourceSection>

@@ -115,6 +115,12 @@ class BookingFinancialSummaryService
 
     private function resolveBookingTotal(Booking $booking): float
     {
+        $metaTotal = $this->paymentMetaTotal($booking);
+
+        if ($metaTotal > 0) {
+            return $metaTotal;
+        }
+
         $directTotal = $this->firstMoneyValue($booking, [
             'grand_total',
             'total_payable',
@@ -140,6 +146,32 @@ class BookingFinancialSummaryService
 
         if ($serviceTotal > 0) {
             return $serviceTotal;
+        }
+
+        return 0;
+    }
+
+    private function paymentMetaTotal(Booking $booking): float
+    {
+        $meta = $booking->payment_meta;
+
+        if (is_string($meta)) {
+            $decoded = json_decode($meta, true);
+            $meta = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($meta)) {
+            return 0;
+        }
+
+        foreach (['estimated_total', 'grand_total', 'total_payable', 'total_amount', 'amount_due'] as $key) {
+            if (array_key_exists($key, $meta)) {
+                $value = $this->money($meta[$key]);
+
+                if ($value > 0) {
+                    return $value;
+                }
+            }
         }
 
         return 0;

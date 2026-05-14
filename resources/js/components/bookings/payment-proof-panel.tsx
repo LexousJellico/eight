@@ -68,8 +68,30 @@ function cx(...classes: Array<string | false | null | undefined>) {
 
 function totalValue(booking: BookingLike, key: string): number | string | null {
   const totals = booking.totals as Record<string, number | string | null> | null | undefined;
+  const summary = booking.financial_summary as Record<string, number | string | null> | null | undefined;
+
+  if (key === 'items_total') return summary?.total ?? totals?.[key] ?? null;
+  if (key === 'submitted_payments_total') {
+    const computedSubmittedTotal = Number(summary?.paid ?? 0) + Number(summary?.pending ?? 0);
+
+    return computedSubmittedTotal > 0 ? computedSubmittedTotal : (totals?.[key] ?? null);
+  }
+  if (key === 'confirmed_payments_total' || key === 'payments_total') return summary?.paid ?? totals?.[key] ?? null;
+  if (key === 'remaining_balance') return summary?.balance ?? totals?.[key] ?? null;
 
   return totals?.[key] ?? null;
+}
+
+function hasCompletedMiceReport(booking: BookingLike): boolean {
+  const record = booking as Record<string, any>;
+
+  return Boolean(
+    record.mice_report_submitted ||
+      record.has_mice_report ||
+      record.miceReportSubmitted ||
+      record.mice_record?.submitted_at ||
+      record.miceRecord?.submitted_at,
+  );
 }
 
 function gatewayLabel(value?: string | null) {
@@ -257,6 +279,7 @@ export function PaymentProofPanel({
   const [busyId, setBusyId] = useState<number | string | null>(null);
 
   const itemsTotal = Number(totalValue(booking, 'items_total') ?? 0);
+  const miceReportReady = !isClient || hasCompletedMiceReport(booking);
   const submittedTotal = Number(totalValue(booking, 'submitted_payments_total') ?? 0);
   const confirmedTotal = Number(
     totalValue(booking, 'confirmed_payments_total') ??
@@ -316,6 +339,11 @@ export function PaymentProofPanel({
 
   function submitPayment(event: FormEvent) {
     event.preventDefault();
+
+    if (!miceReportReady) {
+      window.alert('Please complete the required MICE report before submitting payment proof.');
+      return;
+    }
 
     post(bookingPaymentPath(normalizedRole, booking.id), {
       forceFormData: true,
@@ -384,15 +412,19 @@ export function PaymentProofPanel({
       </div>
 
       {isClient ? (
-        <div className="booking-payment-help">
+        <div className={cx('booking-payment-help', !miceReportReady && 'is-blocking')}>
           <AlertTriangle className="h-5 w-5 shrink-0" />
           <p>
-            Your submitted proof starts as <strong>Pending</strong>. BCCC staff must verify it before it counts as confirmed payment.
+            {miceReportReady ? (
+              <>Your submitted proof starts as <strong>Pending</strong>. BCCC staff must verify it before it counts as confirmed payment.</>
+            ) : (
+              <>Complete the required <strong>MICE report</strong> from this booking page first. Payment proof submission is locked until the MICE report is submitted.</>
+            )}
           </p>
         </div>
       ) : null}
 
-      <form onSubmit={submitPayment} className="booking-payment-form">
+      <form onSubmit={submitPayment} className={cx('booking-payment-form', !miceReportReady && 'is-disabled')}>
         <div className="grid gap-4 lg:grid-cols-2">
           <Field label="Payer Name" error={errors.payer_name}>
             <input
@@ -509,7 +541,7 @@ export function PaymentProofPanel({
               : 'Cash/manual records may only be saved by authorized internal users.'}
           </p>
 
-          <button type="submit" disabled={processing} className="booking-payment-submit">
+          <button type="submit" disabled={processing || !miceReportReady} className="booking-payment-submit">
             {processing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
             {isClient ? 'Submit Payment Proof' : 'Save Payment Record'}
           </button>

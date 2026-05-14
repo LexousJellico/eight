@@ -107,6 +107,7 @@ class ServiceTypeController extends Controller
 
         $query = ServiceType::query()
             ->withCount('services')
+            ->when(Schema::hasColumn('service_types', 'sort_order'), fn ($builder) => $builder->orderBy('sort_order'))
             ->orderBy('name');
 
         if ($search !== '') {

@@ -10,9 +10,14 @@
 
         <title inertia>{{ config('app.name', 'BCCC EASE') }}</title>
 
+        <link rel="icon" type="image/png" href="{{ asset('marketing/images/logo/bccc-seal.png') }}">
+        <link rel="shortcut icon" type="image/png" href="{{ asset('marketing/images/logo/bccc-seal.png') }}">
+        <link rel="apple-touch-icon" href="{{ asset('marketing/images/logo/bccc-seal.png') }}">
+        <meta name="theme-color" content="#14100a">
+
         <script>
             window.BCCC_EASE = {
-                appName: @json(config('app.name', 'BCCC_EASE')),
+                appName: @json(config('app.name', 'BCCC EASE')),
                 appUrl: @json(config('app.url')),
                 csrfToken: @json(csrf_token()),
             };
