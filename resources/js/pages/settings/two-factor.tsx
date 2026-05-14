@@ -26,7 +26,6 @@ export default function TwoFactor({
 }: TwoFactorProps) {
     const {
         qrCodeSvg,
-        hasSetupData,
         manualSetupKey,
         clearSetupData,
         fetchSetupData,

@@ -228,10 +228,12 @@ function totalValue(booking: BookingLike, key: string): number | string | null {
 }
 
 function hasMiceReport(booking: BookingLike): boolean {
+  const report = booking.mice_report as { submitted_at?: unknown } | null | undefined;
+
   return Boolean(
-    (booking as any).mice_report_submitted ||
-      (booking as any).mice_report?.submitted_at ||
-      (booking as any).mice_report_status === 'submitted',
+    booking.mice_report_submitted ||
+      report?.submitted_at ||
+      booking.mice_report_status === 'submitted',
   );
 }
 

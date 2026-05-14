@@ -9,10 +9,8 @@ import {
 import type { BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
-    BarChart3,
     Building2,
     CalendarDays,
-    Download,
     Edit3,
     FileSpreadsheet,
     Globe2,
@@ -461,6 +459,9 @@ export function MiceRegistryReportPage() {
                 >
                     <ResourceToolbar
                         searchPlaceholder="Search event, establishment, organizer, venue, origin, or remarks..."
+                        searchValue={q}
+                        onSearchChange={setQ}
+                        onSearchSubmit={search}
                         right={
                             <div className="flex flex-wrap gap-2">
                                 <div className="flex min-h-11 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-4 dark:border-white/10 dark:bg-white/7">
@@ -657,7 +658,7 @@ function InfoLine({
 }
 
 export function MiceRegistryPrintPage() {
-    const { props, records, role, path } = useMiceRecords();
+    const { records, role, path } = useMiceRecords();
 
     const totalParticipants = records.reduce((sum, record) => sum + participantTotal(record), 0);
     const totalRoomNights = records.reduce((sum, record) => sum + numberValue(record.estimated_room_nights), 0);

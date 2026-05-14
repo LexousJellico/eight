@@ -4,10 +4,8 @@ import {
     BOOKING_USAGE_LABELS,
     BOOKING_VENUE_CATALOG,
     FULL_HALL_INCLUDED_KEYS,
-    FULL_HALL_SUPPORT_NOTES,
     catalogItemMatchesService,
     estimateSelectedVenueCharge,
-    estimateVenueCharge,
     type BookingUsageKey,
     type BookingVenueCatalogItem,
     type BookingVenueKey,
@@ -37,7 +35,6 @@ import {
   ReceiptText,
   Save,
   ShieldCheck,
-  Sparkles,
   UserRound,
   X,
 } from 'lucide-react';
@@ -86,7 +83,36 @@ type InitialSchedule = {
   to?: string | null;
 };
 
-type BookingRecord = Record<string, any>;
+type BookingRecord = {
+  id?: number | string | null;
+  service_id?: number | string | null;
+  service?: {
+    id?: number | string | null;
+  } | null;
+  booking_date_from?: string | null;
+  booking_date_to?: string | null;
+  organization_type?: string | null;
+  company_name?: string | null;
+  client_name?: string | null;
+  client_contact_number?: string | null;
+  client_email?: string | null;
+  client_address?: string | null;
+  client_region?: string | null;
+  client_province?: string | null;
+  client_city_municipality?: string | null;
+  client_barangay?: string | null;
+  client_zip_code?: string | null;
+  client_street_address?: string | null;
+  head_of_organization?: string | null;
+  type_of_event?: string | null;
+  number_of_guests?: number | string | null;
+  survey_email?: string | null;
+  booking_status?: string | null;
+  payment_status?: string | null;
+  is_public_calendar_visible?: boolean | number | null;
+  public_calendar_title?: string | null;
+  [key: string]: unknown;
+};
 
 type BookingFormPageProps = {
   workspaceRole?: string;
@@ -104,11 +130,11 @@ type BookingFormItem = {
   quantity: number;
 };
 
+type BookingPaymentMeta = Record<string, string | number | boolean | null | undefined | string[] | number[] | boolean[]>;
 type BookingFormData = {
-  [key: string]: any;
   service_id: string;
   items: BookingFormItem[];
-  payment_meta: Record<string, any>;
+  payment_meta: BookingPaymentMeta;
 
   organization_type: string;
   company_name: string;
@@ -480,10 +506,6 @@ function formatDateTime(value?: string | null): string {
   }).format(date);
 }
 
-function dateOnlyFromDateTime(value?: string | null): string {
-  return value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
-}
-
 function rangeHours(from?: string | null, to?: string | null): number {
   if (!from || !to) return 0;
 
@@ -589,62 +611,6 @@ function WizardNotice({ errors }: { errors: Record<string, string> }) {
   );
 }
 
-function VenueImage({
-    item,
-    selected,
-    included,
-    preview,
-  }: {
-    item: BookingVenueCatalogItem;
-    selected: boolean;
-    included?: boolean;
-    preview?: boolean;
-  }) {
-    const [failed, setFailed] = useState(false);
-
-    return (
-      <div className="booking-venue-image">
-        {!failed && item.image ? (
-          <img
-            src={item.image}
-            alt={item.displayLabel || item.label}
-            onError={() => setFailed(true)}
-            className={cx(
-              'h-full w-full object-cover brightness-[0.58] saturate-[0.95] transition duration-700',
-              preview ? 'scale-[1.04]' : 'group-hover:scale-[1.04]',
-            )}
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_30%_15%,rgba(169,132,67,0.30),transparent_35%),linear-gradient(135deg,#15382f,#070b08)]">
-            <Sparkles className="h-12 w-12 text-[#f1d69d]/80" />
-          </div>
-        )}
-
-        <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/28 to-transparent" />
-
-        <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#f1d69d]">
-            {item.category === 'package' ? 'Complete Package' : included ? 'Package Inclusion' : 'Individual Space'}
-            {item.capacity ? ` · ${item.capacity}` : ''}
-          </p>
-
-          <h3 className="mt-2 text-2xl font-semibold tracking-[-0.055em]">
-            {item.displayLabel || item.label}
-          </h3>
-
-          <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/72">
-            {included ? 'Included under the Full Hall package.' : item.subtitle}
-          </p>
-        </div>
-
-        {selected || included ? (
-          <div className="absolute right-4 top-4 border border-[#d7b46a]/60 bg-[#d7b46a]/18 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-[#f9e3ad]">
-            {included ? 'Included' : 'Selected'}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
 
 function Stepper({
   activeStep,
@@ -1069,11 +1035,6 @@ export function BookingFormPage() {
     const selectedReceiptItems = selectedDisplayItems(venueItems, selectedVenueKeys);
     const hasFullHallSelected = selectedVenueKeys.includes('FULL_HALL');
 
-    const selectedIndex = Math.max(
-      0,
-      venueItems.findIndex((item) => item.key === (selectedVenue?.key ?? selectedVenueKeys[0])),
-    );
-
     const selectedDateCount = inclusiveDateCount(selectedDateRange.from, selectedDateRange.to);
 
     const estimatedBasePerDay = estimateSelectedVenueCharge(
@@ -1154,7 +1115,10 @@ export function BookingFormPage() {
     });
 
 
-    const setData = rawSetData as unknown as (key: string, value: any) => void;
+    const setData = rawSetData as unknown as (
+      key: keyof BookingFormData,
+      value: BookingFormData[keyof BookingFormData],
+    ) => void;
 
     const mergedErrors = {
       ...errors,
@@ -1235,29 +1199,6 @@ export function BookingFormPage() {
 
     setStepErrors({});
     focusVenueCard(item.key);
-  }
-
-  function moveVenue(direction: 'previous' | 'next') {
-    const currentIndex = Math.max(
-      0,
-      venueItems.findIndex((item) => item.key === previewVenueKey),
-    );
-
-    const nextIndex =
-      direction === 'previous'
-        ? Math.max(0, currentIndex - 1)
-        : Math.min(venueItems.length - 1, currentIndex + 1);
-
-    const nextVenue = venueItems[nextIndex];
-
-    if (nextVenue) {
-      setPreviewVenueKey(nextVenue.key);
-      focusVenueCard(nextVenue.key);
-    }
-  }
-
-  function setScheduleBlock(block: BookingTimeBlockKey) {
-    handleTimeBlockChange(block);
   }
 
   function validateStep(step: number): boolean {
@@ -2531,21 +2472,6 @@ export function BookingFormPage() {
     );
   }
 
-  function ClockLabel({ block }: { block: 'AM' | 'PM' | 'EVE' | 'DAY' }) {
-    const copy = {
-      AM: ['AM', '6:00 AM - 12:00 PM'],
-      PM: ['PM', '12:00 PM - 6:00 PM'],
-      EVE: ['EVE', '6:00 PM - 11:59 PM'],
-      DAY: ['Whole Day', '6:00 AM - 11:59 PM'],
-    }[block];
-
-    return (
-      <>
-        <strong>{copy[0]}</strong>
-        <span>{copy[1]}</span>
-      </>
-    );
-  }
 
   function renderGuidelinesStep() {
     return (

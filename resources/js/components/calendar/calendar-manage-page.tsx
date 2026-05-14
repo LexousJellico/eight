@@ -612,8 +612,8 @@ import {
 
     const role = inferRole(props.workspaceRole);
     const month = props.month || dateKey(new Date()).slice(0, 7);
-    const monthAvailability = props.monthAvailability || {};
-    const events = Array.isArray(props.events) ? props.events : [];
+    const monthAvailability = useMemo(() => props.monthAvailability || {}, [props.monthAvailability]);
+    const events = useMemo(() => (Array.isArray(props.events) ? props.events : []), [props.events]);
     const highlights = props.highlights || {};
     const areaOptions = props.areaOptions?.length ? props.areaOptions : defaultAreas;
 

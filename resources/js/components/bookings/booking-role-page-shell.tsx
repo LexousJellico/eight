@@ -1,3 +1,4 @@
+import PublicBookingLayout from '@/layouts/public-booking-layout';
 import { RoleWorkspaceShell } from '@/components/role/role-workspace-shell';
 import {
   bookingBasePath,
@@ -5,6 +6,7 @@ import {
 } from '@/lib/booking-role-ui';
 import { roleDashboardHref, type RoleThemeKey } from '@/lib/role-theme';
 import type { BreadcrumbItem } from '@/types';
+import { Head } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 
 type BookingRolePageShellProps = {
@@ -77,13 +79,30 @@ export function BookingRolePageShell({
 }: BookingRolePageShellProps) {
   const normalizedRole = normalizeWorkspaceRole(role) as RoleThemeKey;
   const resolvedTitle = title || fallbackTitle(normalizedRole);
+  const resolvedDescription = description || fallbackDescription(normalizedRole);
+  const resolvedEyebrow = bookingEyebrow(normalizedRole);
+
+  if (normalizedRole === 'user') {
+    return (
+      <PublicBookingLayout
+        eyebrow={resolvedEyebrow}
+        title={resolvedTitle}
+        description={resolvedDescription}
+        actions={actions}
+        compact={compact}
+      >
+        <Head title={resolvedTitle} />
+        {children}
+      </PublicBookingLayout>
+    );
+  }
 
   return (
     <RoleWorkspaceShell
       role={normalizedRole}
       title={resolvedTitle}
-      eyebrow={bookingEyebrow(normalizedRole)}
-      description={description || fallbackDescription(normalizedRole)}
+      eyebrow={resolvedEyebrow}
+      description={resolvedDescription}
       breadcrumbs={bookingBreadcrumbs(normalizedRole, title)}
       actions={actions}
       compact={compact}

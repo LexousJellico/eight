@@ -297,7 +297,7 @@ export function PaymentProofPanel({
 
   useEffect(() => {
     setData('amount', remainingBalance);
-  }, [remainingBalance]);
+  }, [remainingBalance, setData]);
 
   useEffect(() => {
     if (!data.proof_image) {

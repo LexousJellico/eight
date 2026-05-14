@@ -48,7 +48,9 @@ type BookingPayload = {
   }>;
 };
 
-type MiceRecordPayload = Record<string, any>;
+type MiceRecordPayload = Record<string, unknown> & {
+  status?: string | null;
+};
 
 type PageProps = {
   workspaceRole?: string;

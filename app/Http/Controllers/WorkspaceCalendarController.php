@@ -8,6 +8,7 @@ use App\Models\PublicEvent;
 use App\Services\BookingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,20 +25,30 @@ class WorkspaceCalendarController extends Controller
         $bookingService = app(BookingService::class);
         $bookingService->syncLifecycleStatuses();
 
-        $countsAll = $bookingService->getStatusCounts();
-        $counts = [
-            'pending' => $countsAll['pending'] ?? 0,
-            'confirmed' => $countsAll['confirmed'] ?? 0,
-            'active' => $countsAll['active'] ?? 0,
-            'completed' => $countsAll['completed'] ?? 0,
-        ];
+        $workspaceRole = $this->resolveWorkspaceRole($request);
 
         $monthParam = (string) $request->query('month', '');
-        $start = preg_match('/^\d{4}-\d{2}$/', $monthParam)
+        $start = preg_match('/^\d{4}-\d{2}$/', $monthParam) === 1
             ? Carbon::createFromFormat('Y-m', $monthParam)->startOfMonth()
             : Carbon::now()->startOfMonth();
         $end = $start->copy()->endOfMonth();
 
+        $monthAvailability = $this->buildMonthAvailability($bookingService, $start, $end);
+        $events = $this->buildCalendarEvents($request, $workspaceRole, $start, $end);
+        $counts = $this->buildCounts($workspaceRole, $events, $bookingService->getStatusCounts());
+
+        return Inertia::render($this->resolvePage($request, $workspaceRole), [
+            'workspaceRole' => $workspaceRole,
+            'counts' => $counts,
+            'events' => $events->values(),
+            'month' => $start->format('Y-m'),
+            'monthAvailability' => $monthAvailability,
+            'areaOptions' => $this->areaOptions(),
+        ]);
+    }
+
+    private function buildMonthAvailability(BookingService $bookingService, Carbon $start, Carbon $end): array
+    {
         $monthAvailability = [];
 
         for ($d = $start->copy(); $d->lte($end); $d->addDay()) {
@@ -53,17 +64,30 @@ class WorkspaceCalendarController extends Controller
             ];
         }
 
-        $workspaceRole = $this->resolveWorkspaceRole($request);
-        $events = $this->buildCalendarEvents($request, $workspaceRole, $start, $end);
+        return $monthAvailability;
+    }
 
-        return Inertia::render($this->resolvePage($request, $workspaceRole), [
-            'workspaceRole' => $workspaceRole,
-            'counts' => $counts,
-            'events' => $events,
-            'month' => $start->format('Y-m'),
-            'monthAvailability' => $monthAvailability,
-            'areaOptions' => $this->areaOptions(),
-        ]);
+    private function buildCounts(string $workspaceRole, Collection $events, array $globalStatusCounts): array
+    {
+        if ($workspaceRole === 'user') {
+            return [
+                'calendar_items' => $events->count(),
+                'bookings' => $events->where('kind', 'booking')->count(),
+                'blocks' => $events->where('kind', 'block')->count(),
+                'public_events' => $events->where('kind', 'public_event')->count(),
+            ];
+        }
+
+        return [
+            'pending' => $globalStatusCounts['pending'] ?? 0,
+            'confirmed' => $globalStatusCounts['confirmed'] ?? 0,
+            'active' => $globalStatusCounts['active'] ?? 0,
+            'completed' => $globalStatusCounts['completed'] ?? 0,
+            'calendar_items' => $events->count(),
+            'bookings' => $events->where('kind', 'booking')->count(),
+            'blocks' => $events->where('kind', 'block')->count(),
+            'public_events' => $events->where('kind', 'public_event')->count(),
+        ];
     }
 
     private function resolveWorkspaceRole(Request $request): string
@@ -142,12 +166,19 @@ class WorkspaceCalendarController extends Controller
         return 'dashboard';
     }
 
-    private function buildCalendarEvents(Request $request, string $workspaceRole, Carbon $start, Carbon $end)
+    private function buildCalendarEvents(Request $request, string $workspaceRole, Carbon $start, Carbon $end): Collection
     {
         $user = $request->user();
 
         if ($workspaceRole === 'user') {
-            return $this->buildUserBookingEvents((string) ($user?->email ?? ''), (int) ($user?->id ?? 0), $start, $end);
+            return $this->buildUserBookingEvents((string) ($user?->email ?? ''), (int) ($user?->id ?? 0), $start, $end)
+                ->concat($this->buildPublicEventItems($start, $end))
+                ->concat($this->buildCalendarBlockEvents($start, $end, publicSafe: true))
+                ->sortBy([
+                    ['start', 'asc'],
+                    ['title', 'asc'],
+                ])
+                ->values();
         }
 
         return $this->buildBookingEvents($start, $end)
@@ -160,23 +191,30 @@ class WorkspaceCalendarController extends Controller
             ->values();
     }
 
-    private function buildUserBookingEvents(string $email, int $userId, Carbon $start, Carbon $end)
+    private function buildUserBookingEvents(string $email, int $userId, Carbon $start, Carbon $end): Collection
     {
+        if ($email === '' && $userId <= 0) {
+            return collect();
+        }
+
         $ownBookings = Booking::query()
+            ->with(['service.serviceType'])
             ->whereDate('booking_date_to', '>=', $start)
             ->whereDate('booking_date_from', '<=', $end)
             ->where(function ($query) use ($email, $userId): void {
                 if ($email !== '') {
-                    $query->orWhere('client_email', $email);
+                    $query->where('client_email', $email);
                 }
 
                 if ($userId > 0) {
-                    $query->orWhere('created_by_user_id', $userId);
+                    $method = $email !== '' ? 'orWhere' : 'where';
+                    $query->{$method}('created_by_user_id', $userId);
                 }
             })
             ->orderBy('booking_date_from')
             ->get([
                 'id',
+                'service_id',
                 'client_email',
                 'client_name',
                 'company_name',
@@ -184,21 +222,24 @@ class WorkspaceCalendarController extends Controller
                 'booking_status',
                 'booking_date_from',
                 'booking_date_to',
+                'number_of_guests',
             ]);
 
         return $ownBookings
-            ->map(fn (Booking $booking) => $this->bookingToCalendarEvent($booking))
+            ->map(fn (Booking $booking) => $this->bookingToCalendarEvent($booking, clientSafe: true))
             ->values();
     }
 
-    private function buildBookingEvents(Carbon $start, Carbon $end)
+    private function buildBookingEvents(Carbon $start, Carbon $end): Collection
     {
         $bookings = Booking::query()
+            ->with(['service.serviceType'])
             ->whereDate('booking_date_to', '>=', $start)
             ->whereDate('booking_date_from', '<=', $end)
             ->orderBy('booking_date_from')
             ->get([
                 'id',
+                'service_id',
                 'client_email',
                 'client_name',
                 'company_name',
@@ -206,33 +247,47 @@ class WorkspaceCalendarController extends Controller
                 'booking_status',
                 'booking_date_from',
                 'booking_date_to',
+                'number_of_guests',
+                'is_public_calendar_visible',
+                'public_calendar_title',
             ]);
 
         return $bookings->map(fn (Booking $booking) => $this->bookingToCalendarEvent($booking));
     }
 
-    private function bookingToCalendarEvent(Booking $booking): array
+    private function bookingToCalendarEvent(Booking $booking, bool $clientSafe = false): array
     {
+        $venueArea = trim((string) ($booking->service?->serviceType?->name ?? ''));
+        $serviceName = trim((string) ($booking->service?->name ?? ''));
+        $status = (string) ($booking->booking_status ?? 'pending');
+        $type = trim((string) ($booking->type_of_event ?? ''));
+
+        $publicTitle = trim((string) ($booking->public_calendar_title ?? ''));
+        $defaultTitle = ($type !== '' ? ($type . ' – ') : '')
+            . ($booking->company_name ?: $booking->client_name ?: 'Booking');
+
         $groupSeed = strtolower(implode('|', array_map('trim', [
             (string) ($booking->client_email ?? ''),
             (string) ($booking->client_name ?? ''),
             (string) ($booking->company_name ?? ''),
-            (string) ($booking->type_of_event ?? ''),
+            $type,
         ])));
 
         return [
             'id' => $booking->id,
             'kind' => 'booking',
-            'title' => ($booking->type_of_event ? ($booking->type_of_event . ' – ') : '')
-                . ($booking->company_name ?: $booking->client_name ?: 'Booking'),
+            'title' => $clientSafe ? ($type !== '' ? $type : 'My Booking') : ($publicTitle !== '' ? $publicTitle : $defaultTitle),
             'start' => optional($booking->booking_date_from)->format('Y-m-d\TH:i'),
             'end' => optional($booking->booking_date_to)->format('Y-m-d\TH:i'),
-            'status' => $booking->booking_status,
-            'groupKey' => substr(hash('sha1', $groupSeed), 0, 16),
+            'status' => $status,
+            'area' => $venueArea !== '' ? $venueArea : null,
+            'block' => $serviceName !== '' ? $serviceName : null,
+            'guests' => $booking->number_of_guests,
+            'groupKey' => substr(hash('sha1', $groupSeed !== '' ? $groupSeed : ('booking|' . $booking->id)), 0, 16),
         ];
     }
 
-    private function buildPublicEventItems(Carbon $start, Carbon $end)
+    private function buildPublicEventItems(Carbon $start, Carbon $end): Collection
     {
         $publicEvents = PublicEvent::query()
             ->where('is_public', true)
@@ -253,7 +308,7 @@ class WorkspaceCalendarController extends Controller
             $startAt = $eventDate->copy()->startOfDay();
             $endAt = $eventDate->copy()->endOfDay();
 
-            if (preg_match('/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/', $time, $matches)) {
+            if (preg_match('/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/', $time, $matches) === 1) {
                 $startAt = Carbon::parse($eventDate->format('Y-m-d') . ' ' . $matches[1]);
                 $endAt = Carbon::parse($eventDate->format('Y-m-d') . ' ' . $matches[2]);
             }
@@ -271,7 +326,7 @@ class WorkspaceCalendarController extends Controller
         });
     }
 
-    private function buildCalendarBlockEvents(Carbon $start, Carbon $end)
+    private function buildCalendarBlockEvents(Carbon $start, Carbon $end, bool $publicSafe = false): Collection
     {
         $calendarBlocks = CalendarBlock::query()
             ->whereDate('date_to', '>=', $start->format('Y-m-d'))
@@ -287,7 +342,7 @@ class WorkspaceCalendarController extends Controller
                 'date_to',
             ]);
 
-        return $calendarBlocks->map(function (CalendarBlock $calendarBlock) use ($start, $end) {
+        return $calendarBlocks->map(function (CalendarBlock $calendarBlock) use ($start, $end, $publicSafe) {
             $rangeStart = Carbon::parse($calendarBlock->date_from)->startOfDay();
             $rangeEnd = Carbon::parse($calendarBlock->date_to)->startOfDay();
 
@@ -299,7 +354,10 @@ class WorkspaceCalendarController extends Controller
                 $rangeEnd = $end->copy()->startOfDay();
             }
 
-            $from = match (strtoupper((string) $calendarBlock->block)) {
+            $blockKey = strtoupper((string) ($calendarBlock->block ?? 'DAY'));
+            $publicStatus = strtolower((string) ($calendarBlock->public_status ?? 'red'));
+
+            $from = match ($blockKey) {
                 'PM' => '12:00',
                 'EVE' => '18:00',
                 default => '06:00',
@@ -307,11 +365,11 @@ class WorkspaceCalendarController extends Controller
 
             $startDt = $rangeStart->copy()->setTimeFromTimeString($from);
 
-            $endDt = match (strtoupper((string) $calendarBlock->block)) {
+            $endDt = match ($blockKey) {
                 'AM' => $rangeEnd->copy()->setTime(12, 0),
                 'PM' => $rangeEnd->copy()->setTime(18, 0),
-                'EVE', 'DAY' => $rangeEnd->copy()->addDay()->startOfDay(),
-                default => $rangeEnd->copy()->addDay()->startOfDay(),
+                'EVE', 'DAY' => $rangeEnd->copy()->setTime(23, 59),
+                default => $rangeEnd->copy()->setTime(23, 59),
             };
 
             return [
@@ -320,19 +378,38 @@ class WorkspaceCalendarController extends Controller
                 'block_id' => $calendarBlock->id,
                 'block' => $calendarBlock->block,
                 'area' => $calendarBlock->area,
-                'title' => 'BLOCK: ' . $calendarBlock->title
-                    . ($calendarBlock->area ? (' – ' . $calendarBlock->area) : ''),
+                'title' => $this->calendarBlockTitle($calendarBlock, $publicStatus, $publicSafe),
                 'start' => $startDt->format('Y-m-d\TH:i'),
                 'end' => $endDt->format('Y-m-d\TH:i'),
-                'status' => match (strtolower((string) ($calendarBlock->public_status ?? 'red'))) {
+                'status' => match ($publicStatus) {
                     'blue' => 'public_booked',
                     'gold' => 'private_booked',
                     default => 'blocked',
                 },
-                'public_status' => strtolower((string) ($calendarBlock->public_status ?? 'red')),
+                'public_status' => $publicStatus,
                 'groupKey' => substr(hash('sha1', 'block|' . $calendarBlock->id), 0, 16),
             ];
         });
+    }
+
+    private function calendarBlockTitle(CalendarBlock $calendarBlock, string $publicStatus, bool $publicSafe): string
+    {
+        $area = trim((string) ($calendarBlock->area ?? ''));
+        $suffix = $area !== '' ? (' – ' . $area) : '';
+
+        if (! $publicSafe) {
+            return 'BLOCK: ' . ($calendarBlock->title ?: 'Calendar Block') . $suffix;
+        }
+
+        if ($publicStatus === 'blue') {
+            return 'PUBLIC: ' . ($calendarBlock->title ?: 'Public Calendar Activity') . $suffix;
+        }
+
+        if ($publicStatus === 'gold') {
+            return 'Reserved Block' . $suffix;
+        }
+
+        return 'Unavailable Block' . $suffix;
     }
 
     private function areaOptions(): array

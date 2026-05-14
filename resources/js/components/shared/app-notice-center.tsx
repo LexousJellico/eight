@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertCircle, CheckCircle2, Info, LoaderCircle, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type NoticeType = 'success' | 'error' | 'info' | 'loading';
 
@@ -95,19 +95,19 @@ export default function AppNoticeCenter() {
     const timerRef = useRef<number | null>(null);
     const loadingRef = useRef(false);
 
-    function clearTimer() {
+    const clearTimer = useCallback(() => {
         if (timerRef.current) {
             window.clearTimeout(timerRef.current);
             timerRef.current = null;
         }
-    }
+    }, []);
 
     function closeNotice() {
         clearTimer();
         setNotice(null);
     }
 
-    function show(payload: NoticePayload) {
+    const show = useCallback((payload: NoticePayload) => {
         clearTimer();
 
         const type = payload.type ?? 'info';
@@ -126,7 +126,7 @@ export default function AppNoticeCenter() {
                 setNotice(null);
             }, nextNotice.duration);
         }
-    }
+    }, [clearTimer]);
 
     useEffect(() => {
         const removeStart = router.on('start', () => {
@@ -185,7 +185,7 @@ export default function AppNoticeCenter() {
             removeFinish();
             window.removeEventListener(NOTICE_EVENT, handleCustomNotice);
         };
-    }, []);
+    }, [clearTimer, show]);
 
     const type = notice?.type ?? 'info';
     const Icon = iconFor(type);

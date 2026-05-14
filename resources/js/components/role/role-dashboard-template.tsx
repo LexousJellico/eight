@@ -26,7 +26,6 @@ import {
   LayoutDashboard,
   Plus,
   ShieldCheck,
-  Sparkles,
   Users,
 } from 'lucide-react';
 

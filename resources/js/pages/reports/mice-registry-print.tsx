@@ -157,7 +157,7 @@ export default function MiceRegistryFormPage({
         ) {
             form.setData('total_employees', String(computedEmployees));
         }
-    }, [computedEmployees]);
+    }, [computedEmployees, form.data.total_employees, form]);
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();

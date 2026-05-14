@@ -2,7 +2,7 @@ import { bcccMotion } from '@/lib/design-tokens';
 import { cn } from '@/lib/class-names';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 type MotionTag = 'div' | 'section' | 'article' | 'header' | 'footer' | 'aside' | 'li';
 
@@ -45,7 +45,7 @@ export default function LuxuryReveal({
   ...props
 }: LuxuryRevealProps) {
   const reduceMotion = useReducedMotion();
-  const MotionElement = motionElements[as] as any;
+  const MotionElement = motionElements[as] as ComponentType<HTMLMotionProps<'div'>>;
 
   if (reduceMotion || immediate) {
     return (

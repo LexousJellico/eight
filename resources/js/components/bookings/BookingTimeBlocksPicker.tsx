@@ -1,5 +1,4 @@
 import {
-    BLOCK_ORDER,
     cleanBlockList,
     humanDate,
     isFullyBooked,
@@ -132,7 +131,7 @@ export default function BookingTimeBlocksPicker({
                     onChange(selected.filter((block) => block !== badBlock));
                     setHint(`${badBlock} is already booked or blocked. It was removed from your selected time blocks.`);
                 }
-            } catch (requestError) {
+            } catch {
                 if (controller.signal.aborted) {
                     return;
                 }
@@ -149,7 +148,7 @@ export default function BookingTimeBlocksPicker({
         loadAvailability();
 
         return () => controller.abort();
-    }, [availabilityUrl, date, excludeBookingId, serviceId, serviceTypeId, areaId]);
+    }, [availabilityUrl, date, excludeBookingId, serviceId, serviceTypeId, areaId, onChange, selected]);
 
     React.useEffect(() => {
         if (!onRangeChange || !selectedRange) {

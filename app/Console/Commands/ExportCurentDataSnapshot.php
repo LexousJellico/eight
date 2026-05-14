@@ -39,7 +39,11 @@ class ExportCurrentDataSnapshot extends Command
                 continue;
             }
 
-            $payload['tables'][$table] = DB::table($table)->orderBy('id')->get()->map(fn ($row) => (array) $row)->all();
+            $payload['tables'][$table] = DB::table($table)
+                ->orderBy('id')
+                ->get()
+                ->map(fn ($row) => (array) $row)
+                ->all();
         }
 
         File::put($path, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

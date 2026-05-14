@@ -54,11 +54,11 @@ class SurveyProofStorageService
         );
 
         $filename = $this->filenameFor($booking->id, $ext);
-        $relativePath = self::BASE_DIR . '/' . $filename;
+        $relativePath = self::BASE_DIR.'/'. $filename;
 
         // 1) Store locally (overwrite if same filename).
         $stored = Storage::disk(self::LOCAL_DISK)->putFileAs(self::BASE_DIR, $file, $filename);
-        if (!$stored) {
+        if (! $stored) {
             throw new \RuntimeException('Unable to store proof image locally.');
         }
 
@@ -69,7 +69,7 @@ class SurveyProofStorageService
                 $mime = $file->getMimeType() ?: $file->getClientMimeType() ?: 'application/octet-stream';
 
                 Storage::disk(self::S3_DISK)->putFileAs(self::BASE_DIR, $file, $filename, [
-                    'visibility'  => 'private',
+                    'visibility' => 'private',
                     'ContentType' => $mime,
                 ]);
 
@@ -78,7 +78,7 @@ class SurveyProofStorageService
                 // Don't fail the request if S3 is unavailable; local copy is the source of truth.
                 Log::warning('Survey proof S3 upload failed; stored locally only.', [
                     'booking_id' => $booking->id,
-                    'error'      => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -87,9 +87,9 @@ class SurveyProofStorageService
         $this->deleteOtherExtensions($booking->id, $ext);
 
         return [
-            'relative_path'  => $relativePath,
-            'filename'       => $filename,
-            'extension'      => $ext,
+            'relative_path' => $relativePath,
+            'filename' => $filename,
+            'extension' => $ext,
             'uploaded_to_s3' => $uploadedToS3,
         ];
     }
@@ -105,10 +105,10 @@ class SurveyProofStorageService
         );
 
         $filename = $this->filenameFor($booking->id, $ext);
-        $relativePath = self::BASE_DIR . '/' . $filename;
+        $relativePath = self::BASE_DIR.'/'. $filename;
 
         $ok = Storage::disk(self::LOCAL_DISK)->put($relativePath, $bytes);
-        if (!$ok) {
+        if (! $ok) {
             throw new \RuntimeException('Unable to store proof image bytes locally.');
         }
 
@@ -116,14 +116,14 @@ class SurveyProofStorageService
         if ($this->s3IsConfigured()) {
             try {
                 Storage::disk(self::S3_DISK)->put($relativePath, $bytes, [
-                    'visibility'  => 'private',
+                    'visibility' => 'private',
                     'ContentType' => $mime ?: 'application/octet-stream',
                 ]);
                 $uploadedToS3 = true;
             } catch (\Throwable $e) {
                 Log::warning('Survey proof S3 upload failed during backfill; stored locally only.', [
                     'booking_id' => $booking->id,
-                    'error'      => $e->getMessage(),
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -131,10 +131,10 @@ class SurveyProofStorageService
         $this->deleteOtherExtensions($booking->id, $ext);
 
         return [
-            'relative_path'  => $relativePath,
-            'filename'       => $filename,
-            'extension'      => $ext,
-            'uploaded_to_s3' => $uploadedTo_s3 ?? $uploadedToS3,
+            'relative_path' => $relativePath,
+            'filename' => $filename,
+            'extension' => $ext,
+            'uploaded_to_s3' => $uploadedToS3,
         ];
     }
 
@@ -157,7 +157,9 @@ class SurveyProofStorageService
      */
     public function locateLegacyPublicFromPath(?string $legacyPath): ?string
     {
-        if (!$legacyPath) return null;
+        if (! $legacyPath) {
+            return null;
+        }
 
         if (Storage::disk(self::LEGACY_PUBLIC_DISK)->exists($legacyPath)) {
             return $legacyPath;
@@ -172,7 +174,7 @@ class SurveyProofStorageService
      */
     public function locateS3(Booking $booking): ?string
     {
-        if (!$this->s3IsConfigured()) {
+        if (! $this->s3IsConfigured()) {
             return null;
         }
 
@@ -210,7 +212,7 @@ class SurveyProofStorageService
     {
         $paths = [];
         foreach (self::ALLOWED_EXTENSIONS as $ext) {
-            $paths[] = self::BASE_DIR . '/' . $this->filenameFor($bookingId, $ext);
+            $paths[] = self::BASE_DIR.'/'. $this->filenameFor($bookingId, $ext);
         }
         return $paths;
     }
@@ -222,7 +224,9 @@ class SurveyProofStorageService
     public function s3IsConfigured(): bool
     {
         $disk = config('filesystems.disks.' . self::S3_DISK);
-        if (!is_array($disk)) return false;
+        if (! is_array($disk)) {
+            return false;
+        }
 
         $bucket = (string) ($disk['bucket'] ?? '');
         return $bucket !== '';
@@ -233,9 +237,11 @@ class SurveyProofStorageService
         $keepExt = strtolower(trim($keepExt));
         foreach (self::ALLOWED_EXTENSIONS as $ext) {
             $ext = strtolower(trim($ext));
-            if ($ext === $keepExt) continue;
+            if ($ext === $keepExt) {
+                continue;
+            }
 
-            $path = self::BASE_DIR . '/' . $this->filenameFor($bookingId, $ext);
+            $path = self::BASE_DIR.'/'. $this->filenameFor($bookingId, $ext);
             Storage::disk(self::LOCAL_DISK)->delete($path);
 
             if ($this->s3IsConfigured()) {
@@ -247,7 +253,7 @@ class SurveyProofStorageService
     private function filenameFor(int $bookingId, string $ext): string
     {
         $ext = strtolower(trim($ext));
-        return 'booking-' . $bookingId . '.' . $ext;
+        return 'booking-'.$bookingId.'.'.$ext;
     }
 
     /**
@@ -259,9 +265,15 @@ class SurveyProofStorageService
         $mime = strtolower(trim((string) $mime));
 
         // Prefer mime.
-        if ($mime === 'image/jpeg' || $mime === 'image/jpg') return 'jpg';
-        if ($mime === 'image/png') return 'png';
-        if ($mime === 'image/webp') return 'webp';
+        if ($mime === 'image/jpeg' || $mime === 'image/jpg') {
+            return 'jpg';
+        }
+        if ($mime === 'image/png') {
+            return 'png';
+        }
+        if ($mime === 'image/webp') {
+            return 'webp';
+        }
 
         if (in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
             return $ext === 'jpeg' ? 'jpg' : $ext;

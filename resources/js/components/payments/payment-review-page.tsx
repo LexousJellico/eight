@@ -1,5 +1,4 @@
 import { BookingRolePageShell } from '@/components/bookings/booking-role-page-shell';
-import { BookingStatusBadge } from '@/components/bookings/booking-status-badge';
 import {
   bookingBasePath,
   bookingShowPath,
@@ -519,7 +518,7 @@ export function PaymentReviewPage() {
   const filters = props.filters || {};
   const payments = props.payments || {};
   const stats = props.stats || {};
-  const rows = payments.data || [];
+  const rows = useMemo(() => payments.data || [], [payments.data]);
   const links = payments.links || [];
 
   const [q, setQ] = useState(filters.q || '');

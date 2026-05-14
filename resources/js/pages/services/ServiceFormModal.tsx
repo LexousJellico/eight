@@ -58,7 +58,7 @@ export default function ServiceFormModal({
         capacity_note: '',
     });
 
-    const setData = rawSetData as unknown as ((data: Record<string, any>) => void) & ((key: string, value: any) => void);
+    const setData = rawSetData as unknown as ((data: Record<string, unknown>) => void) & ((key: string, value: unknown) => void);
 
     useEffect(() => {
         if (isEdit && service) {
@@ -77,7 +77,7 @@ export default function ServiceFormModal({
             reset();
             clearErrors();
         }
-    }, [isEdit, service, open]);
+    }, [isEdit, service, open, setData, clearErrors, reset]);
 
     function onSubmit(e: React.FormEvent) {
         e.preventDefault();

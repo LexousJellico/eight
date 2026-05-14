@@ -6,7 +6,6 @@ import {
     Building2,
     CalendarDays,
     ExternalLink,
-    Landmark,
     Mail,
     MapPin,
     Phone,

@@ -1,7 +1,7 @@
+import type { SiteSettings } from '@/layouts/public-layout';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowUpRight, Info, Landmark, Palette, X } from 'lucide-react';
-import { useState } from 'react';
-import type { SiteSettings } from '@/layouts/public-layout';
+import { useMemo, useState } from 'react';
 
 type Props = {
     siteSettings?: SiteSettings | null;
@@ -13,35 +13,37 @@ export default function FloatingQuickLinks({ siteSettings }: Props) {
     const reduceMotion = useReducedMotion();
     const [open, setOpen] = useState(false);
 
-    const visitaUrl =
-        siteSettings?.visitaUrl ||
-        siteSettings?.visita_url ||
-        'https://visita.baguio.gov.ph';
+    const links = useMemo(() => {
+        const visitaUrl =
+            siteSettings?.visitaUrl ||
+            siteSettings?.visita_url ||
+            'https://visita.baguio.gov.ph';
 
-    const artsUrl =
-        siteSettings?.creativeBaguioUrl ||
-        siteSettings?.creative_baguio_url ||
-        siteSettings?.arts_url ||
-        'https://creativecity.baguio.gov.ph';
+        const artsUrl =
+            siteSettings?.creativeBaguioUrl ||
+            siteSettings?.creative_baguio_url ||
+            siteSettings?.arts_url ||
+            'https://creativecity.baguio.gov.ph';
 
-    const links = [
-        {
-            label: 'VISITA',
-            description: 'Baguio tourist assistance',
-            href: visitaUrl,
-            icon: Landmark,
-        },
-        {
-            label: 'ARTS',
-            description: 'Creative Baguio portal',
-            href: artsUrl,
-            icon: Palette,
-        },
-    ];
+        return [
+            {
+                label: 'VISITA',
+                description: 'Baguio tourist assistance',
+                href: visitaUrl,
+                icon: Landmark,
+            },
+            {
+                label: 'ARTS',
+                description: 'Creative Baguio portal',
+                href: artsUrl,
+                icon: Palette,
+            },
+        ];
+    }, [siteSettings]);
 
     return (
         <div
-            className="fixed bottom-5 right-4 z-[99970] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6"
+            className="bccc-floating-quick-links fixed bottom-5 right-4 z-[99970] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6"
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
             onFocus={() => setOpen(true)}
@@ -54,7 +56,7 @@ export default function FloatingQuickLinks({ siteSettings }: Props) {
             <AnimatePresence>
                 {open ? (
                     <motion.div
-                        className="flex flex-col items-end gap-2"
+                        className="bccc-floating-quick-links-panel flex flex-col items-end gap-2"
                         initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.96, filter: 'blur(8px)' }}
                         animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                         exit={reduceMotion ? undefined : { opacity: 0, y: 12, scale: 0.96, filter: 'blur(8px)' }}
@@ -69,6 +71,7 @@ export default function FloatingQuickLinks({ siteSettings }: Props) {
                                     href={link.href}
                                     target="_blank"
                                     rel="noreferrer"
+                                    onClick={() => setOpen(false)}
                                     className="group flex min-h-14 w-[17rem] items-center gap-3 rounded-[1.25rem] border border-black/10 bg-white/90 px-3.5 text-left text-[#241a0d] shadow-[0_20px_60px_rgba(31,23,12,0.16)] backdrop-blur-2xl transition duration-300 hover:-translate-x-1 hover:border-[#b08d48]/50 hover:bg-white dark:border-white/10 dark:bg-[#111418]/90 dark:text-white dark:hover:bg-[#161b21]"
                                     initial={
                                         reduceMotion
@@ -117,6 +120,7 @@ export default function FloatingQuickLinks({ siteSettings }: Props) {
                 onClick={() => setOpen((value) => !value)}
                 className="group relative grid h-14 w-14 place-items-center rounded-full border border-[#b08d48]/30 bg-[#2f2517] text-white shadow-[0_24px_70px_rgba(47,37,23,0.32)] transition duration-300 hover:-translate-y-1 hover:bg-[#4b3a22] dark:border-white/15 dark:bg-white dark:text-[#17120b]"
                 aria-label="Open VISITA and Arts quick links"
+                aria-expanded={open}
                 animate={
                     reduceMotion
                         ? undefined

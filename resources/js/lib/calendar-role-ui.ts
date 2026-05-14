@@ -21,6 +21,7 @@ export type CalendarEventItem = {
     end: string;
     status?: string | null;
     public_status?: string | null;
+    guests?: number | string | null;
     groupKey?: string | null;
 };
 
@@ -229,7 +230,7 @@ export function eventDateKeys(event: CalendarEventItem): string[] {
         return [];
     }
 
-    let start = parseDateKey(startKey);
+    const start = parseDateKey(startKey);
     let end = /^\d{4}-\d{2}-\d{2}$/.test(endKeyRaw)
         ? parseDateKey(endKeyRaw)
         : parseDateKey(startKey);
@@ -272,26 +273,22 @@ export function eventTone(event: CalendarEventItem): string {
     const status = String(event.status || '').toLowerCase();
 
     if (kind === 'block' || status === 'blocked') {
-        return 'border-red-400/25 bg-red-400/10 text-red-100';
+        return 'border-red-400/25 bg-red-400/10 text-red-700 dark:text-red-100';
     }
 
     if (kind === 'public_event' || status === 'public_booked') {
-        return 'border-sky-300/25 bg-sky-300/10 text-sky-100';
+        return 'border-sky-300/25 bg-sky-300/10 text-sky-700 dark:text-sky-100';
     }
 
-    if (
-        status === 'confirmed' ||
-        status === 'active' ||
-        status === 'completed'
-    ) {
-        return 'border-emerald-300/25 bg-emerald-300/10 text-emerald-100';
+    if (status === 'confirmed' || status === 'active' || status === 'completed') {
+        return 'border-emerald-300/25 bg-emerald-300/10 text-emerald-700 dark:text-emerald-100';
     }
 
-    if (status === 'private_booked') {
-        return 'border-amber-300/25 bg-amber-300/10 text-amber-100';
+    if (status === 'private_booked' || status === 'pencil_booked' || status === 'for_review') {
+        return 'border-amber-300/25 bg-amber-300/10 text-amber-700 dark:text-amber-100';
     }
 
-    return 'border-white/10 bg-white/10 text-current';
+    return 'border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel-muted)] text-[var(--bccc-backend-text)]';
 }
 
 export function availabilityTone(day?: CalendarAvailabilityDay): string {

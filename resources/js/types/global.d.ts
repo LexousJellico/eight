@@ -19,7 +19,9 @@ declare global {
 }
 
 declare module '@inertiajs/core' {
-    interface PageProps extends InertiaPageProps {}
+    interface PageProps extends InertiaPageProps {
+        [key: string]: unknown;
+    }
 }
 
 declare module '@inertiajs/react' {

@@ -53,6 +53,25 @@ interface LaravelPaginationLink {
     active: boolean;
 }
 
+type PaginatedBookings = {
+    data?: Booking[];
+    links?: LaravelPaginationLink[];
+    meta?: {
+        links?: LaravelPaginationLink[];
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+};
+
+type RoleRecord = string | { name?: string | null };
+
+type AuthRecord = {
+    roles?: RoleRecord[];
+    user?: {
+        roles?: RoleRecord[];
+    } | null;
+};
+
 type SortKey =
     | 'upcoming'
     | 'ending_soon'
@@ -75,7 +94,7 @@ const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
 ];
 
 interface BookingsPageProps {
-    bookings: any;
+    bookings: PaginatedBookings;
     services: Service[];
     filters: Partial<{
         booking_status: string;
@@ -97,13 +116,14 @@ interface BookingsPageProps {
     };
 }
 
-function getRoleNames(auth: any): string[] {
+function getRoleNames(auth: AuthRecord | null | undefined): string[] {
     const raw = auth?.user?.roles ?? auth?.roles ?? [];
     if (!Array.isArray(raw)) return [];
+
     return raw
-        .map((r: any) => (typeof r === 'string' ? r : r?.name))
-        .filter(Boolean)
-        .map((s: string) => s.toLowerCase());
+        .map((role) => (typeof role === 'string' ? role : role?.name))
+        .filter((role): role is string => Boolean(role))
+        .map((role) => role.toLowerCase());
 }
 
 function isDateOnlyString(s: string) {
@@ -262,14 +282,16 @@ function formatMoney(value: number) {
     });
 }
 
-function getCreatedByLabel(b: any): string {
-    const createdBy = b?.created_by ?? b?.createdBy ?? b?.creator ?? null;
-    const name = b?.created_by_name ?? createdBy?.name ?? null;
-    const email = b?.created_by_email ?? createdBy?.email ?? null;
+function getCreatedByLabel(booking: Booking): string {
+    const createdBy = (booking.created_by ?? booking.createdBy ?? booking.creator ?? null) as
+        | { name?: unknown; email?: unknown }
+        | null;
+    const name = booking.created_by_name ?? createdBy?.name ?? null;
+    const email = booking.created_by_email ?? createdBy?.email ?? null;
 
-    if (name && email) return `${name} (${email})`;
-    if (name) return name;
-    if (email) return email;
+    if (name && email) return `${String(name)} (${String(email)})`;
+    if (name) return String(name);
+    if (email) return String(email);
     return '-';
 }
 
@@ -284,7 +306,7 @@ function buildIndexHref(params: Record<string, string | undefined>) {
     return qs ? `${base}?${qs}` : base;
 }
 
-function extractPaginationLinks(bookings: any): LaravelPaginationLink[] {
+function extractPaginationLinks(bookings: PaginatedBookings): LaravelPaginationLink[] {
     const metaLinks = bookings?.meta?.links;
     if (Array.isArray(metaLinks)) return metaLinks;
 
@@ -294,7 +316,7 @@ function extractPaginationLinks(bookings: any): LaravelPaginationLink[] {
     return [];
 }
 
-function normalizeLabel(label: any): string {
+function normalizeLabel(label: unknown): string {
     const raw = String(label ?? '');
     return raw
         .replace(/&laquo;|&raquo;/g, '')
@@ -317,7 +339,7 @@ function paymentLabel(status?: string | null) {
 }
 
 function getOutstandingBalance(booking: Booking) {
-    const totals = (booking?.totals ?? {}) as Record<string, any>;
+    const totals = (booking?.totals ?? {}) as Record<string, unknown>;
     const itemsTotal = Number(totals.items_total ?? 0);
     const paid = Number(
         totals.confirmed_payments_total ??
@@ -328,7 +350,7 @@ function getOutstandingBalance(booking: Booking) {
 }
 
 function getItemsTotal(booking: Booking) {
-    return Number(((booking?.totals ?? {}) as Record<string, any>).items_total ?? 0);
+    return Number(((booking?.totals ?? {}) as Record<string, unknown>).items_total ?? 0);
 }
 
 function getServicesPreview(booking: Booking): string {
@@ -345,7 +367,7 @@ function getServicesPreview(booking: Booking): string {
 
 function getPrimaryArea(booking: Booking) {
     const firstItem = Array.isArray(booking.items) ? booking.items[0] : null;
-    return (firstItem as any)?.area || '—';
+    return (firstItem as { area?: string | null } | null)?.area || '—';
 }
 
 function toCsvValue(value: unknown) {
@@ -357,13 +379,13 @@ function toCsvValue(value: unknown) {
 }
 
 export default function Bookings(props: BookingsPageProps) {
-    const page = usePage().props as any;
+    const page = usePage<{ auth?: AuthRecord }>().props;
     const roleNames = getRoleNames(page?.auth);
     const isClient = roleNames.includes('user');
     const defaultSort: SortKey = isClient ? 'newest' : 'upcoming';
 
-    const bookings = props.bookings ?? { data: [] };
-    const services = Array.isArray(props.services) ? props.services : [];
+    const bookings = useMemo(() => props.bookings ?? { data: [] }, [props.bookings]);
+    const services = useMemo(() => (Array.isArray(props.services) ? props.services : []), [props.services]);
     const filters = props.filters ?? {};
     const statusCounts = props.statusCounts ?? {
         all: 0,
@@ -375,9 +397,7 @@ export default function Bookings(props: BookingsPageProps) {
         completed: 0,
     };
 
-    const bookingRows: Booking[] = Array.isArray(bookings?.data)
-        ? bookings.data
-        : [];
+    const bookingRows: Booking[] = useMemo(() => (Array.isArray(bookings?.data) ? bookings.data : []), [bookings]);
     const paginationLinks = extractPaginationLinks(bookings);
 
     const [selected, setSelected] = useState<Booking | null>(null);

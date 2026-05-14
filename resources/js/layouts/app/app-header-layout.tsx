@@ -393,14 +393,31 @@ function HeaderNavLink({
     );
 }
 
+type BackendHeaderUser = {
+    name?: string | null;
+    email?: string | null;
+    permissions?: string[];
+};
+
+type BackendHeaderAuth = {
+    permissions?: string[];
+    roles?: Array<string | { name?: string | null; role?: string | null; title?: string | null }>;
+    user?: BackendHeaderUser & {
+        role?: string | null;
+        role_name?: string | null;
+        roles?: Array<string | { name?: string | null; role?: string | null; title?: string | null }>;
+    };
+};
+
 export function AppSidebarHeader({ breadcrumbs = [] }: AppSidebarHeaderProps) {
     const page = usePage<SharedData>();
-    const role = getBackendRole(page.props.auth as any);
+    const auth = page.props.auth as BackendHeaderAuth | undefined;
+    const role = getBackendRole(auth);
     const title = resolveTitle(breadcrumbs);
-    const user = (page.props.auth?.user as any) ?? {};
+    const user = auth?.user ?? {};
     const permissions = Array.from(
         new Set([
-            ...((page.props.auth?.permissions ?? []) as string[]),
+            ...((auth?.permissions ?? []) as string[]),
             ...((user?.permissions ?? []) as string[]),
         ]),
     );

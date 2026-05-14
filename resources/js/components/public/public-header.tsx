@@ -5,11 +5,8 @@ import {
     CalendarDays,
     ChevronDown,
     ExternalLink,
-    Landmark,
     Menu,
     Moon,
-    Palette,
-    ShieldCheck,
     Sun,
     X,
 } from 'lucide-react';
@@ -170,7 +167,25 @@ function ExternalMiniLinks({
 }) {
     return (
         <div className="hidden items-center gap-2 2xl:flex">
+            <a
+                href={visitaUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white/72 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#352819] shadow-[0_10px_28px_rgba(54,39,20,0.07)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#b08d48]/45 hover:bg-white dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/14"
+            >
+                VISITA
+                <ExternalLink className="h-3.5 w-3.5" />
+            </a>
 
+            <a
+                href={artsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white/72 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#352819] shadow-[0_10px_28px_rgba(54,39,20,0.07)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#b08d48]/45 hover:bg-white dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/14"
+            >
+                Arts
+                <ExternalLink className="h-3.5 w-3.5" />
+            </a>
         </div>
     );
 }

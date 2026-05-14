@@ -2,7 +2,7 @@ import { bcccMotion } from '@/lib/design-tokens';
 import { cn } from '@/lib/class-names';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
-import type { ReactNode } from 'react';
+import type { ComponentPropsWithoutRef, ReactNode } from 'react';
 
 type PageTransitionProps = Omit<HTMLMotionProps<'main'>, 'children'> & {
   children: ReactNode;
@@ -20,7 +20,7 @@ export default function PageTransition({
 
   if (reduceMotion || mode === 'plain') {
     return (
-      <main className={className} {...(props as any)}>
+      <main className={className} {...(props as ComponentPropsWithoutRef<'main'>)}>
         {children}
       </main>
     );
@@ -69,7 +69,7 @@ export default function PageTransition({
       initial={variants[mode].initial}
       animate={variants[mode].animate}
       transition={variants[mode].transition}
-      {...(props as any)}
+      {...(props as HTMLMotionProps<'main'>)}
     >
       {children}
     </motion.main>

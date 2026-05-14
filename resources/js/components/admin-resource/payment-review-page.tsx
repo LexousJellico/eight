@@ -425,6 +425,9 @@ export function PaymentReviewPage() {
                 >
                     <ResourceToolbar
                         searchPlaceholder="Search client, reference, event, or payment status..."
+                        searchValue={q}
+                        onSearchChange={setQ}
+                        onSearchSubmit={search}
                         right={
                             <div className="flex flex-wrap gap-2">
                                 <select

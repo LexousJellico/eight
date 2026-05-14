@@ -2,7 +2,7 @@ import { bcccMotion } from '@/lib/design-tokens';
 import { cn } from '@/lib/class-names';
 import { motion, useReducedMotion } from 'framer-motion';
 import type { HTMLMotionProps } from 'framer-motion';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 type StaggeredListTag = 'div' | 'ul' | 'ol' | 'section';
 type StaggeredItemTag = 'div' | 'li' | 'article';
@@ -48,7 +48,7 @@ export function StaggeredList({
   ...props
 }: StaggeredListProps) {
   const reduceMotion = useReducedMotion();
-  const MotionElement = listElements[as] as any;
+  const MotionElement = listElements[as] as ComponentType<HTMLMotionProps<'div'>>;
 
   if (reduceMotion) {
     return (
@@ -91,7 +91,7 @@ export function StaggeredItem({
   ...props
 }: StaggeredItemProps) {
   const reduceMotion = useReducedMotion();
-  const MotionElement = itemElements[as] as any;
+  const MotionElement = itemElements[as] as ComponentType<HTMLMotionProps<'div'>>;
 
   if (reduceMotion) {
     return (

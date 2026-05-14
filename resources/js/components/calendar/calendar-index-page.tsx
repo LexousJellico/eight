@@ -4,7 +4,6 @@ import { Head, Link, router } from '@inertiajs/react';
 import {
     AlertTriangle,
     ArrowRight,
-    CalendarDays,
     ChevronLeft,
     ChevronRight,
     Clock3,
@@ -196,19 +195,6 @@ function pickInitialDate(
     return firstEvent || `${month}-01`;
 }
 
-function availabilityLabel(day?: DayAvailability) {
-    if (!day) return 'No data';
-
-    if (day.is_fully_booked) return 'Fully booked';
-
-    const openCount = BLOCK_KEYS.filter((block) => day[block]).length;
-
-    if (openCount === 3) return 'Available';
-    if (openCount > 0) return 'Limited';
-
-    return scheduleStatusLabel(day.day_status);
-}
-
 function dayClass(
     day?: DayAvailability,
     selected = false,
@@ -328,8 +314,8 @@ export function CalendarIndexPage({
     const queryEnd = queryValue('end_date', 'date_to');
 
     const activeMonth = month || queryStart?.slice(0, 7) || dateKey(new Date()).slice(0, 7);
-    const availabilityMap = monthAvailability || availability || {};
-    const items = events || calendarEvents || [];
+    const availabilityMap = useMemo(() => monthAvailability || availability || {}, [monthAvailability, availability]);
+    const items = useMemo(() => events || calendarEvents || [], [events, calendarEvents]);
     const base = currentCalendarBase();
     const currentMonthDate = monthToDate(activeMonth);
     const weeks: WeekCell[][] = useMemo(() => buildMonthWeeks(activeMonth), [activeMonth]);

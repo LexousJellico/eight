@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/themes/material_blue.css';
 
@@ -41,7 +41,6 @@ export default function DateTimePicker({
   disableDates,
   placement = 'below',
   persistentOpen = false,
-  keepOpen = false,
 }: DateTimePickerProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -80,8 +79,8 @@ export default function DateTimePicker({
       closeOnSelect: false,
       ignoredFocusElements: [],
       defaultDate: parsedDate,
-      minDate: minDate as any,
-      maxDate: maxDate as any,
+      minDate,
+      maxDate,
       appendTo: wrapperRef.current || undefined,
       inline: persistentOpen, // render inline if persistent
       disable: [
@@ -126,7 +125,7 @@ export default function DateTimePicker({
         } else {
           styleInlineCalendar(instance);
         }
-        
+
         // Prevent modal from closing when clicking inside flatpickr
         // Only stop propagation on pointerdown which Radix UI uses for outside click detection
         const cal = instance.calendarContainer;
@@ -135,7 +134,7 @@ export default function DateTimePicker({
             e.stopPropagation();
           }, { capture: false }); // Use bubble phase, not capture
         }
-        
+
         // Prevent time inputs from closing the calendar
         const timeInputs = cal?.querySelectorAll('.flatpickr-time input, .numInput');
         timeInputs?.forEach((input) => {
@@ -145,22 +144,22 @@ export default function DateTimePicker({
           input.addEventListener('pointerdown', (e) => {
             e.stopPropagation();
           });
-          
+
           // Force flatpickr to update when time inputs change
           input.addEventListener('input', () => {
             // Trigger flatpickr's internal time sync
             const hourInput = cal?.querySelector('.flatpickr-hour') as HTMLInputElement;
             const minuteInput = cal?.querySelector('.flatpickr-minute') as HTMLInputElement;
             const ampmInput = cal?.querySelector('.flatpickr-am-pm') as HTMLInputElement;
-            
+
             if (hourInput && minuteInput && instance.selectedDates.length > 0) {
               let hours = parseInt(hourInput.value, 10);
               const minutes = parseInt(minuteInput.value, 10);
-              
+
               if (isNaN(hours) || isNaN(minutes)) {
                 return;
               }
-              
+
               // Handle AM/PM
               if (ampmInput && ampmInput.textContent) {
                 const period = ampmInput.textContent.toUpperCase();
@@ -170,7 +169,7 @@ export default function DateTimePicker({
                   hours = 0;
                 }
               }
-              
+
               // Update the selected date
               const baseDate = instance.selectedDates[0];
               const newDate = new Date(
@@ -182,7 +181,7 @@ export default function DateTimePicker({
                 0,
                 0
               );
-              
+
               // Update without triggering events to avoid loops
               // instance.selectedDates[0] = newDate;
               instance.setDate(newDate, true);
@@ -234,13 +233,13 @@ export default function DateTimePicker({
 
     const inputH = (alt.offsetHeight || 40) + 4;
     const calHeight = cal.offsetHeight || 350;
-    
+
     // Get viewport dimensions and input position
     const rect = alt.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
     const spaceBelow = viewportHeight - rect.bottom;
     const spaceAbove = rect.top;
-    
+
     // Auto-determine placement based on available space
     let finalPlacement = placement;
     if (placement === 'below' && spaceBelow < calHeight && spaceAbove > spaceBelow) {
@@ -250,7 +249,7 @@ export default function DateTimePicker({
       // Not enough space above and more space below - flip to below
       finalPlacement = 'below';
     }
-    
+
     if (finalPlacement === 'below') {
       cal.style.top = inputH + 'px';
       cal.style.bottom = 'auto';
@@ -279,8 +278,8 @@ export default function DateTimePicker({
   }
 
   // reactive constraints
-  useEffect(() => { fpRef.current?.set('minDate', minDate as any); }, [minDate]);
-  useEffect(() => { fpRef.current?.set('maxDate', maxDate as any); }, [maxDate]);
+  useEffect(() => { fpRef.current?.set('minDate', minDate); }, [minDate]);
+  useEffect(() => { fpRef.current?.set('maxDate', maxDate); }, [maxDate]);
   useEffect(() => {
     if (!fpRef.current) return;
     if (!disableDatesSet.size) { fpRef.current.set('disable', []); return; }

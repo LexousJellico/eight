@@ -20,7 +20,6 @@ import {
     CalendarRange,
     CheckCircle2,
     CircleAlert,
-    Clock3,
     LayoutGrid,
     LoaderCircle,
     Users,

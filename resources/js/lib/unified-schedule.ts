@@ -182,7 +182,24 @@ export function eventTouchesBlockOnDate(
     return eventStart < blockEnd && eventEnd > blockStart;
 }
 
-export function resolveBlockAvailable(blocks: any, key: BlockKey) {
+type AvailabilityBlockEntry = {
+    key?: string | null;
+    label?: string | null;
+    is_available?: boolean | null;
+    available?: boolean | null;
+};
+
+type AvailabilityBlockMap = Partial<Record<BlockKey | Lowercase<BlockKey>, AvailabilityBlockEntry | boolean | null>>;
+type AvailabilityBlocksInput = AvailabilityBlockEntry[] | AvailabilityBlockMap | null | undefined;
+
+function blockEntryAvailable(entry: AvailabilityBlockEntry | boolean | null | undefined): boolean {
+    if (typeof entry === 'boolean') return entry;
+    if (!entry) return true;
+
+    return Boolean(entry.is_available ?? entry.available ?? true);
+}
+
+export function resolveBlockAvailable(blocks: AvailabilityBlocksInput, key: BlockKey) {
     if (!blocks) return true;
 
     if (Array.isArray(blocks)) {
@@ -190,15 +207,15 @@ export function resolveBlockAvailable(blocks: any, key: BlockKey) {
             (block) => (block?.key ?? block?.label) === key,
         );
         if (!found) return true;
-        return Boolean(found?.is_available ?? found?.available ?? true);
+        return blockEntryAvailable(found);
     }
 
-    const found = blocks?.[key] ?? blocks?.[String(key).toLowerCase()];
-    if (!found) return true;
-    return Boolean(found?.is_available ?? found?.available ?? true);
+    const blockMap = blocks as AvailabilityBlockMap;
+    const found = blockMap[key] ?? blockMap[key.toLowerCase() as Lowercase<BlockKey>];
+    return blockEntryAvailable(found);
 }
 
-export function availabilityBlocksSummary(blocks: any) {
+export function availabilityBlocksSummary(blocks: AvailabilityBlocksInput) {
     return BLOCK_KEYS.map((key) => ({
         key,
         available: resolveBlockAvailable(blocks, key),

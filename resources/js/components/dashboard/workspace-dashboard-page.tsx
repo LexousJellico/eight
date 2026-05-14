@@ -769,7 +769,7 @@ export function WorkspaceDashboardPage() {
     const role = normalizeRole(props.workspaceRole || props.role);
     const copy = roleCopy(role);
 
-    const stats = props.stats ?? props.dashboard?.stats ?? {};
+    const stats = useMemo(() => props.stats ?? props.dashboard?.stats ?? {}, [props.stats, props.dashboard?.stats]);
 
     const bookings = useMemo(
         () =>

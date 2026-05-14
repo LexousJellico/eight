@@ -6,11 +6,11 @@ use App\Services\BookingService;
 use App\Services\NotificationService;
 use Illuminate\Console\Command;
 
-class SyncBookingLifecycleStatuses extends Command
+class SyncBookingLifecycleCommand extends Command
 {
-    protected $signature = 'bookings:sync-statuses {--quiet-report : Suppress per-item output}';
+    protected $signature = 'bookings:sync-lifecycle {--quiet-report : Suppress per-item output}';
 
-    protected $description = 'Legacy-safe alias for booking lifecycle status synchronization without duplicating the bookings:sync-lifecycle signature.';
+    protected $description = 'Sync booking statuses, send lifecycle reports, and clean up stale declined or cancelled bookings.';
 
     public function handle(BookingService $bookings, NotificationService $notifications): int
     {

@@ -72,14 +72,14 @@ export default function UsersIndex({
     availableRoles = [],
     filters,
 }: UsersIndexProps) {
-    const safeUsers: PaginatedUsers = users ?? {
+    const safeUsers: PaginatedUsers = useMemo(() => users ?? {
         data: [],
         current_page: 1,
         last_page: 1,
         per_page: 10,
         total: 0,
         links: [],
-    };
+    }, [users]);
 
     const [search, setSearch] = useState(filters?.search || '');
     const [roleFilter, setRoleFilter] = useState(filters?.role || 'all');

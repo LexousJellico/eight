@@ -50,10 +50,6 @@ const blockOrderPreview = [
     { key: 'EVE', display: blockMeta.EVE.display },
 ];
 
-function readableNumber(value?: number | null) {
-    return Number(value ?? 0).toLocaleString('en-PH');
-}
-
 function asRangePayload(
     payload: unknown,
     form: {
@@ -190,42 +186,6 @@ function FieldShell({
             {children}
         </label>
     );
-}
-function availabilityTone(status: AvailabilityStatus | string) {
-    const normalized = normalizeStatus(status);
-
-    if (normalized === 'available') {
-        return {
-            shell: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100',
-            icon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
-            badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200',
-            accent: 'text-emerald-700 dark:text-emerald-200',
-        };
-    }
-
-    if (normalized === 'limited' || normalized === 'public_booked') {
-        return {
-            shell: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100',
-            icon: 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
-            badge: 'bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-200',
-            accent: 'text-amber-700 dark:text-amber-200',
-        };
-    }
-
-    return {
-        shell: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100',
-        icon: 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200',
-        badge: 'bg-rose-100 text-rose-700 dark:bg-rose-400/15 dark:text-rose-200',
-        accent: 'text-rose-700 dark:text-rose-200',
-    };
-}
-
-function blockTone(isAvailable?: boolean) {
-    if (isAvailable) {
-        return 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100';
-    }
-
-    return 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100';
 }
 function ResultStatusIcon({ status }: { status: AvailabilityStatus | string }) {
     const normalized = normalizeStatus(status);
@@ -482,39 +442,9 @@ function AvailabilityResultModal({
     );
 }
 
-function SummaryStat({
-    label,
-    value,
-    tone = 'neutral',
-}: {
-    label: string;
-    value?: string | number | null;
-    tone?: 'neutral' | 'success' | 'warning' | 'danger';
-}) {
-    const toneClass =
-        tone === 'success'
-            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-100'
-            : tone === 'warning'
-              ? 'bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-100'
-              : tone === 'danger'
-                ? 'bg-rose-50 text-rose-800 dark:bg-rose-400/10 dark:text-rose-100'
-                : 'bg-white/76 text-[#21180d] dark:bg-white/[0.045] dark:text-white';
-
-    return (
-        <div className={cx('rounded-[1.2rem] border border-[#eadcc2]/80 p-4 shadow-sm dark:border-white/10', toneClass)}>
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] opacity-70">
-                {label}
-            </p>
-
-            <p className="mt-2 text-3xl font-semibold tracking-[-0.06em]">
-                {value ?? '—'}
-            </p>
-        </div>
-    );
-}
 
 export default function HeroAvailabilityBar({ venueOptions }: Props) {
-    const options = venueOptions.length > 0 ? venueOptions : [];
+    const options = useMemo(() => (venueOptions.length > 0 ? venueOptions : []), [venueOptions]);
     const defaultVenue = options[0]?.value || '';
 
     const [dateFrom, setDateFrom] = useState(todayKey());

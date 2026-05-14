@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import type { Transition } from 'framer-motion';
 import type { FormEvent, InputHTMLAttributes, ReactNode } from 'react';
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
@@ -138,11 +139,11 @@ export default function AuthAccessPage({
         };
     }, [mode]);
 
-    const softTransition = reducedMotion
+    const softTransition: Transition = reducedMotion
         ? { duration: 0 }
         : { duration: 0.58, ease: [0.16, 1, 0.3, 1] };
 
-    const panelTransition = reducedMotion
+    const panelTransition: Transition = reducedMotion
         ? { duration: 0 }
         : { duration: 0.9, ease: [0.16, 1, 0.3, 1] };
 
@@ -293,7 +294,7 @@ export default function AuthAccessPage({
                                             checks={checks}
                                             passwordStrength={passwordStrength}
                                             onSubmit={submitRegister}
-                                            transition={softTransition as any}
+                                            transition={softTransition}
                                             reducedMotion={reducedMotion}
                                         />
                                     </AuthPane>
@@ -307,7 +308,7 @@ export default function AuthAccessPage({
                                             status={status}
                                             canResetPassword={canResetPassword}
                                             onSubmit={submitLogin}
-                                            transition={softTransition as any}
+                                            transition={softTransition}
                                             reducedMotion={reducedMotion}
                                         />
                                     </AuthPane>
@@ -330,7 +331,7 @@ export default function AuthAccessPage({
                                                   borderRadius: '0 2.25rem 2.25rem 0',
                                               }
                                     }
-                                    transition={panelTransition as any}
+                                    transition={panelTransition}
                                 >
                                     <AnimatePresence mode="wait" initial={false}>
                                         <motion.img
@@ -341,7 +342,7 @@ export default function AuthAccessPage({
                                             initial={reducedMotion ? false : { opacity: 0, scale: 1.06, filter: 'blur(12px)' }}
                                             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
                                             exit={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 1.04, filter: 'blur(10px)' }}
-                                            transition={softTransition as any}
+                                            transition={softTransition}
                                         />
                                     </AnimatePresence>
 
@@ -353,7 +354,7 @@ export default function AuthAccessPage({
                                         key={`image-copy-${mode}`}
                                         initial={reducedMotion ? false : { opacity: 0, y: 24, filter: 'blur(10px)' }}
                                         animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                                        transition={softTransition as any}
+                                        transition={softTransition}
                                         className="absolute bottom-8 left-8 right-8 text-left text-white"
                                     >
                                         <p className="text-[11px] font-bold uppercase tracking-[0.26em] text-[#f1d89b]">
@@ -443,7 +444,7 @@ function RegisterFormPanel({
     checks: PasswordCheck[];
     passwordStrength: number;
     onSubmit: (event: FormEvent) => void;
-    transition: object;
+    transition: Transition;
     reducedMotion: boolean;
 }) {
     return (
@@ -534,7 +535,7 @@ function LoginFormPanel({
     status?: string;
     canResetPassword: boolean;
     onSubmit: (event: FormEvent) => void;
-    transition: object;
+    transition: Transition;
     reducedMotion: boolean;
 }) {
     return (

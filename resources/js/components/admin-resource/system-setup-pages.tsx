@@ -172,15 +172,6 @@ function statusChip(active: boolean) {
     return active ? 'alh-status-chip is-good' : 'alh-status-chip is-bad';
 }
 
-function setupBasePath(
-    type: 'users' | 'roles' | 'venue-areas' | 'rental-options',
-) {
-    if (type === 'users') return '/admin/users';
-    if (type === 'roles') return '/admin/users/roles';
-    if (type === 'venue-areas') return '/admin/venue-areas';
-
-    return '/admin/rental-options';
-}
 
 function areaName(area?: VenueAreaRecord | null): string {
     return String(area?.name || area?.title || 'Venue Area');

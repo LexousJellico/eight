@@ -9,6 +9,17 @@ import {
 import { type NavItem } from '@/types';
 import { type ComponentPropsWithoutRef } from 'react';
 
+function hrefToString(href: NavItem['href']): string {
+    if (typeof href === 'string') return href;
+    if (href && typeof href === 'object' && 'url' in href) {
+        const url = href.url;
+        return typeof url === 'string' ? url : '/';
+    }
+
+    return '/';
+}
+
+
 export function NavFooter({
     items,
     className,
@@ -30,7 +41,7 @@ export function NavFooter({
                                 className="text-neutral-600 hover:text-neutral-800 dark:text-neutral-300 dark:hover:text-neutral-100"
                             >
                                 <a
-                                    href={typeof item.href === 'string' ? item.href : String((item.href as any)?.url ?? '/')}
+                                    href={hrefToString(item.href)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >

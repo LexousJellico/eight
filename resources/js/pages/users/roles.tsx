@@ -87,23 +87,23 @@ export default function RolesPage({
     filters,
     summary,
 }: RolesPageProps) {
-    const safeUsers: PaginatedUsers = users ?? {
+    const safeUsers: PaginatedUsers = useMemo(() => users ?? {
         data: [],
         current_page: 1,
         last_page: 1,
         per_page: 12,
         total: 0,
         links: [],
-    };
+    }, [users]);
 
-    const safeSummary = summary ?? {
+    const safeSummary = useMemo(() => summary ?? {
         total_users: 0,
         verified_users: 0,
         admin: 0,
         manager: 0,
         staff: 0,
         user: 0,
-    };
+    }, [summary]);
 
     const [search, setSearch] = useState(filters?.search || '');
     const [roleFilter, setRoleFilter] = useState(filters?.role || 'all');

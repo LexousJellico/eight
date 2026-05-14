@@ -1,6 +1,5 @@
 import SafeImage from '@/components/system/safe-image';
-import { Link } from '@inertiajs/react';
-import { ArrowRight, Building2, CalendarDays, Landmark, Sparkles } from 'lucide-react';
+import { Building2, CalendarDays, Landmark, Sparkles } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
 const ease = [0.22, 1, 0.36, 1] as const;

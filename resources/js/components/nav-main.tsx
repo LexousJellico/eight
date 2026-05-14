@@ -11,6 +11,8 @@ import {
     items?: BackendNavItem[];
   };
 
+  type PermissionRecord = { permissions?: string[] };
+
   function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
   }
@@ -19,7 +21,7 @@ import {
     const page = usePage();
     const permissions = [
       ...((page.props.auth?.permissions ?? []) as string[]),
-      ...(((page.props.auth?.user as any)?.permissions ?? []) as string[]),
+      ...(((page.props.auth?.user as PermissionRecord | undefined)?.permissions ?? []) as string[]),
     ];
 
     const visibleItems = items.filter((item) => userHasPermission(permissions, item.permission));

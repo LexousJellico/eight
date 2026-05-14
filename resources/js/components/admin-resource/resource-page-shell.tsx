@@ -175,9 +175,15 @@ export function ResourceSection({
 
 export function ResourceToolbar({
     searchPlaceholder = 'Search records...',
+    searchValue,
+    onSearchChange,
+    onSearchSubmit,
     right,
 }: {
     searchPlaceholder?: string;
+    searchValue?: string;
+    onSearchChange?: (value: string) => void;
+    onSearchSubmit?: () => void;
     right?: ReactNode;
 }) {
     return (
@@ -187,6 +193,14 @@ export function ResourceToolbar({
 
                 <input
                     type="search"
+                    value={searchValue}
+                    onChange={(event) => onSearchChange?.(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            onSearchSubmit?.();
+                        }
+                    }}
                     placeholder={searchPlaceholder}
                     className="min-w-0 flex-1 bg-transparent text-sm text-[#21180d] outline-none placeholder:text-[#8a7a63] dark:text-white dark:placeholder:text-white/42"
                 />

@@ -1,5 +1,11 @@
 import { useEffect } from 'react';
 
+declare global {
+    interface Window {
+        __bookingScrollMotionTimer?: number;
+    }
+}
+
 const HORIZONTAL_SCROLL_SELECTORS = [
     '.booking-hotel-carousel',
     '.booking-game-carousel',
@@ -28,9 +34,9 @@ function hasHorizontalOverflow(element: HTMLElement): boolean {
 function markMotion() {
     document.documentElement.classList.add('booking-scroll-motion-active');
 
-    window.clearTimeout((window as any).__bookingScrollMotionTimer);
+    window.clearTimeout(window.__bookingScrollMotionTimer);
 
-    (window as any).__bookingScrollMotionTimer = window.setTimeout(() => {
+    window.__bookingScrollMotionTimer = window.setTimeout(() => {
         document.documentElement.classList.remove(
             'booking-scroll-motion-active',
         );
@@ -106,7 +112,7 @@ export function useBookingScrollMotion(active = true) {
             document.removeEventListener('wheel', handleWheel, true);
             document.removeEventListener('scroll', handleScroll, true);
 
-            window.clearTimeout((window as any).__bookingScrollMotionTimer);
+            window.clearTimeout(window.__bookingScrollMotionTimer);
         };
     }, [active]);
 }

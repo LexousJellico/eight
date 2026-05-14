@@ -1,7 +1,6 @@
 import {
     addMonths,
     blockIsOpen,
-    blockMeta,
     blockOrder,
     blockQueryHref,
     buildMonthWeeks,
@@ -36,7 +35,6 @@ import {
     CalendarDays,
     CheckCircle2,
     CircleAlert,
-    Clock3,
     LoaderCircle,
     MapPin,
     Sparkles,

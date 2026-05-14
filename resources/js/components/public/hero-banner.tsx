@@ -1,24 +1,11 @@
 import SafeImage from '@/components/system/safe-image';
-import { Link } from '@inertiajs/react';
-import { ArrowRight, CalendarDays, CheckCircle2, Search, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { FormEvent, useState } from 'react';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
 export default function HeroBanner() {
     const reduceMotion = useReducedMotion();
-    const [query, setQuery] = useState('');
-
-    const searchHref = query.trim()
-        ? `/events?q=${encodeURIComponent(query.trim())}`
-        : '/events';
-
-    const handleSearch = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        window.location.href = searchHref;
-    };
-
     return (
         <section className="relative min-h-[100svh] overflow-hidden bg-[#130f09] pt-[72px] text-white">
             <div className="absolute inset-0">

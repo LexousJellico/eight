@@ -3,10 +3,8 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
-use SplFileInfo;
 
 class BcccAuditWorkspacesCommand extends Command
 {
@@ -29,7 +27,7 @@ class BcccAuditWorkspacesCommand extends Command
         $failed = $this->checkDuplicateRouteNames() || $failed;
         $failed = $this->checkPages() || $failed;
         $failed = $this->checkSupportFiles() || $failed;
-        $failed = $this->checkCommandSignatures() || $failed;
+        $failed = $this->checkCommandIntegrity() || $failed;
         $failed = $this->checkCssShell() || $failed;
         $failed = $this->checkGeneratedFiles() || $failed;
         $failed = $this->checkLegacyPages() || $failed;
@@ -57,12 +55,12 @@ class BcccAuditWorkspacesCommand extends Command
 
         $required = [
             'home',
-            'facilities',
-            'events',
-            'calendar',
-            'contact',
-            'public.availability-check',
-            'public.calendar-month',
+            'public.facilities',
+            'public.events',
+            'public.calendar',
+            'public.contact',
+            'public.availability.check',
+            'public.calendar.month',
 
             'admin.dashboard',
             'admin.calendar',
@@ -79,6 +77,7 @@ class BcccAuditWorkspacesCommand extends Command
             'admin.users.index',
             'admin.users.edit',
             'admin.users.roles',
+            'admin.users.verify-email',
             'admin.payments.review',
             'admin.reports.mice-registry',
 
@@ -215,6 +214,7 @@ class BcccAuditWorkspacesCommand extends Command
 
         $required = [
             'app/Models/PublicInquiry.php',
+            'app/Models/BookingLifecycleEvent.php',
             'app/Support/BookingStatusCatalog.php',
             'app/Support/VenueAreaCatalog.php',
             'app/Support/WorkspacePage.php',
@@ -250,42 +250,81 @@ class BcccAuditWorkspacesCommand extends Command
         return $this->checkFileList($required, ['Status', 'File'], 'MISSING');
     }
 
-    private function checkCommandSignatures(): bool
+    private function checkCommandIntegrity(): bool
     {
-        $this->line('5) Checking duplicate console command signatures...');
+        $this->line('5) Checking console command signatures, class names, and filenames...');
 
         $files = File::glob(app_path('Console/Commands/*.php'));
         $signatures = [];
+        $classes = [];
+        $rows = [];
+        $failed = false;
 
         foreach ($files as $file) {
+            $relative = str_replace(base_path() . DIRECTORY_SEPARATOR, '', $file);
             $contents = File::get($file);
+            $filenameClass = pathinfo($file, PATHINFO_FILENAME);
+            $declaredClass = null;
+            $signature = null;
 
-            if (! preg_match('/protected\s+\$signature\s*=\s*[\'\"]([^\'\"]+)/', $contents, $match)) {
-                continue;
+            if (preg_match('/class\s+([A-Za-z_][A-Za-z0-9_]*)\s+extends\s+Command/', $contents, $classMatch)) {
+                $declaredClass = $classMatch[1];
+                $classes[$declaredClass][] = $relative;
             }
 
-            $signature = trim(preg_split('/\s+/', $match[1])[0] ?? $match[1]);
-            $signatures[$signature][] = str_replace(base_path() . DIRECTORY_SEPARATOR, '', $file);
+            if (preg_match('/protected\s+\$signature\s*=\s*[\'\"]([^\'\"]+)/', $contents, $signatureMatch)) {
+                $signature = trim(preg_split('/\s+/', $signatureMatch[1])[0] ?? $signatureMatch[1]);
+                $signatures[$signature][] = $relative;
+            }
+
+            $classMatchesFilename = $declaredClass === null || $declaredClass === $filenameClass;
+
+            if (! $classMatchesFilename) {
+                $failed = true;
+            }
+
+            $rows[] = [
+                $classMatchesFilename ? 'OK' : 'MISMATCH',
+                $relative,
+                $declaredClass ?: 'No command class found',
+                $signature ?: 'No signature found',
+            ];
         }
 
-        $duplicates = array_filter($signatures, fn (array $paths): bool => count($paths) > 1);
+        $this->table(['Status', 'File', 'Declared Class', 'Signature'], $rows);
 
-        if ($duplicates === []) {
-            $this->info('No duplicate console command signatures detected.');
+        $duplicateSignatures = array_filter($signatures, fn (array $paths): bool => count($paths) > 1);
+        $duplicateClasses = array_filter($classes, fn (array $paths): bool => count($paths) > 1);
 
-            return false;
+        if ($duplicateSignatures !== []) {
+            $failed = true;
+            $signatureRows = [];
+
+            foreach ($duplicateSignatures as $signature => $paths) {
+                $signatureRows[] = [$signature, implode(PHP_EOL, $paths)];
+            }
+
+            $this->table(['Duplicate Signature', 'Files'], $signatureRows);
+            $this->error('Duplicate console command signatures detected.');
         }
 
-        $rows = [];
+        if ($duplicateClasses !== []) {
+            $failed = true;
+            $classRows = [];
 
-        foreach ($duplicates as $signature => $paths) {
-            $rows[] = [$signature, implode(PHP_EOL, $paths)];
+            foreach ($duplicateClasses as $class => $paths) {
+                $classRows[] = [$class, implode(PHP_EOL, $paths)];
+            }
+
+            $this->table(['Duplicate Class', 'Files'], $classRows);
+            $this->error('Duplicate console command classes detected.');
         }
 
-        $this->table(['Signature', 'Files'], $rows);
-        $this->error('Duplicate console command signatures detected.');
+        if (! $failed) {
+            $this->info('Console command integrity checks passed.');
+        }
 
-        return true;
+        return $failed;
     }
 
     private function checkCssShell(): bool

@@ -1,6 +1,13 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { LogOut, Settings, User2 } from 'lucide-react';
 
+type NavUserRecord = {
+  name?: string | null;
+  email?: string | null;
+  role_name?: string | null;
+  role?: string | null;
+};
+
 function initialsFromName(name?: string) {
   if (!name) {
     return 'U';
@@ -13,10 +20,10 @@ function initialsFromName(name?: string) {
 
 export function NavUser() {
   const page = usePage();
-  const user = page.props.auth?.user;
+  const user = page.props.auth?.user as NavUserRecord | undefined;
   const name = user?.name ?? 'BCCC User';
   const email = user?.email ?? 'user@bccc-ease.local';
-  const role = (user as any)?.role_name ?? (user as any)?.role ?? 'User';
+  const role = user?.role_name ?? user?.role ?? 'User';
   const initials = initialsFromName(name);
 
   const logout = () => {

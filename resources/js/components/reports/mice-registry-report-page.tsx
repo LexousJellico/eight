@@ -20,7 +20,6 @@ import {
   MapPin,
   PieChart,
   Printer,
-  RefreshCcw,
   Search,
   SlidersHorizontal,
   Sparkles,

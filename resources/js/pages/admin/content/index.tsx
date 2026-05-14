@@ -479,10 +479,10 @@ function appendContentPayload(payload: FormData, type: ContentType, form: Record
     });
 
     if (type === 'tourism') {
-        payload.set('active', Boolean(form.is_active) ? '1' : '0');
-        payload.set('featured', Boolean(form.is_featured) ? '1' : '0');
-        payload.set('is_active', Boolean(form.is_active) ? '1' : '0');
-        payload.set('is_featured', Boolean(form.is_featured) ? '1' : '0');
+        payload.set('active', form.is_active ? '1' : '0');
+        payload.set('featured', form.is_featured ? '1' : '0');
+        payload.set('is_active', form.is_active ? '1' : '0');
+        payload.set('is_featured', form.is_featured ? '1' : '0');
 
         if (typeof form.details_text === 'string') {
             payload.set('details_text', form.details_text);
