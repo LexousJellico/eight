@@ -1,3 +1,4 @@
+import PublicMotionEffects from '@/components/public/public-motion-effects';
 import FloatingQuickLinks from '@/components/public/floating-quick-links';
 import PublicFooter from '@/components/public/public-footer';
 import PublicHeader from '@/components/public/public-header';
@@ -59,9 +60,10 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
     return (
         <div className="bccc-public-shell min-h-screen bg-[#f8f5ef] text-[#201a12] antialiased dark:bg-[#0d0f12] dark:text-white">
+            <PublicMotionEffects />
             <PublicHeader />
 
-            <main className="bccc-public-main relative overflow-hidden">
+            <main className="bccc-public-main bccc-public-page-stage relative overflow-hidden">
                 {children}
             </main>
 

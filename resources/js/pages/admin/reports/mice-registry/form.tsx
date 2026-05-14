@@ -1,4 +1,5 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { ResourcePageShell } from '@/components/admin-resource/resource-page-shell';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     Building2,
@@ -9,7 +10,7 @@ import {
     Save,
     UsersRound,
 } from 'lucide-react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { notifyError, notifySuccess } from '@/components/shared/app-notice-center';
 
 type GenericRecord = {
@@ -244,11 +245,27 @@ export default function MiceRegistryFormPage() {
         Number(form.data.foreign_female_participants || 0);
 
     return (
-        <>
-            <Head title={record?.id ? 'Edit MICE Registry Record' : 'Create MICE Registry Record'} />
-
-            <main className="min-h-screen bg-[#f7f0e3] px-4 py-6 text-[#21180d] dark:bg-[#0d1117] dark:text-white sm:px-6 lg:px-8">
-                <div className="mx-auto max-w-7xl">
+        <ResourcePageShell
+            title={record?.id ? 'Edit MICE Registry Record' : 'Create MICE Registry Record'}
+            description="Encode the official MICE registry details inside the backend workspace so the sidebar, navbar, breadcrumbs, and role shell stay consistent."
+            eyebrow="Reports / MICE Registry"
+            icon={ClipboardList}
+            breadcrumbs={[
+                { title: 'Reports', href: backUrl },
+                { title: 'MICE Registry', href: backUrl },
+                { title: record?.id ? 'Edit Record' : 'Create Record', href: submitUrl },
+            ]}
+            actions={
+                <Link
+                    href={backUrl}
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#d9c7a6] bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#fffaf0] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to MICE Registry
+                </Link>
+            }
+        >
+            <div className="mx-auto max-w-7xl">
                     <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <Link
@@ -415,8 +432,7 @@ export default function MiceRegistryFormPage() {
                         </div>
                     </form>
                 </div>
-            </main>
-        </>
+        </ResourcePageShell>
     );
 }
 
@@ -429,7 +445,7 @@ function FormSection({
     icon: typeof Building2;
     title: string;
     description: string;
-    children: React.ReactNode;
+    children: ReactNode;
 }) {
     return (
         <section className="overflow-hidden rounded-[1.5rem] border border-[#d9c7a6]/70 bg-white/82 shadow-[0_18px_58px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]">

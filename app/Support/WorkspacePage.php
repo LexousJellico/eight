@@ -189,6 +189,20 @@ class WorkspacePage
             }
         }
 
+        $directRole = strtolower(str_replace(['_', '-'], ' ', trim((string) ($user?->role_name ?? $user?->role ?? ''))));
+
+        if (in_array($directRole, ['admin', 'administrator'], true)) {
+            return 'admin';
+        }
+
+        if (in_array($directRole, ['manager', 'management'], true)) {
+            return 'manager';
+        }
+
+        if (in_array($directRole, ['staff', 'employee', 'operator'], true)) {
+            return 'staff';
+        }
+
         return 'user';
     }
 

@@ -1,5 +1,6 @@
 import '../css/app.css';
 import '../css/bccc-system.css';
+import '../css/public-motion-effects.css';
 import AppNoticeCenter from '@/components/shared/app-notice-center';
 
 import ActionFeedbackPopup from '@/components/action-feedback-popup';

@@ -12,7 +12,7 @@
 
         <script>
             window.BCCC_EASE = {
-                appName: @json(config('app.name', 'BCCC EASE')),
+                appName: @json(config('app.name', 'BCCC_EASE')),
                 appUrl: @json(config('app.url')),
                 csrfToken: @json(csrf_token()),
             };

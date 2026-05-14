@@ -159,12 +159,47 @@ export type BookingWorkspaceCopy = {
     showClientHelp: boolean;
 };
 
-export function normalizeWorkspaceRole(value?: string | null): RoleKey {
-    if (value === 'admin') return 'admin';
-    if (value === 'manager') return 'manager';
-    if (value === 'staff') return 'staff';
+function roleFromCurrentPath(): RoleKey | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
 
-    return 'user';
+    const path = window.location.pathname.toLowerCase();
+
+    if (path === '/admin' || path.startsWith('/admin/')) {
+        return 'admin';
+    }
+
+    if (path === '/manager' || path.startsWith('/manager/')) {
+        return 'manager';
+    }
+
+    if (path === '/staff' || path.startsWith('/staff/')) {
+        return 'staff';
+    }
+
+    if (
+        path === '/book' ||
+        path === '/my-dashboard' ||
+        path === '/my-bookings' ||
+        path === '/my-calendar' ||
+        path.startsWith('/my-bookings/')
+    ) {
+        return 'user';
+    }
+
+    return null;
+}
+
+export function normalizeWorkspaceRole(value?: string | null): RoleKey {
+    const normalized = String(value ?? '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+
+    if (normalized === 'admin' || normalized === 'administrator') return 'admin';
+    if (normalized === 'manager' || normalized === 'management') return 'manager';
+    if (normalized === 'staff' || normalized === 'employee' || normalized === 'operator') return 'staff';
+    if (normalized === 'user' || normalized === 'client' || normalized === 'customer') return 'user';
+
+    return roleFromCurrentPath() ?? 'user';
 }
 
 export function bookingWorkspaceCopy(role: RoleKey): BookingWorkspaceCopy {

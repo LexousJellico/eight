@@ -47,33 +47,16 @@ const NAV_ITEMS: NavItem[] = [
         href: '/',
     },
     {
-        label: 'Government',
-        href: '/tourism-office',
+        label: 'Venue',
+        href: '/facilities',
         children: [
-            { label: 'Tourism Office', href: '/tourism-office' },
-            { label: 'City Government Website', href: 'https://main.baguio.gov.ph/', external: true },
-        ],
-    },
-    {
-        label: 'Citizens Charter',
-        href: '/guidelines',
-        children: [
-            { label: 'Booking Guidelines', href: '/guidelines' },
+            { label: 'Venue Spaces', href: '/facilities#spaces' },
             { label: 'Facilities and Rates', href: '/facilities' },
-            { label: 'Contact Office', href: '/contact' },
+            { label: 'Booking Guidelines', href: '/guidelines' },
         ],
     },
     {
-        label: 'Tourism',
-        href: '/tourism-office',
-        children: [
-            { label: 'Tourism Office', href: '/tourism-office' },
-            { label: 'Baguio City Events', href: '/events?type=city' },
-            { label: 'Event Calendar', href: '/calendar' },
-        ],
-    },
-    {
-        label: 'News & Announcements',
+        label: 'Events',
         href: '/events',
         children: [
             { label: 'BCCC Events', href: '/events?type=bccc' },
@@ -82,21 +65,30 @@ const NAV_ITEMS: NavItem[] = [
         ],
     },
     {
-        label: 'About',
-        href: '/facilities',
+        label: 'Calendar',
+        href: '/calendar',
         children: [
-            { label: 'About BCCC', href: '/facilities' },
-            { label: 'Venue Spaces', href: '/facilities#spaces' },
-            { label: 'Amenities', href: '/facilities#amenities' },
+            { label: 'Availability Calendar', href: '/calendar' },
+            { label: 'Check Venue Availability', href: '/calendar#availability' },
+            { label: 'Start Booking Request', href: '/book' },
         ],
     },
     {
-        label: 'More',
+        label: 'Tourism Office',
+        href: '/tourism-office',
+        children: [
+            { label: 'Office Profile', href: '/tourism-office' },
+            { label: 'VISITA Baguio', href: 'https://visita.baguio.gov.ph/', external: true },
+            { label: 'Creative Baguio', href: 'https://creativecity.baguio.gov.ph/', external: true },
+        ],
+    },
+    {
+        label: 'Contact',
         href: '/contact',
         children: [
-            { label: 'Contact Us', href: '/contact' },
-            { label: 'Availability Calendar', href: '/calendar' },
-            { label: 'Book Your Event', href: '/book' },
+            { label: 'Contact Details', href: '/contact' },
+            { label: 'Send an Inquiry', href: '/contact#inquiry' },
+            { label: 'City Government Website', href: 'https://main.baguio.gov.ph/', external: true },
         ],
     },
 ];

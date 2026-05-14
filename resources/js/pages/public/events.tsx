@@ -10,6 +10,7 @@ import {
     visibleRecords,
     type PublicImageRecord,
 } from '@/components/public/public-display-system';
+import PublicLayout from '@/layouts/public-layout';
 import { Head, usePage } from '@inertiajs/react';
 import { CalendarDays, Film, MapPin, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -70,10 +71,10 @@ export default function EventsPage() {
               : allEvents;
 
     return (
-        <>
+        <PublicLayout>
             <Head title="Events" />
 
-            <main className="public-display-page min-h-screen">
+            <main id="highlights" className="public-display-page min-h-screen">
                 <section className="public-section-shell py-16 lg:py-20">
                     <SectionIntro
                         kicker="Event Highlights"
@@ -177,7 +178,7 @@ export default function EventsPage() {
                     )}
                 </section>
             </main>
-        </>
+        </PublicLayout>
     );
 }
 
