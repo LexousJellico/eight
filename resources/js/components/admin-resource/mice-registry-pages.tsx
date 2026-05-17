@@ -40,6 +40,28 @@ type MiceRecord = {
     event_date_from?: string | null;
     event_date_to?: string | null;
 
+    event_center_name?: string | null;
+    function_halls_count?: number | string | null;
+    function_hall_capacity?: number | string | null;
+    covered_month?: string | null;
+    event_started_at?: string | null;
+    event_finished_at?: string | null;
+    number_of_hours?: number | string | null;
+    classification_of_event?: string | null;
+    mice_type_of_event?: string | null;
+    foreign_attendees?: number | string | null;
+    domestic_attendees?: number | string | null;
+    total_number_of_countries?: number | string | null;
+    countries_breakdown_text?: string | null;
+    has_exhibitions?: boolean | number | string | null;
+    exhibitors_count?: number | string | null;
+    visitors_count?: number | string | null;
+    organizer_organization_name?: string | null;
+    organizer_address?: string | null;
+    organizer_contact_person?: string | null;
+    organizer_contact_number?: string | null;
+    comments_feedback?: string | null;
+
     organization_name?: string | null;
     organizer_name?: string | null;
     organizer_type?: string | null;
@@ -266,6 +288,59 @@ function participantTotal(record: MiceRecord): number {
         numberValue(record.foreign_male_participants) +
         numberValue(record.foreign_female_participants)
     );
+}
+
+
+function officialDomestic(record: MiceRecord): number {
+    const official = numberValue(record.domestic_attendees);
+
+    if (official > 0) {
+        return official;
+    }
+
+    return numberValue(record.local_male_participants) +
+        numberValue(record.local_female_participants) +
+        numberValue(record.domestic_male_participants) +
+        numberValue(record.domestic_female_participants);
+}
+
+function officialForeign(record: MiceRecord): number {
+    const official = numberValue(record.foreign_attendees);
+
+    if (official > 0) {
+        return official;
+    }
+
+    return numberValue(record.foreign_male_participants) + numberValue(record.foreign_female_participants);
+}
+
+function officialVisitors(record: MiceRecord): number {
+    const official = numberValue(record.visitors_count);
+
+    if (official > 0) {
+        return official;
+    }
+
+    return numberValue(record.same_day_visitors) + numberValue(record.overnight_visitors);
+}
+
+function officialEventName(record: MiceRecord): string {
+    return textValue(record.event_name || record.type_of_event || record.booking?.type_of_event, `MICE Record #${record.id}`);
+}
+
+function officialOrganizer(record: MiceRecord): string {
+    return textValue(record.organizer_organization_name || record.organization_name || record.organizer_name);
+}
+
+function officialContact(record: MiceRecord): string {
+    const person = textValue(record.organizer_contact_person || record.contact_person, '');
+    const number = textValue(record.organizer_contact_number || record.contact_number, '');
+
+    if (person && number) {
+        return `${person} / ${number}`;
+    }
+
+    return person || number || '—';
 }
 
 function statusClass(status?: string | null) {
@@ -660,15 +735,16 @@ function InfoLine({
 export function MiceRegistryPrintPage() {
     const { records, role, path } = useMiceRecords();
 
-    const totalParticipants = records.reduce((sum, record) => sum + participantTotal(record), 0);
-    const totalRoomNights = records.reduce((sum, record) => sum + numberValue(record.estimated_room_nights), 0);
-    const totalReceipts = records.reduce((sum, record) => sum + numberValue(record.estimated_tourism_receipts), 0);
+    const totalDomestic = records.reduce((sum, record) => sum + officialDomestic(record), 0);
+    const totalForeign = records.reduce((sum, record) => sum + officialForeign(record), 0);
+    const totalVisitors = records.reduce((sum, record) => sum + officialVisitors(record), 0);
+    const totalExhibitors = records.reduce((sum, record) => sum + numberValue(record.exhibitors_count), 0);
 
     return (
         <>
             <Head title="Print MICE Registry" />
 
-            <div className="min-h-screen bg-white text-[#17120b] print:bg-white">
+            <div className="official-mice-print min-h-screen bg-white text-[#17120b] print:bg-white">
                 <div className="mx-auto max-w-[14in] px-6 py-6 print:max-w-none print:px-0 print:py-0">
                     <div className="mb-5 flex items-center justify-between gap-4 print:hidden">
                         <Link
@@ -684,56 +760,50 @@ export function MiceRegistryPrintPage() {
                             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white"
                         >
                             <Printer className="h-4 w-4" />
-                            Print
+                            Print Official MICE Report
                         </button>
                     </div>
 
-                    <section className="border-b-2 border-[#17120b] pb-4 text-center">
-                        <p className="text-xs font-bold uppercase tracking-[0.24em]">
-                            Republic of the Philippines · City Government of Baguio
-                        </p>
-                        <h1 className="mt-2 text-3xl font-bold uppercase tracking-[-0.03em]">
-                            Baguio Convention and Cultural Center
-                        </h1>
-                        <p className="mt-1 text-sm font-semibold uppercase tracking-[0.18em]">
-                            MICE Registry Report
-                        </p>
-                        <p className="mt-2 text-xs">
-                            Generated {formatDateTime(new Date().toISOString())} · Workspace: {cleanLabel(role)}
-                        </p>
+                    <section className="official-mice-header">
+                        <p>Republic of the Philippines · City Government of Baguio</p>
+                        <h1>Baguio Convention and Cultural Center</h1>
+                        <h2>2025 / 2026 MICE Report Registry</h2>
+                        <small>Generated {formatDateTime(new Date().toISOString())} · Workspace: {cleanLabel(role)}</small>
                     </section>
 
-                    <section className="mt-4 grid grid-cols-4 gap-2">
+                    <section className="mt-4 grid grid-cols-5 gap-2">
                         <PrintKpi label="Records" value={records.length.toLocaleString()} />
-                        <PrintKpi label="Participants" value={totalParticipants.toLocaleString()} />
-                        <PrintKpi label="Room Nights" value={totalRoomNights.toLocaleString()} />
-                        <PrintKpi label="Receipts" value={money(totalReceipts)} />
+                        <PrintKpi label="Domestic" value={totalDomestic.toLocaleString()} />
+                        <PrintKpi label="Foreign" value={totalForeign.toLocaleString()} />
+                        <PrintKpi label="Visitors" value={totalVisitors.toLocaleString()} />
+                        <PrintKpi label="Exhibitors" value={totalExhibitors.toLocaleString()} />
                     </section>
 
                     <section className="mt-5 overflow-hidden border border-[#17120b]">
-                        <table className="w-full border-collapse text-[10px]">
+                        <table className="w-full border-collapse text-[9px]">
                             <thead>
                                 <tr className="bg-[#17120b] text-white">
                                     <PrintTh>No.</PrintTh>
-                                    <PrintTh>Year</PrintTh>
-                                    <PrintTh>Establishment</PrintTh>
-                                    <PrintTh>Event</PrintTh>
-                                    <PrintTh>Category</PrintTh>
-                                    <PrintTh>Venue</PrintTh>
-                                    <PrintTh>Date</PrintTh>
-                                    <PrintTh>Organizer</PrintTh>
-                                    <PrintTh>Origin</PrintTh>
-                                    <PrintTh>Participants</PrintTh>
-                                    <PrintTh>Room Nights</PrintTh>
-                                    <PrintTh>Receipts</PrintTh>
-                                    <PrintTh>Status</PrintTh>
+                                    <PrintTh>Event Center</PrintTh>
+                                    <PrintTh>Covered Month</PrintTh>
+                                    <PrintTh>Event Name</PrintTh>
+                                    <PrintTh>Dates / Hours</PrintTh>
+                                    <PrintTh>Classification</PrintTh>
+                                    <PrintTh>Type</PrintTh>
+                                    <PrintTh>Domestic</PrintTh>
+                                    <PrintTh>Foreign</PrintTh>
+                                    <PrintTh>Countries</PrintTh>
+                                    <PrintTh>Exhibitions</PrintTh>
+                                    <PrintTh>Visitors</PrintTh>
+                                    <PrintTh>Organizer / Contact</PrintTh>
+                                    <PrintTh>Feedback</PrintTh>
                                 </tr>
                             </thead>
 
                             <tbody>
                                 {records.length === 0 ? (
                                     <tr>
-                                        <td colSpan={13} className="border border-[#17120b] p-4 text-center">
+                                        <td colSpan={14} className="border border-[#17120b] p-4 text-center">
                                             No MICE records found.
                                         </td>
                                     </tr>
@@ -741,31 +811,48 @@ export function MiceRegistryPrintPage() {
                                     records.map((record, index) => (
                                         <tr key={record.id} className="break-inside-avoid">
                                             <PrintTd>{textValue(record.record_no ?? index + 1)}</PrintTd>
-                                            <PrintTd>{textValue(record.year_recorded)}</PrintTd>
-                                            <PrintTd>{textValue(record.establishment_name)}</PrintTd>
-                                            <PrintTd>{recordTitle(record)}</PrintTd>
-                                            <PrintTd>{textValue(record.event_category)}</PrintTd>
-                                            <PrintTd>{textValue(record.venue_area)}</PrintTd>
+                                            <PrintTd>{textValue(record.event_center_name || record.establishment_name, 'Baguio Convention and Cultural Center')}</PrintTd>
+                                            <PrintTd>{textValue(record.covered_month || record.month_added)}</PrintTd>
+                                            <PrintTd>{officialEventName(record)}</PrintTd>
                                             <PrintTd>
-                                                {formatDate(record.event_date_from)}
+                                                {formatDate(record.event_started_at || record.event_date_from)}
                                                 <br />
-                                                {formatDate(record.event_date_to)}
+                                                {formatDate(record.event_finished_at || record.event_date_to)}
+                                                <br />
+                                                {textValue(record.number_of_hours)} hr/s
                                             </PrintTd>
-                                            <PrintTd>{textValue(record.organizer_name ?? record.organization_name)}</PrintTd>
+                                            <PrintTd>{textValue(record.classification_of_event || record.event_category)}</PrintTd>
+                                            <PrintTd>{textValue(record.mice_type_of_event || record.type_of_event)}</PrintTd>
+                                            <PrintTd>{officialDomestic(record).toLocaleString()}</PrintTd>
+                                            <PrintTd>{officialForeign(record).toLocaleString()}</PrintTd>
                                             <PrintTd>
-                                                {textValue(record.main_origin_city)}
+                                                {textValue(record.total_number_of_countries)}
                                                 <br />
-                                                {textValue(record.main_origin_country)}
+                                                {textValue(record.countries_breakdown_text || record.main_origin_country)}
                                             </PrintTd>
-                                            <PrintTd>{participantTotal(record).toLocaleString()}</PrintTd>
-                                            <PrintTd>{numberValue(record.estimated_room_nights).toLocaleString()}</PrintTd>
-                                            <PrintTd>{money(record.estimated_tourism_receipts)}</PrintTd>
-                                            <PrintTd>{cleanLabel(record.status)}</PrintTd>
+                                            <PrintTd>
+                                                {yesNo(record.has_exhibitions)}
+                                                <br />
+                                                {numberValue(record.exhibitors_count).toLocaleString()} exhibitor/s
+                                            </PrintTd>
+                                            <PrintTd>{officialVisitors(record).toLocaleString()}</PrintTd>
+                                            <PrintTd>
+                                                {officialOrganizer(record)}
+                                                <br />
+                                                {textValue(record.organizer_address || record.address)}
+                                                <br />
+                                                {officialContact(record)}
+                                            </PrintTd>
+                                            <PrintTd>{textValue(record.comments_feedback || record.remarks, '—')}</PrintTd>
                                         </tr>
                                     ))
                                 )}
                             </tbody>
                         </table>
+                    </section>
+
+                    <section className="mt-4 border border-[#17120b] p-3 text-[10px] leading-5">
+                        <strong>Certification:</strong> This report follows the official MICE/Convention Utility Survey fields: event center, function halls/capacity, covered month, event dates, hours, classification, event type, attendee counts, countries, exhibitions, visitors, organizer details, and comments/feedback.
                     </section>
 
                     <section className="mt-6 grid grid-cols-3 gap-8 text-xs">
@@ -778,7 +865,6 @@ export function MiceRegistryPrintPage() {
         </>
     );
 }
-
 function PrintKpi({ label, value }: { label: string; value: string }) {
     return (
         <article className="border border-[#17120b] p-3 text-center">

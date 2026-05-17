@@ -1,9 +1,11 @@
+import SiteVisitStat, { type SiteMetricPayload } from '@/components/public/site-visit-stat';
 import type { HomepageStatItem } from '@/types/public-content';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Building2, CalendarDays, Landmark, Users } from 'lucide-react';
 
 type StatsBannerProps = {
     items?: HomepageStatItem[];
+    siteMetric?: SiteMetricPayload | null;
 };
 
 const fallbackStats: HomepageStatItem[] = [
@@ -22,8 +24,8 @@ const fallbackStats: HomepageStatItem[] = [
     {
         id: 'blocks',
         label: 'Booking Blocks',
-        value: 'AM · PM · EVE',
-        description: 'Structured daily schedule windows',
+        value: 'AM · PM',
+        description: 'Evening is now additional hourly use',
     },
     {
         id: 'office',
@@ -39,31 +41,33 @@ function statValue(item: HomepageStatItem) {
     return `${item.prefix || ''}${item.value}${item.suffix || ''}`;
 }
 
-export default function StatsBanner({ items = [] }: StatsBannerProps) {
+export default function StatsBanner({ items = [], siteMetric }: StatsBannerProps) {
     const reduceMotion = useReducedMotion();
     const visible = items.length > 0 ? items : fallbackStats;
     const loopItems = [...visible, ...visible];
 
     return (
-        <section className="overflow-hidden bg-[#f8f5ef] py-0 dark:bg-[#0d0f12]">
+        <section className="bccc-stats-stage relative overflow-hidden bg-[#f8f5ef] py-0 dark:bg-[#0d0f12]">
             <div className="border-y border-[#d9c7a6]/70 bg-[#fffaf0]/80 shadow-[0_14px_55px_rgba(47,37,23,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045]">
                 <div className="mx-auto max-w-[1920px] px-4 sm:px-6 lg:px-8">
-                    <div className="flex min-h-[8.2rem] items-center gap-8 overflow-hidden">
-                        <div className="hidden shrink-0 lg:block">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                                Venue at a Glance
-                            </p>
-                            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#21180d] dark:text-white">
-                                BCCC by numbers
-                            </h2>
+                    <div className="grid min-h-[8.6rem] gap-5 py-4 lg:grid-cols-[17rem_1fr] lg:items-center">
+                        <div className="flex items-center justify-between gap-4 lg:block">
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                                    Venue at a Glance
+                                </p>
+                                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[#21180d] dark:text-white">
+                                    BCCC by numbers
+                                </h2>
+                            </div>
                         </div>
 
-                        <div className="relative min-w-0 flex-1 overflow-hidden">
+                        <div className="relative min-w-0 overflow-hidden">
                             <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[#fffaf0] to-transparent dark:from-[#15181d]" />
                             <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[#fffaf0] to-transparent dark:from-[#15181d]" />
 
                             <motion.div
-                                className="flex w-max gap-4 py-4"
+                                className="flex w-max gap-4 py-1"
                                 animate={
                                     reduceMotion
                                         ? undefined
@@ -75,12 +79,14 @@ export default function StatsBanner({ items = [] }: StatsBannerProps) {
                                     reduceMotion
                                         ? undefined
                                         : {
-                                              duration: 34,
+                                              duration: 36,
                                               repeat: Infinity,
                                               ease: 'linear',
                                           }
                                 }
                             >
+                                <SiteVisitStat metric={siteMetric} />
+
                                 {loopItems.map((item, index) => {
                                     const Icon = icons[index % icons.length];
 

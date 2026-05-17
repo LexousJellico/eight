@@ -118,6 +118,7 @@ export type PublicEventItem = PublicImageSet & {
 
 export type FeaturePackageItem = PublicImageSet & {
     id: ID;
+    code?: string | null;
     title: string;
     slug?: string | null;
     subtitle?: string | null;
@@ -126,6 +127,10 @@ export type FeaturePackageItem = PublicImageSet & {
     description?: string | null;
     inclusions?: string[] | null;
     features?: string[] | null;
+    areaKeys?: string[] | null;
+    area_keys?: string[] | null;
+    areaLabels?: string[] | null;
+    area_labels?: string[] | null;
     images?: string[] | null;
     price?: MoneyValue | null;
     priceLabel?: string | null;
@@ -162,6 +167,19 @@ export type HomepageStatItem = {
     icon?: string | null;
     sortOrder?: number | null;
     sort_order?: number | null;
+};
+
+export type SiteMetricPayload = {
+    pageKey?: string;
+    page_key?: string;
+    label?: string;
+    value?: number | string;
+    last24Hours?: number | string;
+    last_24_hours?: number | string;
+    updatedAt?: string | null;
+    updated_at?: string | null;
+    updatedLabel?: string | null;
+    updated_label?: string | null;
 };
 
 export type AmenityItem = PublicImageSet & {

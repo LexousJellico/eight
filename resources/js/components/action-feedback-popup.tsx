@@ -264,7 +264,7 @@ export default function ActionFeedbackPopup() {
         timerRef.current = window.setTimeout(() => {
             setPopup(null);
             timerRef.current = null;
-        }, popup.tone === 'error' ? 3200 : 1500);
+        }, popup.tone === 'error' ? 4200 : 2600);
 
         return () => {
             if (timerRef.current) {
@@ -282,29 +282,37 @@ export default function ActionFeedbackPopup() {
     const Icon = meta.icon;
 
     return createPortal(
-        <div className="pointer-events-none fixed inset-x-0 top-4 z-[999998] flex justify-center px-4 sm:justify-end sm:px-6">
+        <div className="fixed inset-0 z-[999998] flex items-center justify-center bg-[#17120b]/24 px-4 backdrop-blur-[3px]">
             <div
-                className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-[1.35rem] border p-3.5 backdrop-blur-2xl transition dark:backdrop-blur-2xl ${meta.shell}`}
+                className={`booking-action-feedback pointer-events-auto relative flex w-full max-w-lg items-start gap-4 overflow-hidden rounded-[1.75rem] border p-5 backdrop-blur-2xl transition dark:backdrop-blur-2xl ${meta.shell}`}
                 role="status"
                 aria-live={popup.tone === 'error' ? 'assertive' : 'polite'}
             >
-                <div className={`mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-full ${meta.iconWrap}`}>
-                    <Icon className="h-5 w-5" />
+                <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-current opacity-10 blur-3xl" />
+                <div className={`booking-action-feedback-icon mt-0.5 grid h-12 w-12 shrink-0 place-items-center rounded-full ${meta.iconWrap}`}>
+                    <Icon className="h-6 w-6" />
                 </div>
 
-                <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-semibold tracking-[0.16em] uppercase ${meta.title}`}>
+                <div className="min-w-0 flex-1 pr-8">
+                    <p className={`text-xs font-black tracking-[0.22em] uppercase ${meta.title}`}>
                         {popup.title}
                     </p>
-                    <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-200">
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-200">
                         {popup.message}
                     </p>
+                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                        <div
+                            key={popup.key}
+                            className="h-full rounded-full bg-current opacity-55"
+                            style={{ animation: `bccc-feedback-progress ${popup.tone === 'error' ? 4200 : 2600}ms linear forwards` }}
+                        />
+                    </div>
                 </div>
 
                 <button
                     type="button"
                     onClick={() => setPopup(null)}
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/10 bg-white/70 text-slate-500 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
+                    className="absolute right-4 top-4 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/10 bg-white/70 text-slate-500 transition hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:bg-white/10"
                     aria-label="Close popup"
                 >
                     <X className="h-4 w-4" />

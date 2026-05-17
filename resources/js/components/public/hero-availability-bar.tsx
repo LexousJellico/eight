@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type Props = {
     venueOptions: VenueOption[];
@@ -457,6 +458,11 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
     const [modalMessage, setModalMessage] = useState('');
     const [result, setResult] = useState<AvailabilityRangeResponse | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const { dockRef, footerLift } = useAvailabilityDockLayout();
 
@@ -526,7 +532,7 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
         }
     }
 
-    return (
+    const dockMarkup = (
         <>
             <motion.section
     ref={dockRef}
@@ -663,4 +669,10 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
             />
         </>
     );
+
+    if (!mounted) {
+        return null;
+    }
+
+    return createPortal(dockMarkup, document.body);
 }

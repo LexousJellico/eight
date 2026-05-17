@@ -26,6 +26,10 @@ class Booking extends Model
         'is_public_calendar_visible' => 'boolean',
         'number_of_guests' => 'integer',
         'payment_meta' => 'array',
+        'selected_area_keys' => 'array',
+        'dressing_room_charge' => 'decimal:2',
+        'mice_required' => 'boolean',
+        'schedule_meta' => 'array',
     ];
 
     protected $appends = [
@@ -33,7 +37,6 @@ class Booking extends Model
         'display_client',
         'financial_summary',
     ];
-
 
     public function setBookingStatusAttribute($value): void
     {
@@ -64,6 +67,11 @@ class Booking extends Model
     public function bookingServices(): HasMany
     {
         return $this->hasMany(BookingService::class);
+    }
+
+    public function scheduleSegments(): HasMany
+    {
+        return $this->hasMany(BookingScheduleSegment::class)->orderBy('sort_order')->orderBy('starts_at');
     }
 
     public function payments(): HasMany

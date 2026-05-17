@@ -13,12 +13,12 @@ class BcccVenuePackageSeeder extends Seeder
         [
             'code' => 'FULL_HALL',
             'name' => 'Full Hall',
-            'display_name' => 'Full Hall Package',
+            'display_name' => 'Full Hall',
             'category' => 'package',
-            'description' => 'Complete BCCC venue package. Main Hall, LED Wall, VIP Lounge, and Board Room are package inclusions. Foyer & Lobby and Backstage are support spaces only, not separate selectable choices.',
+            'description' => 'Full Hall rental for large programs. VIP Lounge, Board Room, and LED Wall are separate add-ons/packages and are not automatically included. Foyer & Lobby and Backstage remain support spaces for approved movement and preparation.',
             'capacity' => 'Full convention capacity',
             'sort_order' => 10,
-            'image' => '/marketing/images/facilities/darkvip.jpg',
+            'image' => '/marketing/images/facilities/darkmain.JPG',
             'support_notes' => [
                 'Foyer & Lobby access is included as support space for guest flow and registration.',
                 'Backstage access is included as support space for preparation and production movement.',
@@ -29,7 +29,7 @@ class BcccVenuePackageSeeder extends Seeder
                     'price' => 80000,
                     'duration_key' => 'whole_day',
                     'uom' => 'booking',
-                    'description' => 'Full Hall package whole day rate.',
+                    'description' => 'Full Hall whole day rate. VIP Lounge, Board Room, and LED Wall are separate add-ons/packages.',
                     'sort_order' => 10,
                 ],
                 'Half Day' => [
@@ -37,7 +37,7 @@ class BcccVenuePackageSeeder extends Seeder
                     'price' => 45000,
                     'duration_key' => 'half_day',
                     'uom' => 'booking',
-                    'description' => 'Full Hall package half day rate.',
+                    'description' => 'Full Hall half day rate. VIP Lounge, Board Room, and LED Wall are separate add-ons/packages.',
                     'sort_order' => 20,
                 ],
                 'Additional Hour' => [
@@ -45,7 +45,7 @@ class BcccVenuePackageSeeder extends Seeder
                     'price' => 5000,
                     'duration_key' => 'additional_hour',
                     'uom' => 'hour',
-                    'description' => 'Full Hall package additional hour rate.',
+                    'description' => 'Full Hall additional hour rate. VIP Lounge, Board Room, and LED Wall are separate add-ons/packages.',
                     'sort_order' => 30,
                 ],
             ],

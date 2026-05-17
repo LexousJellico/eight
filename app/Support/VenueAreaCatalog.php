@@ -51,12 +51,14 @@ final class VenueAreaCatalog
 
             'full' => 'full_hall',
             'fullhall' => 'full_hall',
+            'fullhallonly' => 'full_hall',
             'fullhallpackage' => 'full_hall',
             'fullvenue' => 'full_hall',
             'wholehall' => 'full_hall',
             'entirehall' => 'full_hall',
             'conventionhall' => 'full_hall',
 
+            'main' => 'main_hall',
             'mainhall' => 'main_hall',
             'mainfunctionhall' => 'main_hall',
             'mainvenue' => 'main_hall',
@@ -113,6 +115,30 @@ final class VenueAreaCatalog
         return $map[$normalized] ?? $normalized;
     }
 
+    public static function canonicalKeys(mixed $values): array
+    {
+        if ($values === null || $values === '') {
+            return [];
+        }
+
+        if (is_string($values)) {
+            $decoded = json_decode($values, true);
+            $values = is_array($decoded) ? $decoded : preg_split('/[,;|]+/', $values);
+        }
+
+        if (! is_array($values)) {
+            $values = [$values];
+        }
+
+        return collect($values)
+            ->flatten()
+            ->map(fn ($value) => self::canonicalKey(is_scalar($value) ? (string) $value : ''))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     public static function isGlobal(?string $value): bool
     {
         $label = self::normalizeLabel($value);
@@ -126,7 +152,7 @@ final class VenueAreaCatalog
 
     public static function isWholeVenue(?string $value): bool
     {
-        return in_array(self::canonicalKey($value), ['whole_venue', 'full_hall'], true);
+        return self::canonicalKey($value) === 'whole_venue';
     }
 
     public static function matrix(): array
@@ -146,23 +172,22 @@ final class VenueAreaCatalog
                 'backstage',
                 'tech_booth',
             ],
+            // Full Hall is NOT VIP Lounge, Board Room, or LED Wall.
+            // These are separate package/add-on selections and only conflict when explicitly selected.
             'full_hall' => [
                 'whole_venue',
                 'full_hall',
                 'main_hall',
-                'led_wall',
                 'foyer_lobby',
-                'vip_lounge',
-                'board_room',
                 'grounds_parking',
                 'backstage',
                 'tech_booth',
             ],
             'main_hall' => ['whole_venue', 'full_hall', 'main_hall'],
-            'led_wall' => ['whole_venue', 'full_hall', 'led_wall'],
+            'led_wall' => ['whole_venue', 'led_wall'],
             'foyer_lobby' => ['whole_venue', 'full_hall', 'foyer_lobby'],
-            'vip_lounge' => ['whole_venue', 'full_hall', 'vip_lounge'],
-            'board_room' => ['whole_venue', 'full_hall', 'board_room'],
+            'vip_lounge' => ['whole_venue', 'vip_lounge'],
+            'board_room' => ['whole_venue', 'board_room'],
             'basement' => ['whole_venue', 'basement'],
             'gallery2600' => ['whole_venue', 'gallery2600'],
             'grounds_parking' => ['whole_venue', 'full_hall', 'grounds_parking'],
@@ -211,5 +236,45 @@ final class VenueAreaCatalog
             'tech_booth' => 'Tech Booth',
             default => trim((string) $value),
         };
+    }
+
+    public static function displayNames(mixed $values): array
+    {
+        return collect(self::canonicalKeys($values))
+            ->map(fn (string $key) => self::displayName($key))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public static function publicOptions(): array
+    {
+        return collect([
+            'full_hall',
+            'main_hall',
+            'led_wall',
+            'vip_lounge',
+            'board_room',
+        ])->map(fn (string $key) => [
+            'label' => mb_strtoupper(self::displayName($key)),
+            'value' => self::displayName($key),
+            'area_key' => $key,
+            'category' => match ($key) {
+                'full_hall' => 'Hall rental',
+                'main_hall' => 'Primary hall',
+                'led_wall' => 'Presentation add-on',
+                'vip_lounge' => 'Executive support space',
+                'board_room' => 'Meeting support space',
+                default => 'Venue area',
+            },
+            'capacity' => match ($key) {
+                'full_hall' => 'Full hall layout, subject to final setup',
+                'main_hall' => 'Large-format events',
+                'led_wall' => 'Display support',
+                'vip_lounge' => 'VIP holding',
+                'board_room' => 'Small-group setup',
+                default => 'Layout dependent',
+            },
+        ])->values()->all();
     }
 }

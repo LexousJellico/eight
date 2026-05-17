@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\MiceRecord;
+use App\Support\VenueAreaCatalog;
 use App\Support\WorkspacePage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -76,6 +77,15 @@ class BookingResource extends JsonResource
                 ] : null,
             ] : null,
 
+            'selected_package_code' => $this->selected_package_code,
+            'selected_area_keys' => is_array($this->selected_area_keys) ? array_values($this->selected_area_keys) : [],
+            'selected_area_labels' => VenueAreaCatalog::displayNames($this->selected_area_keys ?? []),
+            'dressing_room_selection' => $this->dressing_room_selection,
+            'dressing_room_charge' => round((float) ($this->dressing_room_charge ?? 0), 2),
+            'mice_required' => (bool) ($this->mice_required ?? true),
+            'mice_exemption_reason' => $this->mice_exemption_reason,
+            'private_event_type' => $this->private_event_type,
+
             'organization_type' => $this->organization_type,
             'company_name' => $this->company_name,
             'client_name' => $this->client_name,
@@ -93,7 +103,7 @@ class BookingResource extends JsonResource
 
             'mice_report' => $this->miceReportPayload(),
             'mice_report_status' => $miceReportStatus,
-            'mice_report_required' => true,
+            'mice_report_required' => (bool) ($this->mice_required ?? true),
             'mice_report_submitted' => $miceReportStatus === 'submitted',
 
             'client_address' => $this->client_address,
@@ -109,6 +119,9 @@ class BookingResource extends JsonResource
 
             'booking_date_from' => optional($this->booking_date_from)->toIso8601String(),
             'booking_date_to' => optional($this->booking_date_to)->toIso8601String(),
+            'schedule_version' => $this->schedule_version,
+            'schedule_meta' => $this->schedule_meta ?? [],
+            'schedule_segments' => $this->scheduleSegmentsPayload(),
             'flexible_date_from' => optional($this->flexible_date_from)->toIso8601String(),
             'flexible_date_to' => optional($this->flexible_date_to)->toIso8601String(),
 
@@ -147,6 +160,32 @@ class BookingResource extends JsonResource
                 'remaining_balance' => round((float) ($financialSummary['balance'] ?? max(0, (float) $itemsTotal - (float) $confirmedPaymentsTotal)), 2),
             ],
         ];
+    }
+
+    protected function scheduleSegmentsPayload(): array
+    {
+        if (! $this->relationLoaded('scheduleSegments')) {
+            return [];
+        }
+
+        return $this->scheduleSegments
+            ->map(fn ($segment) => [
+                'id' => $segment->id,
+                'date' => optional($segment->date)->format('Y-m-d'),
+                'segment_role' => $segment->segment_role,
+                'base_block' => $segment->base_block,
+                'starts_at' => optional($segment->starts_at)->toIso8601String(),
+                'ends_at' => optional($segment->ends_at)->toIso8601String(),
+                'has_additional_hours' => (bool) $segment->has_additional_hours,
+                'additional_hours' => (int) ($segment->additional_hours ?? 0),
+                'additional_starts_at' => optional($segment->additional_starts_at)->toIso8601String(),
+                'additional_ends_at' => optional($segment->additional_ends_at)->toIso8601String(),
+                'area_keys' => is_array($segment->area_keys) ? array_values($segment->area_keys) : [],
+                'area_labels' => VenueAreaCatalog::displayNames($segment->area_keys ?? []),
+                'sort_order' => (int) ($segment->sort_order ?? 0),
+            ])
+            ->values()
+            ->all();
     }
 
     protected function items(): array

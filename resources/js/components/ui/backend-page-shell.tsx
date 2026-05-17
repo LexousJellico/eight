@@ -26,26 +26,28 @@ export default function BackendPageShell({
     return (
         <section
             className={cx(
-                'overflow-hidden rounded-[1.45rem] border border-[#d9c7a6]/70 bg-white/84 shadow-[0_18px_58px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]',
+                'backend-boneyard-card relative overflow-hidden rounded-[1.15rem] border border-slate-200/80 bg-white/82 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055] dark:shadow-[0_24px_80px_rgba(0,0,0,0.24)]',
                 compact ? 'p-3 sm:p-4' : 'p-4 sm:p-5',
                 className,
             )}
         >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#d6b05c]/60 to-transparent dark:via-[#f4d894]/28" />
+
             {title || description || actions ? (
-                <div className="mb-5 grid gap-4 border-b border-[#d9c7a6]/60 pb-4 dark:border-white/10 lg:grid-cols-[1fr_auto] lg:items-end">
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                <div className="mb-4 grid gap-4 border-b border-slate-200/80 pb-4 dark:border-white/10 lg:grid-cols-[1fr_auto] lg:items-end">
+                    <div className="min-w-0">
+                        <p className="inline-flex rounded-full border border-[#d6b05c]/30 bg-[#d6b05c]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-[#8a6320] dark:border-[#f4d894]/18 dark:bg-[#f4d894]/8 dark:text-[#f4d894]">
                             {eyebrow}
                         </p>
 
                         {title ? (
-                            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
+                            <h2 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white sm:text-2xl">
                                 {title}
                             </h2>
                         ) : null}
 
                         {description ? (
-                            <p className="mt-2 max-w-3xl text-sm leading-7 text-[#6e604c] dark:text-white/58">
+                            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600 dark:text-white/56">
                                 {description}
                             </p>
                         ) : null}

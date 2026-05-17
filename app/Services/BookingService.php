@@ -9,6 +9,8 @@ use App\Models\PublicEvent;
 use App\Models\Service;
 use App\Services\Contracts\BookingServiceInterface;
 use App\Support\BookingStatusCatalog;
+use App\Support\DressingRoomCatalog;
+use App\Support\VenuePackageCatalog;
 use App\Support\VenueAreaCatalog;
 use App\Support\WorkspaceAccess;
 use Carbon\Carbon;
@@ -278,6 +280,7 @@ class BookingService implements BookingServiceInterface
             $items = $this->normalizedBookingItems($data);
             $extraSchedules = $this->normalizedExtraSchedules($data);
             $bookingData = $this->onlyBookingColumns($data);
+            $bookingData = $this->normalizeBookingPackageFields($bookingData, $items);
 
             $this->normalizeContactFields($bookingData);
             $this->normalizeStatusFields($bookingData);
@@ -306,7 +309,7 @@ class BookingService implements BookingServiceInterface
 
             $bookingData['service_id'] = (int) ($items[0]['service_id'] ?? $bookingData['service_id'] ?? 0);
 
-            $requestedAreas = $this->requestedAreaLabelsFromItems($items);
+            $requestedAreas = $this->requestedAreaLabelsFromItems($items, $bookingData['selected_area_keys'] ?? []);
 
             if (empty($requestedAreas)) {
                 throw ValidationException::withMessages([
@@ -363,6 +366,7 @@ class BookingService implements BookingServiceInterface
             $items = $itemsWasSubmitted ? $this->normalizedBookingItems($data) : null;
             $extraSchedules = $this->normalizedExtraSchedules($data);
             $bookingData = $this->onlyBookingColumns($data);
+            $bookingData = $this->normalizeBookingPackageFields($bookingData, $itemsWasSubmitted ? ($items ?? []) : $this->existingItemsForCapacity($booking));
 
             $this->normalizeContactFields($bookingData);
             $this->normalizeStatusFields($bookingData);
@@ -389,6 +393,13 @@ class BookingService implements BookingServiceInterface
                     'head_of_organization',
                     'type_of_event',
                     'number_of_guests',
+                    'selected_package_code',
+                    'selected_area_keys',
+                    'dressing_room_selection',
+                    'dressing_room_charge',
+                    'mice_required',
+                    'mice_exemption_reason',
+                    'private_event_type',
                 ];
 
                 $bookingData = array_intersect_key($bookingData, array_flip($allowed));
@@ -402,7 +413,7 @@ class BookingService implements BookingServiceInterface
                 ? ($items ?? [])
                 : $this->existingItemsForCapacity($booking);
 
-            $requestedAreas = $this->requestedAreaLabelsFromItems($itemsForChecks);
+            $requestedAreas = $this->requestedAreaLabelsFromItems($itemsForChecks, $bookingData['selected_area_keys'] ?? $booking->selected_area_keys ?? []);
 
             if (empty($requestedAreas)) {
                 throw ValidationException::withMessages([
@@ -584,6 +595,50 @@ class BookingService implements BookingServiceInterface
         $columns = array_flip(Schema::getColumnListing('bookings'));
 
         return array_intersect_key($payload, $columns);
+    }
+
+    protected function normalizeBookingPackageFields(array $data, array $items = []): array
+    {
+        $packageCode = VenuePackageCatalog::normalizeCode(
+            $data['selected_package_code'] ?? $data['package_code'] ?? null
+        );
+
+        if ($packageCode) {
+            $data['selected_package_code'] = $packageCode;
+        }
+
+        $areaKeys = [];
+
+        if ($packageCode) {
+            $areaKeys = array_merge($areaKeys, VenuePackageCatalog::areaKeys($packageCode));
+        }
+
+        $areaKeys = array_merge($areaKeys, VenueAreaCatalog::canonicalKeys($data['selected_area_keys'] ?? []));
+        $areaKeys = array_merge($areaKeys, $this->canonicalAreaKeysFromItems($items));
+
+        $areaKeys = collect($areaKeys)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (! empty($areaKeys)) {
+            $data['selected_area_keys'] = $areaKeys;
+        }
+
+        if (array_key_exists('dressing_room_selection', $data)) {
+            $selection = DressingRoomCatalog::normalize((string) $data['dressing_room_selection']);
+            $data['dressing_room_selection'] = $selection;
+            $data['dressing_room_charge'] = DressingRoomCatalog::charge($selection);
+
+            if ($data['dressing_room_charge'] > 0) {
+                $data['estimated_other_rentals'] = DressingRoomCatalog::label($selection);
+            }
+        }
+
+        unset($data['package_code'], $data['area_keys']);
+
+        return $data;
     }
 
     protected function normalizeContactFields(array &$data): void
@@ -1292,7 +1347,7 @@ class BookingService implements BookingServiceInterface
         $baseBooking->loadMissing(['bookingServices.service.serviceType']);
 
         $baseItems = $this->existingItemsForCapacity($baseBooking);
-        $requestedAreas = $this->requestedAreaLabelsFromItems($baseItems);
+        $requestedAreas = $this->requestedAreaLabelsFromItems($baseItems, $baseBooking->selected_area_keys ?? []);
 
         if (empty($requestedAreas)) {
             return;
@@ -1519,6 +1574,105 @@ class BookingService implements BookingServiceInterface
         }
 
         return $blocks;
+    }
+
+    public function getPackageDayStatus(
+        string $date,
+        array|string $areaKeys,
+        ?int $excludeBookingId = null,
+        ?string $eventType = null,
+        ?int $guestCount = null,
+    ): array {
+        $keys = VenueAreaCatalog::canonicalKeys($areaKeys);
+
+        if (empty($keys)) {
+            return $this->getPublicDayStatus($date, null, $excludeBookingId, $eventType, $guestCount);
+        }
+
+        $areaResults = collect($keys)
+            ->map(function (string $key) use ($date, $excludeBookingId, $eventType, $guestCount) {
+                $label = VenueAreaCatalog::displayName($key);
+
+                return [
+                    'area_key' => $key,
+                    'area_label' => $label,
+                    'result' => $this->getPublicDayStatus($date, $label, $excludeBookingId, $eventType, $guestCount),
+                ];
+            })
+            ->values();
+
+        $combinedBlocks = [];
+
+        foreach (['AM', 'PM', 'EVE'] as $blockKey) {
+            $sourceBlocks = $areaResults
+                ->map(fn (array $row) => collect($row['result']['blocks'] ?? [])->firstWhere('key', $blockKey))
+                ->filter()
+                ->values();
+
+            $isAvailable = $sourceBlocks->isNotEmpty()
+                ? $sourceBlocks->every(fn (array $block) => (bool) ($block['is_available'] ?? $block['isAvailable'] ?? false))
+                : true;
+
+            $reasons = $sourceBlocks
+                ->filter(fn (array $block) => ! (bool) ($block['is_available'] ?? $block['isAvailable'] ?? false))
+                ->map(fn (array $block) => (string) ($block['reason'] ?? 'Booked or blocked'))
+                ->unique()
+                ->values()
+                ->all();
+
+            $combinedBlocks[] = [
+                'key' => $blockKey,
+                'label' => match ($blockKey) {
+                    'AM' => 'Morning',
+                    'PM' => 'Afternoon',
+                    default => 'Evening',
+                },
+                'from' => match ($blockKey) {
+                    'AM' => '06:00',
+                    'PM' => '12:00',
+                    default => '18:00',
+                },
+                'to' => match ($blockKey) {
+                    'AM' => '12:00',
+                    'PM' => '18:00',
+                    default => '23:59',
+                },
+                'is_available' => $isAvailable,
+                'isAvailable' => $isAvailable,
+                'booked' => ! $isAvailable,
+                'blocked' => ! $isAvailable,
+                'reason' => $isAvailable ? null : implode('; ', $reasons ?: ['One or more package areas are unavailable.']),
+            ];
+        }
+
+        $closedCount = collect($combinedBlocks)->filter(fn (array $block) => ! (bool) $block['is_available'])->count();
+        $canProceed = $closedCount < count($combinedBlocks)
+            && $areaResults->every(fn (array $row) => (bool) ($row['result']['can_proceed'] ?? true));
+
+        return [
+            'date' => $date,
+            'venue' => implode(' + ', VenueAreaCatalog::displayNames($keys)),
+            'area_keys' => $keys,
+            'area_labels' => VenueAreaCatalog::displayNames($keys),
+            'status' => $closedCount === 0 ? 'available' : ($closedCount >= 3 ? 'private_booked' : 'limited'),
+            'title' => $closedCount === 0 ? 'Package available' : 'Package partially available',
+            'description' => $closedCount === 0
+                ? 'All selected package areas are open for at least the standard event blocks.'
+                : 'One or more selected package areas already has a booking or block on this date.',
+            'note' => 'Package availability checks every area included in the selected package.',
+            'can_proceed' => $canProceed,
+            'blocks' => $combinedBlocks,
+            'busy' => $areaResults->flatMap(fn (array $row) => $row['result']['busy'] ?? [])->values()->all(),
+            'free' => $areaResults->flatMap(fn (array $row) => $row['result']['free'] ?? [])->values()->all(),
+            'event_titles' => $areaResults->flatMap(fn (array $row) => $row['result']['event_titles'] ?? [])->unique()->values()->all(),
+            'calendar_blocks' => $areaResults->flatMap(fn (array $row) => $row['result']['calendar_blocks'] ?? [])->values()->all(),
+            'areas' => $areaResults->map(fn (array $row) => [
+                'area_key' => $row['area_key'],
+                'area_label' => $row['area_label'],
+                'status' => $row['result']['status'] ?? 'available',
+                'blocks' => $row['result']['blocks'] ?? [],
+            ])->values()->all(),
+        ];
     }
 
     public function getDailyAvailability(string $date, $excludeBookingId = null, ?string $area = null): array
@@ -2221,7 +2375,7 @@ class BookingService implements BookingServiceInterface
         return false;
     }
 
-    protected function requestedAreaLabelsFromItems(array $items): array
+    protected function canonicalAreaKeysFromItems(array $items): array
     {
         $serviceIds = collect($items)
             ->pluck('service_id')
@@ -2245,8 +2399,24 @@ class BookingService implements BookingServiceInterface
                     (string) ($service->name ?? ''),
                 ];
             })
-            ->filter(fn ($label) => $this->canonicalAreaKey($label) !== '')
+            ->map(fn ($label) => $this->canonicalAreaKey($label))
+            ->filter()
             ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected function requestedAreaLabelsFromItems(array $items, mixed $selectedAreaKeys = []): array
+    {
+        $keys = array_merge(
+            VenueAreaCatalog::canonicalKeys($selectedAreaKeys),
+            $this->canonicalAreaKeysFromItems($items),
+        );
+
+        return collect($keys)
+            ->filter()
+            ->unique()
+            ->map(fn (string $key) => VenueAreaCatalog::displayName($key))
             ->values()
             ->all();
     }
@@ -2255,7 +2425,13 @@ class BookingService implements BookingServiceInterface
     {
         $booking->loadMissing(['bookingServices.service.serviceType', 'service.serviceType']);
 
-        $labels = collect();
+        $keys = VenueAreaCatalog::canonicalKeys($booking->selected_area_keys ?? []);
+
+        if (empty($keys) && ! empty($booking->selected_package_code)) {
+            $keys = array_merge($keys, VenuePackageCatalog::areaKeys((string) $booking->selected_package_code));
+        }
+
+        $labels = collect($keys)->map(fn (string $key) => VenueAreaCatalog::displayName($key));
 
         foreach ($booking->bookingServices ?? [] as $item) {
             if ($item->service) {

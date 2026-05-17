@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\BookingService;
+use App\Support\VenueAreaCatalog;
+use App\Support\VenuePackageCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,6 +20,12 @@ class BookingAvailabilityController extends Controller
             'date' => ['required', 'date_format:Y-m-d'],
             'venue' => ['nullable', 'string', 'max:255'],
             'area' => ['nullable', 'string', 'max:255'],
+            'package_code' => ['nullable', 'string', 'max:80'],
+            'selected_package_code' => ['nullable', 'string', 'max:80'],
+            'area_keys' => ['nullable', 'array'],
+            'area_keys.*' => ['string', 'max:80'],
+            'selected_area_keys' => ['nullable', 'array'],
+            'selected_area_keys.*' => ['string', 'max:80'],
             'service_id' => ['nullable', 'integer', 'min:1'],
             'service_type_id' => ['nullable', 'integer', 'min:1'],
             'area_id' => ['nullable', 'integer', 'min:1'],
@@ -28,51 +36,41 @@ class BookingAvailabilityController extends Controller
 
         $date = (string) $data['date'];
         $venue = $this->resolveVenue($data);
+        $packageCode = VenuePackageCatalog::normalizeCode($data['package_code'] ?? $data['selected_package_code'] ?? null);
+        $areaKeys = $this->resolveAreaKeys($data, $packageCode);
         $excludeBookingId = isset($data['exclude_booking_id']) ? (int) $data['exclude_booking_id'] : null;
         $eventType = isset($data['event_type']) ? trim((string) $data['event_type']) : null;
         $guests = isset($data['guests']) ? (int) $data['guests'] : null;
 
         try {
-            $result = $this->bookings->getPublicDayStatus(
-                $date,
-                $venue,
-                $excludeBookingId,
-                $eventType,
-                $guests,
-            );
-        } catch (\ArgumentCountError) {
-            try {
-                $result = $this->bookings->getPublicDayStatus(
-                    $date,
-                    $venue,
-                    $excludeBookingId,
-                );
-            } catch (\Throwable $exception) {
-                report($exception);
-
-                $result = $this->fallback($date, $venue);
-            }
+            $result = ! empty($areaKeys)
+                ? $this->bookings->getPackageDayStatus($date, $areaKeys, $excludeBookingId, $eventType, $guests)
+                : $this->bookings->getPublicDayStatus($date, $venue, $excludeBookingId, $eventType, $guests);
         } catch (\Throwable $exception) {
             report($exception);
 
-            $result = $this->fallback($date, $venue);
+            $result = $this->unverified($date, $venue, $areaKeys);
         }
 
         $blocks = $this->normalizeBlocks($result['blocks'] ?? []);
 
         return response()->json([
             'date' => $date,
-            'venue' => $venue,
-            'status' => $this->normalizeStatus((string) ($result['status'] ?? 'available'), $blocks),
+            'venue' => $venue !== '' ? $venue : ($result['venue'] ?? ''),
+            'package_code' => $packageCode,
+            'area_keys' => $areaKeys,
+            'area_labels' => VenueAreaCatalog::displayNames($areaKeys),
+            'status' => $this->normalizeStatus((string) ($result['status'] ?? 'unverified'), $blocks),
             'title' => $result['title'] ?? 'Availability checked',
             'description' => $result['description'] ?? 'Availability was checked for the selected date.',
             'note' => $result['note'] ?? '',
-            'can_proceed' => (bool) ($result['can_proceed'] ?? true),
+            'can_proceed' => (bool) ($result['can_proceed'] ?? false),
             'blocks' => $blocks,
             'busy' => array_values((array) ($result['busy'] ?? [])),
             'free' => array_values((array) ($result['free'] ?? [])),
             'event_titles' => array_values((array) ($result['event_titles'] ?? [])),
             'calendar_blocks' => array_values((array) ($result['calendar_blocks'] ?? [])),
+            'areas' => array_values((array) ($result['areas'] ?? [])),
             'is_fully_booked' => collect($blocks)->every(fn (array $block) => ! $block['is_available']),
             'isFullyBooked' => collect($blocks)->every(fn (array $block) => ! $block['is_available']),
         ]);
@@ -99,6 +97,20 @@ class BookingAvailabilityController extends Controller
         }
 
         return '';
+    }
+
+    protected function resolveAreaKeys(array $data, ?string $packageCode): array
+    {
+        $keys = [];
+
+        if ($packageCode) {
+            $keys = array_merge($keys, VenuePackageCatalog::areaKeys($packageCode));
+        }
+
+        $keys = array_merge($keys, VenueAreaCatalog::canonicalKeys($data['area_keys'] ?? []));
+        $keys = array_merge($keys, VenueAreaCatalog::canonicalKeys($data['selected_area_keys'] ?? []));
+
+        return collect($keys)->filter()->unique()->values()->all();
     }
 
     protected function normalizeBlocks(mixed $blocks): array
@@ -195,7 +207,7 @@ class BookingAvailabilityController extends Controller
             ],
             'EVE' => [
                 'key' => 'EVE',
-                'label' => 'Evening',
+                'label' => 'Evening extension',
                 'from' => '18:00',
                 'to' => '23:59',
                 'is_available' => true,
@@ -210,6 +222,10 @@ class BookingAvailabilityController extends Controller
     protected function normalizeStatus(string $status, array $blocks): string
     {
         $status = strtolower(trim(str_replace('-', '_', $status)));
+
+        if (in_array($status, ['unverified', 'error', 'failed'], true)) {
+            return 'unverified';
+        }
 
         if ($status === 'blocked') {
             return 'blocked';
@@ -240,17 +256,27 @@ class BookingAvailabilityController extends Controller
         return 'available';
     }
 
-    protected function fallback(string $date, string $venue): array
+    protected function unverified(string $date, string $venue, array $areaKeys = []): array
     {
         return [
             'date' => $date,
             'venue' => $venue,
-            'status' => 'available',
-            'title' => 'Availability checked',
-            'description' => 'No conflict was returned for the selected date.',
-            'note' => 'Staff should still verify the schedule before final confirmation.',
-            'can_proceed' => true,
-            'blocks' => $this->defaultBlocks(),
+            'area_keys' => $areaKeys,
+            'status' => 'unverified',
+            'title' => 'Unable to verify availability',
+            'description' => 'The system could not safely verify this schedule. Please try again or contact the BCCC office.',
+            'note' => 'For safety, the system will not mark this date as available until verification succeeds.',
+            'can_proceed' => false,
+            'blocks' => collect($this->defaultBlocks())
+                ->map(fn (array $block) => [
+                    ...$block,
+                    'is_available' => false,
+                    'isAvailable' => false,
+                    'blocked' => true,
+                    'reason' => 'Availability could not be verified.',
+                ])
+                ->values()
+                ->all(),
             'busy' => [],
             'free' => [],
             'event_titles' => [],

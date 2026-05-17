@@ -46,9 +46,6 @@ export const BOOKING_USAGE_LABELS: Record<BookingUsageKey, string> = {
 
 export const FULL_HALL_INCLUDED_KEYS: BookingVenueKey[] = [
   'MAIN_HALL',
-  'LED_WALL',
-  'VIP_LOUNGE',
-  'BOARD_ROOM',
 ];
 
 export const FULL_HALL_SUPPORT_NOTES = [
@@ -88,31 +85,31 @@ export const BOOKING_VENUE_CATALOG: BookingVenueCatalogItem[] = [
     key: 'FULL_HALL',
     label: 'FULL HALL',
     displayLabel: 'Full Hall Package',
-    subtitle: 'Complete BCCC venue package',
+    subtitle: 'Full Hall rental',
     category: 'package',
     image: '/marketing/images/facilities/darkvip.jpg',
     description:
-      'Complete package for large programs, conventions, exhibits, ceremonies, and major public events.',
+      'Full Hall rental for large programs, conventions, exhibits, ceremonies, and major public events. VIP Lounge, Board Room, and LED Wall are separate add-ons or package selections.',
     longDescription:
-      'Full Hall is one complete venue package. It charges only the Full Hall package rate. Main Hall, LED Wall, VIP Lounge, and Board Room are shown as package inclusions. Foyer & Lobby and Backstage are not separate choices here; they are noted as support spaces included with the Full Hall package.',
+      'Full Hall covers the hall use only. VIP Lounge, Board Room, and LED Wall are no longer bundled automatically and must be selected through a package or add-on when needed. Foyer & Lobby and Backstage remain support notes for guest flow and preparation.',
     capacity: 'Full convention capacity',
     rates: {
       whole_day: 80000,
       half_day: 45000,
       additional_hour: 5000,
     },
-    includes: ['Main Hall', 'LED Wall', 'VIP Lounge', 'Board Room'],
+    includes: ['Full Hall / Main Hall use', 'Foyer & Lobby support flow', 'Backstage support access'],
     supportNotes: FULL_HALL_SUPPORT_NOTES,
     amenities: [
-      'Complete venue package',
+      'Full Hall rental',
       'Large event setup',
       'Guest flow support',
       'Program and production support',
     ],
     idealFor: ['Conventions', 'City events', 'Large ceremonies', 'Exhibits'],
     guidelines: [
-      'Charged as one Full Hall package only.',
-      'Foyer & Lobby and Backstage are included as support notes, not separate package choices.',
+      'VIP Lounge, Board Room, and LED Wall are separate selections and are not automatically included.',
+      'Foyer & Lobby and Backstage are support notes for approved Full Hall movement and preparation.',
       'Final use is still subject to BCCC approval.',
     ],
     searchNames: ['FULL HALL', 'FULLHALL', 'FULL-HALL', 'ENTIRE HALL', 'WHOLE HALL', 'ALL AREAS'],

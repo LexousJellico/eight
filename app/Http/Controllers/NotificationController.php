@@ -71,11 +71,19 @@ class NotificationController extends Controller
             $filters['status'] = 'all';
         }
 
-        if (! in_array($filters['kind'], ['all', 'automation', 'bookings', 'payments', 'calendar', 'services', 'users', 'system'], true)) {
+        $isClientNotificationCenter = $this->isClientNotificationCenter($request);
+        $allowedKinds = $isClientNotificationCenter ? $this->clientKinds() : $this->staffKinds();
+
+        if (! in_array($filters['kind'], $allowedKinds, true)) {
             $filters['kind'] = 'all';
         }
 
         $base = $user->notifications();
+
+        if ($isClientNotificationCenter) {
+            $base = $this->applyClientNotificationScope($base);
+        }
+
         $filtered = $this->applyFilters(clone $base, $filters);
 
         $paginator = $filtered
@@ -83,14 +91,16 @@ class NotificationController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $automationLatest = $this->applyFilters(clone $base, [
-            'q' => '',
-            'status' => 'all',
-            'kind' => 'automation',
-        ])
-            ->latest()
-            ->limit(6)
-            ->get();
+        $automationLatest = $isClientNotificationCenter
+            ? collect()
+            : $this->applyFilters(clone $base, [
+                'q' => '',
+                'status' => 'all',
+                'kind' => 'automation',
+            ])
+                ->latest()
+                ->limit(6)
+                ->get();
 
         return Inertia::render('notifications/index', [
             'notificationFeed' => UserNotificationResource::collection($paginator)
@@ -101,6 +111,8 @@ class NotificationController extends Controller
             'automationLatest' => UserNotificationResource::collection($automationLatest)
                 ->response()
                 ->getData(true),
+            'isClientNotificationCenter' => $isClientNotificationCenter,
+            'notificationKindOptions' => $allowedKinds,
         ]);
     }
 
@@ -130,6 +142,64 @@ class NotificationController extends Controller
         }
 
         return back();
+    }
+
+
+    protected function isClientNotificationCenter(Request $request): bool
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return ! $user->hasAnyRole(['admin', 'manager', 'staff']);
+    }
+
+    protected function clientKinds(): array
+    {
+        return ['all', 'bookings', 'payments', 'mice', 'deadline', 'system'];
+    }
+
+    protected function staffKinds(): array
+    {
+        return ['all', 'automation', 'bookings', 'payments', 'calendar', 'services', 'users', 'system'];
+    }
+
+    protected function applyClientNotificationScope(Builder|Relation $query): Builder|Relation
+    {
+        return $query
+            ->where(function (Builder $inner) {
+                $inner->where(function (Builder $type) {
+                    $type->whereNull('type')
+                        ->orWhere('type', '')
+                        ->orWhere('type', 'like', 'booking%')
+                        ->orWhere('type', 'like', 'payment%')
+                        ->orWhere('type', 'like', 'mice%')
+                        ->orWhere('type', 'like', 'survey%')
+                        ->orWhere('type', 'like', 'deadline%')
+                        ->orWhere('type', 'like', 'booking_auto_%');
+                })
+                    ->orWhere('title', 'like', '%booking%')
+                    ->orWhere('title', 'like', '%payment%')
+                    ->orWhere('title', 'like', '%MICE%')
+                    ->orWhere('title', 'like', '%survey%')
+                    ->orWhere('title', 'like', '%deadline%');
+            })
+            ->where(function (Builder $inner) {
+                $inner->whereNull('type')
+                    ->orWhere(function (Builder $blocked) {
+                        $blocked->where('type', 'not like', '%inquiry%')
+                            ->where('type', 'not like', 'public_inquiry%')
+                            ->where('type', 'not like', 'calendar_block%')
+                            ->where('type', 'not like', 'service_%')
+                            ->where('type', 'not like', 'service_type_%')
+                            ->where('type', 'not like', 'user_%')
+                            ->where('type', 'not like', '%roles%');
+                    });
+            })
+            ->where('title', 'not like', '%Public Inquir%')
+            ->where('message', 'not like', '%Public Inquir%');
     }
 
     protected function applyFilters(Builder|Relation $query, array $filters): Builder|Relation
@@ -182,6 +252,27 @@ class NotificationController extends Controller
 
             case 'payments':
                 $query->where('type', 'like', 'payment%');
+                break;
+
+            case 'mice':
+                $query->where(function (Builder $inner) {
+                    $inner->where('type', 'like', 'mice%')
+                        ->orWhere('type', 'like', 'survey%')
+                        ->orWhere('title', 'like', '%MICE%')
+                        ->orWhere('title', 'like', '%survey%')
+                        ->orWhere('message', 'like', '%MICE%')
+                        ->orWhere('message', 'like', '%survey%');
+                });
+                break;
+
+            case 'deadline':
+                $query->where(function (Builder $inner) {
+                    $inner->where('type', 'like', 'deadline%')
+                        ->orWhere('type', 'like', 'booking_auto_%')
+                        ->orWhere('title', 'like', '%deadline%')
+                        ->orWhere('message', 'like', '%deadline%')
+                        ->orWhere('message', 'like', '%24 hours%');
+                });
                 break;
 
             case 'calendar':
@@ -251,6 +342,8 @@ class NotificationController extends Controller
             'automation_unread' => $kindUnreadCount('automation'),
             'bookings' => $kindCount('bookings'),
             'payments' => $kindCount('payments'),
+            'mice' => $kindCount('mice'),
+            'deadline' => $kindCount('deadline'),
             'calendar' => $kindCount('calendar'),
             'services' => $kindCount('services'),
             'users' => $kindCount('users'),

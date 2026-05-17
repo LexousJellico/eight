@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\BookingService;
+use App\Support\VenueAreaCatalog;
+use App\Support\VenuePackageCatalog;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,12 @@ class PublicAvailabilityController extends Controller
             'date_to' => ['nullable'],
             'venue' => ['nullable', 'string', 'max:255'],
             'area' => ['nullable', 'string', 'max:255'],
+            'package_code' => ['nullable', 'string', 'max:80'],
+            'selected_package_code' => ['nullable', 'string', 'max:80'],
+            'area_keys' => ['nullable', 'array'],
+            'area_keys.*' => ['string', 'max:80'],
+            'selected_area_keys' => ['nullable', 'array'],
+            'selected_area_keys.*' => ['string', 'max:80'],
             'event_type' => ['nullable', 'string', 'max:255'],
             'guests' => ['nullable', 'integer', 'min:1', 'max:200000'],
             'exclude_booking_id' => ['nullable', 'integer', 'min:1'],
@@ -52,10 +60,12 @@ class PublicAvailabilityController extends Controller
         }
 
         $venue = trim((string) ($data['venue'] ?? $data['area'] ?? ''));
+        $packageCode = VenuePackageCatalog::normalizeCode($data['package_code'] ?? $data['selected_package_code'] ?? null);
+        $areaKeys = $this->resolveAreaKeys($data, $packageCode);
 
-        if ($venue === '') {
+        if ($venue === '' && empty($areaKeys)) {
             throw ValidationException::withMessages([
-                'venue' => 'Please select a venue area.',
+                'venue' => 'Please select a venue area or package.',
             ]);
         }
 
@@ -83,6 +93,7 @@ class PublicAvailabilityController extends Controller
                     excludeBookingId: $excludeBookingId,
                     eventType: $eventType,
                     guests: $guests,
+                    areaKeys: $areaKeys,
                 ),
                 $date,
                 $venue,
@@ -154,8 +165,19 @@ class PublicAvailabilityController extends Controller
         ?int $excludeBookingId,
         ?string $eventType,
         ?int $guests,
+        array $areaKeys = [],
     ): array {
         try {
+            if (! empty($areaKeys)) {
+                return $this->bookings->getPackageDayStatus(
+                    $date,
+                    $areaKeys,
+                    $excludeBookingId,
+                    $eventType,
+                    $guests,
+                );
+            }
+
             return $this->bookings->getPublicDayStatus(
                 $date,
                 $venue,
@@ -173,13 +195,27 @@ class PublicAvailabilityController extends Controller
             } catch (\Throwable $exception) {
                 report($exception);
 
-                return $this->fallbackAvailableDay($date, $venue, $eventType, $guests);
+                return $this->fallbackUnavailableDay($date, $venue, $eventType, $guests, $areaKeys);
             }
         } catch (\Throwable $exception) {
             report($exception);
 
-            return $this->fallbackAvailableDay($date, $venue, $eventType, $guests);
+            return $this->fallbackUnavailableDay($date, $venue, $eventType, $guests, $areaKeys);
         }
+    }
+
+    protected function resolveAreaKeys(array $data, ?string $packageCode): array
+    {
+        $keys = [];
+
+        if ($packageCode) {
+            $keys = array_merge($keys, VenuePackageCatalog::areaKeys($packageCode));
+        }
+
+        $keys = array_merge($keys, VenueAreaCatalog::canonicalKeys($data['area_keys'] ?? []));
+        $keys = array_merge($keys, VenueAreaCatalog::canonicalKeys($data['selected_area_keys'] ?? []));
+
+        return collect($keys)->filter()->unique()->values()->all();
     }
 
     protected function resolveDateRange(array $data): array
@@ -461,6 +497,10 @@ class PublicAvailabilityController extends Controller
     {
         $statuses = collect($results)->pluck('status')->map(fn ($status) => (string) $status);
 
+        if ($statuses->contains('unverified')) {
+            return 'unverified';
+        }
+
         if ($statuses->contains('blocked')) {
             return 'blocked';
         }
@@ -488,6 +528,15 @@ class PublicAvailabilityController extends Controller
         int $limitedDays,
         int $blockedDays,
     ): array {
+        if ($status === 'unverified') {
+            return [
+                'Unable to verify selected range',
+                'The system could not safely verify one or more selected dates.',
+                'For safety, unverified dates cannot proceed until the availability check succeeds.',
+                'Try again or contact the BCCC office.',
+            ];
+        }
+
         if ($status === 'available') {
             return [
                 'Selected range is open for booking',
@@ -532,24 +581,36 @@ class PublicAvailabilityController extends Controller
         ];
     }
 
-    protected function fallbackAvailableDay(
+    protected function fallbackUnavailableDay(
         string $date,
         string $venue,
         ?string $eventType,
         ?int $guests,
+        array $areaKeys = [],
     ): array {
         return [
             'date' => $date,
             'venue' => $venue,
+            'area_keys' => $areaKeys,
+            'area_labels' => VenueAreaCatalog::displayNames($areaKeys),
             'event_type' => $eventType,
             'guests' => $guests,
-            'status' => 'available',
-            'title' => 'Selected date is currently available',
-            'description' => 'No public conflict was returned for this selected date and venue area.',
-            'note' => 'Staff should still verify the booking before final confirmation.',
-            'recommended_action' => 'Continue to booking or contact the office for verification.',
-            'can_proceed' => true,
-            'blocks' => $this->defaultBlocks(),
+            'status' => 'unverified',
+            'title' => 'Unable to verify availability',
+            'description' => 'The system could not safely verify this date and venue/package selection.',
+            'note' => 'For safety, this date will not be marked available until verification succeeds.',
+            'recommended_action' => 'Try again, adjust the date or package, or contact the BCCC office.',
+            'can_proceed' => false,
+            'blocks' => collect($this->defaultBlocks())
+                ->map(fn (array $block) => [
+                    ...$block,
+                    'is_available' => false,
+                    'isAvailable' => false,
+                    'blocked' => true,
+                    'reason' => 'Availability could not be verified.',
+                ])
+                ->values()
+                ->all(),
             'busy' => [],
             'free' => [],
             'event_titles' => [],
@@ -569,6 +630,7 @@ class PublicAvailabilityController extends Controller
         $status = strtolower(trim(str_replace('-', '_', $status)));
 
         return match ($status) {
+            'unverified', 'error', 'failed' => 'unverified',
             'available' => 'available',
             'limited', 'partial', 'partially_booked' => 'limited',
             'public', 'public_booked', 'public_event' => 'public_booked',
@@ -581,6 +643,7 @@ class PublicAvailabilityController extends Controller
     protected function defaultTitle(string $status): string
     {
         return match ($status) {
+            'unverified' => 'Unable to verify availability',
             'limited' => 'Selected date has limited availability',
             'public_booked' => 'Selected date includes a public event',
             'private_booked' => 'Selected date includes a private reservation',
@@ -592,6 +655,7 @@ class PublicAvailabilityController extends Controller
     protected function defaultDescription(string $status): string
     {
         return match ($status) {
+            'unverified' => 'The system could not safely verify this date and venue/package selection.',
             'limited' => 'Some time blocks are already occupied, but at least one block may still be open.',
             'public_booked' => 'A public-facing event or calendar activity is already listed for this date.',
             'private_booked' => 'Private booking details are hidden, but occupied blocks are reflected in availability.',
@@ -603,6 +667,7 @@ class PublicAvailabilityController extends Controller
     protected function defaultNote(string $status): string
     {
         return match ($status) {
+            'unverified' => 'Try again or contact the office before continuing.',
             'limited' => 'Review the AM, PM, and EVE block status before continuing.',
             'public_booked' => 'The date may still have available blocks depending on the listed schedule.',
             'private_booked' => 'Choose another date, venue area, or contact the office for clarification.',
@@ -614,6 +679,7 @@ class PublicAvailabilityController extends Controller
     protected function defaultRecommendedAction(string $status): string
     {
         return match ($status) {
+            'unverified' => 'Try again or contact the office.',
             'limited' => 'Choose an open block or adjust the date.',
             'public_booked' => 'Check if another block remains available or coordinate with the office.',
             'private_booked', 'blocked' => 'Choose another date or venue area.',

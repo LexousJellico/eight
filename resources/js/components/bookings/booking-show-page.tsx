@@ -2,6 +2,7 @@ import BookingDeadlineBadge from '@/components/bookings/booking-deadline-badge';
 import BookingDeadlinePanel from '@/components/bookings/booking-deadline-panel';
 import { BookingRolePageShell } from '@/components/bookings/booking-role-page-shell';
 import { BookingStatusBadge } from '@/components/bookings/booking-status-badge';
+import OfficialReservationPreview from '@/components/bookings/official-reservation-preview';
 import { PaymentProofPanel } from '@/components/bookings/payment-proof-panel';
 import {
     bookingBasePath,
@@ -125,6 +126,35 @@ function eventTimeline(booking: BookingLike): TimelineItem[] {
         (booking.events as TimelineItem[] | undefined);
 
     return Array.isArray(possible) ? possible : [];
+}
+
+
+function bookingScheduleSegments(booking: BookingLike) {
+    const segments = booking.schedule_segments ?? booking.scheduleSegments;
+
+    return Array.isArray(segments) ? segments as Array<Record<string, unknown>> : [];
+}
+
+function bookingAreaLabels(booking: BookingLike): string[] {
+    const labels = booking.selected_area_labels ?? booking.selectedAreaLabels ?? booking.area_labels;
+
+    if (Array.isArray(labels)) {
+        return labels.map((label) => String(label)).filter(Boolean);
+    }
+
+    const keys = booking.selected_area_keys ?? booking.selectedAreaKeys;
+
+    if (Array.isArray(keys)) {
+        return keys.map((key) => cleanLabel(String(key)));
+    }
+
+    return [];
+}
+
+function bookingPaymentMeta(booking: BookingLike): Record<string, unknown> {
+    const meta = booking.payment_meta ?? booking.paymentMeta;
+
+    return meta && typeof meta === 'object' && !Array.isArray(meta) ? meta as Record<string, unknown> : {};
 }
 
 function bookingPaymentsCount(booking: BookingLike): number {
@@ -536,6 +566,56 @@ export function BookingShowPage() {
                                     icon={ReceiptText}
                                 />
                             </div>
+                        </SectionCard>
+
+                        <SectionCard
+                            eyebrow="Official Review"
+                            title="Reservation form preview"
+                            description="A cleaner official-style view for client review, staff checking, and printing."
+                        >
+                            <OfficialReservationPreview
+                                data={{
+                                    organization_type: booking.organization_type as string | undefined,
+                                    company_name: booking.company_name as string | undefined,
+                                    client_name: booking.client_name as string | undefined,
+                                    client_contact_number: booking.client_contact_number as string | undefined,
+                                    client_email: booking.client_email as string | undefined,
+                                    survey_email: booking.survey_email as string | undefined,
+                                    client_address: booking.client_address as string | undefined,
+                                    client_region: booking.client_region as string | undefined,
+                                    client_province: booking.client_province as string | undefined,
+                                    client_city_municipality: booking.client_city_municipality as string | undefined,
+                                    client_barangay: booking.client_barangay as string | undefined,
+                                    client_zip_code: booking.client_zip_code as string | undefined,
+                                    client_street_address: booking.client_street_address as string | undefined,
+                                    head_of_organization: booking.head_of_organization as string | undefined,
+                                    type_of_event: booking.type_of_event as string | undefined,
+                                    booking_date_from: booking.booking_date_from as string | undefined,
+                                    booking_date_to: booking.booking_date_to as string | undefined,
+                                    number_of_guests: booking.number_of_guests as string | number | undefined,
+                                    public_calendar_title: booking.public_calendar_title as string | undefined,
+                                    selected_package_code: booking.selected_package_code as string | undefined,
+                                    dressing_room_selection: booking.dressing_room_selection as string | undefined,
+                                    mice_required: booking.mice_required as boolean | string | number | undefined,
+                                }}
+                                selectedVenue={{
+                                    label: serviceName(booking),
+                                    displayLabel: serviceName(booking),
+                                    capacity: booking.venue_capacity as string | number | undefined,
+                                }}
+                                usage={booking.estimated_usage as string | undefined}
+                                durationHours={booking.estimated_duration_hours as string | number | undefined}
+                                otherRentals={booking.dressing_room_selection as string | undefined}
+                                additionalCharges={(booking.dressing_room_charge ?? booking.estimated_additional_charges) as string | number | undefined}
+                                reservationNotes={booking.reservation_notes as string | undefined}
+                                estimatedBase={totalValue(booking, 'items_total') ?? undefined}
+                                estimatedTotal={totalValue(booking, 'items_total') ?? undefined}
+                                fullAddress={booking.client_address as string | undefined}
+                                selectedPackageName={(booking.selected_package_name ?? booking.selectedPackageName) as string | undefined}
+                                selectedAreaLabels={bookingAreaLabels(booking)}
+                                scheduleSegments={bookingScheduleSegments(booking) as any}
+                                miceDraft={bookingPaymentMeta(booking).mice_draft as any}
+                            />
                         </SectionCard>
 
                         <PaymentProofPanel

@@ -18,6 +18,7 @@ use App\Http\Controllers\PaymentReviewController;
 use App\Http\Controllers\PublicAvailabilityController;
 use App\Http\Controllers\PublicInquiryController;
 use App\Http\Controllers\PublicSiteController;
+use App\Http\Controllers\PublicSiteMetricController;
 use App\Http\Controllers\RoleRedirectController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\ServiceTypeController;
@@ -49,6 +50,10 @@ Route::get('/bookings/availability', BookingAvailabilityController::class)
 Route::post('/inquiries', [PublicInquiryController::class, 'store'])
     ->middleware('throttle:5,1')
     ->name('public.inquiries.store');
+
+Route::post('/public/site-views', [PublicSiteMetricController::class, 'store'])
+    ->middleware('throttle:20,1')
+    ->name('public.site-views.store');
 
 Route::get('/', [PublicSiteController::class, 'home'])
     ->name('home');

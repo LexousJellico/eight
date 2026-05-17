@@ -9,9 +9,13 @@ use App\Models\HomepageStat;
 use App\Models\PublicEvent;
 use App\Models\SiteSetting;
 use App\Models\TourismMember;
+use App\Models\VenuePackageTemplate;
 use App\Models\VenueSpace;
+use App\Services\SiteViewMetricService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use App\Support\VenueAreaCatalog;
+use App\Support\VenuePackageCatalog;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -30,7 +34,9 @@ class PublicSiteController extends Controller
                 ->values()
                 ->all(),
             'stats' => $this->statsPayload()->all(),
+            'siteMetric' => app(SiteViewMetricService::class)->payload('home'),
             'offers' => $this->packagesPayload()->all(),
+            'packages' => $this->venuePackagesPayload()->all(),
         ]);
     }
 
@@ -139,15 +145,7 @@ class PublicSiteController extends Controller
 
     protected function venueOptionsPayload(): Collection
     {
-        return collect([
-            ['label' => 'FULL HALL', 'value' => 'Full Hall', 'category' => 'Whole venue access', 'capacity' => 'Layout dependent'],
-            ['label' => 'MAIN HALL', 'value' => 'Main Hall', 'category' => 'Primary hall', 'capacity' => 'Large-format events'],
-            ['label' => 'FOYER & LOBBY AREA', 'value' => 'Foyer & Lobby Area', 'category' => 'Reception space', 'capacity' => 'Guest flow area'],
-            ['label' => 'VIP LOUNGE', 'value' => 'VIP Lounge', 'category' => 'Executive space', 'capacity' => 'VIP holding'],
-            ['label' => 'BOARD ROOM', 'value' => 'Board Room', 'category' => 'Meeting space', 'capacity' => 'Small-group setup'],
-            ['label' => 'BASEMENT', 'value' => 'Basement', 'category' => 'Support / event space', 'capacity' => 'Flexible use'],
-            ['label' => 'GALLERY2600', 'value' => 'Gallery2600', 'category' => 'Gallery space', 'capacity' => 'Exhibit-ready'],
-        ]);
+        return collect(VenueAreaCatalog::publicOptions());
     }
 
     protected function spacesPayload(): Collection
@@ -251,6 +249,76 @@ class PublicSiteController extends Controller
                 'suffix' => $stat->suffix ?: '',
                 'label' => $stat->label,
             ])
+            ->values();
+    }
+
+    protected function venuePackagesPayload(): Collection
+    {
+        try {
+            $packages = VenuePackageTemplate::query()
+                ->where('is_public', true)
+                ->orderByDesc('is_featured')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
+
+            if ($packages->isNotEmpty()) {
+                return $packages->map(function (VenuePackageTemplate $package) {
+                    $areaKeys = VenueAreaCatalog::canonicalKeys($package->area_keys ?? []);
+                    $image = $package->image_path ?: '/marketing/images/facilities/darkvip.JPG';
+
+                    return [
+                        'id' => $package->id,
+                        'code' => $package->code,
+                        'title' => $package->name,
+                        'name' => $package->name,
+                        'subtitle' => $package->subtitle,
+                        'description' => $package->description,
+                        'areaKeys' => $areaKeys,
+                        'area_keys' => $areaKeys,
+                        'areaLabels' => VenueAreaCatalog::displayNames($areaKeys),
+                        'area_labels' => VenueAreaCatalog::displayNames($areaKeys),
+                        'image' => $image,
+                        'lightImage' => $image,
+                        'darkImage' => $image,
+                        'buttonLabel' => 'Reserve This Package',
+                        'href' => '/book?package=' . urlencode((string) $package->code),
+                        'featured' => (bool) $package->is_featured,
+                        'homepageVisible' => (bool) $package->is_public,
+                        'sortOrder' => (int) $package->sort_order,
+                    ];
+                })->values();
+            }
+        } catch (\Throwable) {
+            // Table may not exist before Batch 1 migration is applied.
+        }
+
+        return collect(VenuePackageCatalog::options())
+            ->filter(fn (array $package) => (bool) ($package['is_public'] ?? true))
+            ->map(function (array $package, int $index) {
+                $image = $package['image_path'] ?? '/marketing/images/facilities/darkvip.JPG';
+
+                return [
+                    'id' => 'catalog-' . ($package['code'] ?? $index),
+                    'code' => $package['code'],
+                    'title' => $package['name'],
+                    'name' => $package['name'],
+                    'subtitle' => $package['subtitle'] ?? null,
+                    'description' => $package['description'] ?? null,
+                    'areaKeys' => $package['area_keys'] ?? [],
+                    'area_keys' => $package['area_keys'] ?? [],
+                    'areaLabels' => $package['area_labels'] ?? [],
+                    'area_labels' => $package['area_labels'] ?? [],
+                    'image' => $image,
+                    'lightImage' => $image,
+                    'darkImage' => $image,
+                    'buttonLabel' => 'Reserve This Package',
+                    'href' => '/book?package=' . urlencode((string) ($package['code'] ?? '')),
+                    'featured' => (bool) ($package['is_featured'] ?? false),
+                    'homepageVisible' => (bool) ($package['is_public'] ?? true),
+                    'sortOrder' => (int) ($package['sort_order'] ?? 0),
+                ];
+            })
             ->values();
     }
 

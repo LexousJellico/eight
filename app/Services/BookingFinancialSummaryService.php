@@ -74,6 +74,8 @@ class BookingFinancialSummaryService
             overpaid: $overpaid,
         );
 
+        $chargeBreakdown = $this->chargeBreakdown($booking);
+
         return [
             'total' => $this->roundMoney($total),
             'paid' => $this->roundMoney($paid),
@@ -97,6 +99,7 @@ class BookingFinancialSummaryService
             'pending_payment_count' => $payments->filter(fn ($payment) => $this->isPendingStatus($payment->status ?? null))->count(),
             'declined_payment_count' => $payments->filter(fn ($payment) => $this->isDeclinedStatus($payment->status ?? null))->count(),
             'next_action' => $this->nextAction($status, $balance, $minimumDueNow),
+            'charges' => $chargeBreakdown,
         ];
     }
 
@@ -136,7 +139,7 @@ class BookingFinancialSummaryService
             return $directTotal;
         }
 
-        $itemsTotal = $this->resolveBookingItemsTotal($booking);
+        $itemsTotal = $this->resolveBookingItemsTotal($booking) + $this->resolveComputedAddOnTotal($booking);
 
         if ($itemsTotal > 0) {
             return $itemsTotal;
@@ -225,6 +228,39 @@ class BookingFinancialSummaryService
 
             return $serviceRate * max($quantity, 1);
         });
+    }
+
+    private function resolveComputedAddOnTotal(Booking $booking): float
+    {
+        $total = 0.0;
+
+        if ($this->modelHasColumn($booking, 'dressing_room_charge')) {
+            $total += $this->money($booking->getAttribute('dressing_room_charge'));
+        }
+
+        return $total;
+    }
+
+    private function chargeBreakdown(Booking $booking): array
+    {
+        $charges = [];
+
+        if ($this->modelHasColumn($booking, 'dressing_room_charge')) {
+            $amount = $this->money($booking->getAttribute('dressing_room_charge'));
+            $selection = (string) ($booking->getAttribute('dressing_room_selection') ?? '');
+
+            if ($amount > 0) {
+                $charges[] = [
+                    'key' => 'dressing_room',
+                    'label' => $selection !== '' ? str_replace('_', ' ', ucwords($selection, '_')) : 'Dressing Room',
+                    'amount' => $this->roundMoney($amount),
+                    'amount_label' => $this->peso($amount),
+                    'source' => 'system_computed',
+                ];
+            }
+        }
+
+        return $charges;
     }
 
     private function resolvePrimaryServiceTotal(Booking $booking): float

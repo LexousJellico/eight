@@ -26,6 +26,32 @@ class MiceRecord extends Model
         'event_date_from',
         'event_date_to',
 
+        'event_center_name',
+        'function_halls_count',
+        'function_hall_capacity',
+        'covered_month',
+        'event_started_at',
+        'event_finished_at',
+        'number_of_hours',
+        'classification_of_event',
+        'mice_type_of_event',
+        'foreign_attendees',
+        'domestic_attendees',
+        'total_number_of_countries',
+        'countries_breakdown',
+        'countries_breakdown_text',
+        'has_exhibitions',
+        'exhibitors_count',
+        'visitors_count',
+        'organizer_organization_name',
+        'organizer_address',
+        'organizer_contact_person',
+        'organizer_contact_number',
+        'comments_feedback',
+        'source',
+        'source_response_timestamp',
+        'source_username',
+
         'organization_name',
         'organizer_name',
         'organizer_type',
@@ -74,7 +100,21 @@ class MiceRecord extends Model
 
         'event_date_from' => 'datetime',
         'event_date_to' => 'datetime',
+        'event_started_at' => 'date',
+        'event_finished_at' => 'date',
+        'source_response_timestamp' => 'datetime',
         'submitted_at' => 'datetime',
+
+        'function_halls_count' => 'integer',
+        'function_hall_capacity' => 'integer',
+        'number_of_hours' => 'decimal:2',
+        'foreign_attendees' => 'integer',
+        'domestic_attendees' => 'integer',
+        'total_number_of_countries' => 'integer',
+        'countries_breakdown' => 'array',
+        'has_exhibitions' => 'boolean',
+        'exhibitors_count' => 'integer',
+        'visitors_count' => 'integer',
 
         'local_male_participants' => 'integer',
         'local_female_participants' => 'integer',
@@ -131,8 +171,14 @@ class MiceRecord extends Model
 
     public function applySafeDefaults(): void
     {
+        if (blank($this->event_center_name)) {
+            $this->event_center_name = 'BAGUIO CONVENTION AND CULTURAL CENTER';
+        }
+
         if (blank($this->establishment_name)) {
-            $this->establishment_name = $this->organization_name
+            $this->establishment_name = $this->event_center_name
+                ?: $this->organization_name
+                ?: $this->organizer_organization_name
                 ?: $this->organizer_name
                 ?: $this->event_name
                 ?: 'Baguio Convention and Cultural Center';
@@ -142,12 +188,20 @@ class MiceRecord extends Model
             $this->event_name = $this->establishment_name ?: 'Untitled Event';
         }
 
+        if (blank($this->mice_type_of_event)) {
+            $this->mice_type_of_event = $this->type_of_event ?: $this->event_category;
+        }
+
         if (blank($this->type_of_event)) {
-            $this->type_of_event = $this->event_category ?: $this->event_name;
+            $this->type_of_event = $this->mice_type_of_event ?: $this->event_category ?: $this->event_name;
+        }
+
+        if (blank($this->classification_of_event)) {
+            $this->classification_of_event = $this->event_category ?: $this->classification ?: 'REGIONAL PHILIPPINES';
         }
 
         if (blank($this->venue_area)) {
-            $this->venue_area = 'Baguio Convention and Cultural Center';
+            $this->venue_area = $this->event_center_name ?: 'Baguio Convention and Cultural Center';
         }
 
         if (blank($this->enterprise_group)) {
@@ -158,6 +212,26 @@ class MiceRecord extends Model
             $this->main_origin_country = 'Philippines';
         }
 
+        if (blank($this->organizer_organization_name)) {
+            $this->organizer_organization_name = $this->organization_name;
+        }
+
+        if (blank($this->organizer_address)) {
+            $this->organizer_address = $this->address;
+        }
+
+        if (blank($this->organizer_contact_person)) {
+            $this->organizer_contact_person = $this->contact_person ?: $this->organizer_name;
+        }
+
+        if (blank($this->organizer_contact_number)) {
+            $this->organizer_contact_number = $this->contact_number;
+        }
+
+        if (blank($this->comments_feedback)) {
+            $this->comments_feedback = $this->remarks;
+        }
+
         if (blank($this->status)) {
             $this->status = 'submitted';
         }
@@ -166,23 +240,43 @@ class MiceRecord extends Model
             $this->submitted_at = now();
         }
 
+        if (blank($this->event_started_at) && filled($this->event_date_from)) {
+            $this->event_started_at = Carbon::parse($this->event_date_from)->toDateString();
+        }
+
+        if (blank($this->event_finished_at) && filled($this->event_date_to)) {
+            $this->event_finished_at = Carbon::parse($this->event_date_to)->toDateString();
+        }
+
         if (blank($this->event_date_from)) {
-            $this->event_date_from = now()->startOfDay();
+            $this->event_date_from = $this->event_started_at ?: now()->startOfDay();
         }
 
         if (blank($this->event_date_to)) {
-            $this->event_date_to = $this->event_date_from;
+            $this->event_date_to = $this->event_finished_at ?: $this->event_date_from;
+        }
+
+        if (blank($this->event_started_at)) {
+            $this->event_started_at = Carbon::parse($this->event_date_from)->toDateString();
+        }
+
+        if (blank($this->event_finished_at)) {
+            $this->event_finished_at = Carbon::parse($this->event_date_to)->toDateString();
+        }
+
+        if (blank($this->covered_month)) {
+            $this->covered_month = Carbon::parse($this->event_started_at ?: $this->event_date_from)->format('F');
         }
 
         if (blank($this->year_recorded)) {
-            $this->year_recorded = Carbon::parse($this->event_date_from)->year;
+            $this->year_recorded = Carbon::parse($this->event_started_at ?: $this->event_date_from)->year;
         }
 
         if (blank($this->event_days) || (int) $this->event_days <= 0) {
             $this->event_days = max(
                 1,
-                Carbon::parse($this->event_date_from)->startOfDay()
-                    ->diffInDays(Carbon::parse($this->event_date_to)->startOfDay()) + 1
+                Carbon::parse($this->event_started_at ?: $this->event_date_from)->startOfDay()
+                    ->diffInDays(Carbon::parse($this->event_finished_at ?: $this->event_date_to)->startOfDay()) + 1
             );
         }
 
@@ -194,8 +288,30 @@ class MiceRecord extends Model
             + (int) $this->foreign_male_participants
             + (int) $this->foreign_female_participants;
 
+        $officialParticipants = (int) $this->foreign_attendees + (int) $this->domestic_attendees;
+
         if (blank($this->total_participants) || (int) $this->total_participants <= 0) {
-            $this->total_participants = $calculatedParticipants;
+            $this->total_participants = max($calculatedParticipants, $officialParticipants);
+        }
+
+        if ((int) $this->domestic_attendees <= 0) {
+            $this->domestic_attendees = (int) $this->domestic_male_participants + (int) $this->domestic_female_participants;
+        }
+
+        if ((int) $this->foreign_attendees <= 0) {
+            $this->foreign_attendees = (int) $this->foreign_male_participants + (int) $this->foreign_female_participants;
+        }
+
+        if ((int) $this->total_number_of_countries <= 0) {
+            $this->total_number_of_countries = blank($this->main_origin_country) ? 1 : 1;
+        }
+
+        if (! $this->has_exhibitions) {
+            $this->exhibitors_count = 0;
+        }
+
+        if ((int) $this->visitors_count <= 0) {
+            $this->visitors_count = (int) $this->same_day_visitors + (int) $this->overnight_visitors;
         }
 
         $calculatedEmployees = (int) $this->female_employees + (int) $this->male_employees;

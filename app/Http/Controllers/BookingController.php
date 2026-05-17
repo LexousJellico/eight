@@ -14,9 +14,15 @@ use App\Models\BookingPayment;
 use App\Models\MiceRecord;
 use App\Models\Service;
 use App\Models\ServiceType;
+use App\Models\VenuePackageTemplate;
 use App\Services\Contracts\BookingServiceInterface;
 use App\Services\NotificationService;
 use App\Support\BookingStatusCatalog;
+use App\Support\BookingScheduleCatalog;
+use App\Support\DressingRoomCatalog;
+use App\Support\MiceReportCatalog;
+use App\Support\VenueAreaCatalog;
+use App\Support\VenuePackageCatalog;
 use App\Support\WorkspaceAccess;
 use App\Support\WorkspacePage;
 use Carbon\Carbon;
@@ -74,6 +80,7 @@ class BookingController extends Controller
             'payments',
             'createdBy',
             'miceRecord',
+            'scheduleSegments',
         ]);
 
         $statusCounts = $this->bookings->getStatusCounts($filters);
@@ -120,8 +127,11 @@ class BookingController extends Controller
         return Inertia::render(WorkspacePage::resolve($request, 'bookings/create'), [
             'serviceTypes' => $serviceTypesWithServices,
             'services' => $services,
+            'venuePackages' => $this->venuePackageOptions(),
+            'bookingFormOptions' => $this->bookingFormOptions(),
             'unavailableDates' => [],
             'initialSchedule' => $this->extractInitialSchedule($request),
+            'initialPackageCode' => $this->extractInitialPackageCode($request),
             'initialVenue' => trim((string) $request->query('venue', $request->query('area', ''))) ?: null,
             'initialEventType' => trim((string) $request->query('event_type', '')) ?: null,
             'initialGuests' => $request->filled('guests') ? (int) $request->query('guests') : null,
@@ -170,6 +180,7 @@ class BookingController extends Controller
             'payments',
             'createdBy',
             'miceRecord',
+            'scheduleSegments',
         ]);
 
         $record = MiceRecord::query()
@@ -183,17 +194,9 @@ class BookingController extends Controller
             'miceRecord' => $record ? $this->micePayload($record) : null,
             'defaults' => $this->miceDefaultsFromBooking($booking),
             'formOptions' => [
-                'eventCategories' => [
-                    'Meeting',
-                    'Incentive',
-                    'Convention',
-                    'Exhibition',
-                    'Government',
-                    'Cultural',
-                    'Corporate',
-                    'Social',
-                    'Other',
-                ],
+                ...$this->bookingFormOptions(),
+                'eventCategories' => MiceReportCatalog::classificationOptions(),
+                'eventTypes' => MiceReportCatalog::typeOptions(),
                 'organizerTypes' => [
                     'Private',
                     'Government',
@@ -347,6 +350,7 @@ class BookingController extends Controller
             'createdBy',
             'lifecycleEvents.actor',
             'miceRecord',
+            'scheduleSegments',
         ]);
 
         $services = WorkspaceAccess::isStaffLike($request)
@@ -436,6 +440,8 @@ class BookingController extends Controller
             'services' => ServiceResource::collection(
                 Service::with('serviceType')->orderBy('name')->get()
             )->resolve($request),
+            'venuePackages' => $this->venuePackageOptions(),
+            'bookingFormOptions' => $this->bookingFormOptions(),
             'unavailableDates' => $this->bookings->getUnavailableDates($booking->id),
             'workspaceRole' => WorkspaceAccess::role($request),
             'isStaffWorkspace' => WorkspaceAccess::isStaffLike($request),
@@ -754,6 +760,18 @@ class BookingController extends Controller
             'organization_type',
             'type_of_event',
             'number_of_guests',
+            'selected_package_code',
+            'selected_area_keys',
+            'dressing_room_selection',
+            'dressing_room_charge',
+            'mice_required',
+            'mice_exemption_reason',
+            'private_event_type',
+            'booking_date_from',
+            'booking_date_to',
+            'schedule_version',
+            'schedule_meta',
+            'schedule_segments',
         ];
 
         $safe = array_intersect_key($data, array_flip($allowed));
@@ -927,6 +945,83 @@ class BookingController extends Controller
         return ((int) MiceRecord::query()
             ->where('year_recorded', $year)
             ->max('record_no')) + 1;
+    }
+
+    private function bookingFormOptions(): array
+    {
+        return [
+            'venueAreas' => VenueAreaCatalog::publicOptions(),
+            'venuePackages' => $this->venuePackageOptions(),
+            'dressingRooms' => collect(DressingRoomCatalog::options())
+                ->map(fn (array $option, string $key) => [
+                    'value' => $key,
+                    'label' => $option['label'] ?? $key,
+                    'charge' => $option['charge'] ?? 0,
+                    'charge_label' => '₱' . number_format((float) ($option['charge'] ?? 0), 2),
+                ])
+                ->values()
+                ->all(),
+            'schedule' => [
+                'baseBlocks' => BookingScheduleCatalog::baseBlocks(),
+                'segmentRoles' => BookingScheduleCatalog::segmentRoles(),
+                'additionalHourOptions' => BookingScheduleCatalog::additionalHourOptions(),
+            ],
+            'mice' => [
+                'classificationOptions' => MiceReportCatalog::classificationOptions(),
+                'typeOptions' => MiceReportCatalog::typeOptions(),
+                'coveredMonthOptions' => MiceReportCatalog::coveredMonthOptions(),
+                'eventCenterOptions' => MiceReportCatalog::eventCenterOptions(),
+                'privateEventOptions' => MiceReportCatalog::privateEventOptions(),
+            ],
+        ];
+    }
+
+    private function venuePackageOptions(): array
+    {
+        $fallback = VenuePackageCatalog::options();
+
+        if (! class_exists(VenuePackageTemplate::class)) {
+            return $fallback;
+        }
+
+        try {
+            $query = VenuePackageTemplate::query()
+                ->where('is_public', true)
+                ->orderBy('sort_order')
+                ->orderBy('name');
+
+            $packages = $query->get();
+
+            if ($packages->isEmpty()) {
+                return $fallback;
+            }
+
+            return $packages->map(fn (VenuePackageTemplate $package) => [
+                'code' => $package->code,
+                'name' => $package->name,
+                'label' => $package->name,
+                'subtitle' => $package->subtitle,
+                'description' => $package->description,
+                'area_keys' => VenueAreaCatalog::canonicalKeys($package->area_keys ?? []),
+                'area_labels' => VenueAreaCatalog::displayNames($package->area_keys ?? []),
+                'image_path' => $package->image_path,
+                'is_public' => (bool) $package->is_public,
+                'is_featured' => (bool) $package->is_featured,
+                'sort_order' => (int) $package->sort_order,
+            ])->values()->all();
+        } catch (\Throwable) {
+            return $fallback;
+        }
+    }
+
+    private function extractInitialPackageCode(Request $request): ?string
+    {
+        return VenuePackageCatalog::normalizeCode(
+            $request->query('package')
+                ?? $request->query('package_code')
+                ?? $request->query('selected_package_code')
+                ?? null
+        );
     }
 
     private function extractInitialSchedule(Request $request): array

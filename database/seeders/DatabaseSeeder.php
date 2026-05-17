@@ -30,6 +30,12 @@ class DatabaseSeeder extends Seeder
              * They are only Full Hall support notes.
              */
             BcccVenuePackageSeeder::class,
+
+            /*
+             * Public operational package combinations for the homepage and booking entry.
+             * Full Hall does not automatically include VIP Lounge, Board Room, or LED Wall.
+             */
+            VenuePackageTemplateSeeder::class,
         ]);
     }
 }
