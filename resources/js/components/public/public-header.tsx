@@ -279,7 +279,7 @@ function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSetti
                         key={item.label}
                         href={item.href}
                         className={cx(
-                            'relative inline-flex min-h-10 items-center rounded-md px-2.5 text-[12px] font-bold tracking-[0.01em] text-white/90 transition hover:bg-white/10 hover:text-white 2xl:px-3.5 2xl:text-sm',
+                            'relative inline-flex min-h-10 items-center rounded-md px-2.5 text-[12px] font-medium tracking-[0.12em] text-white/90 transition hover:bg-white/10 hover:text-white 2xl:px-3.5 2xl:text-sm',
                             active &&
                                 'bg-white/10 text-white after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#f4dfad]/90',
                         )}
@@ -450,11 +450,11 @@ export default function PublicHeader() {
                         </span>
 
                         <span className="hidden min-w-0 sm:block">
-                            <span className="block w-fit border-b border-white/75 pb-1 text-[12px] font-bold leading-none tracking-[-0.01em] text-white lg:text-[15px]">
-                                Republic of the Philippines
+                            <span className="block w-fit border-b border-white/75 pb-1 text-[12px] font-bold leading-none font-medium tracking-[0.12em] text-white lg:text-[15px]">
+                                Baguio Convention and Cultural Center
                             </span>
-                            <span className="mt-2 block text-[12px] font-bold leading-none tracking-[-0.01em] text-white lg:text-[15px]">
-                                City Government of Baguio
+                            <span className="mt-2 block text-[12px] leading-none font-medium -translate-y-[5.1px] tracking-[0.12em] text-white lg:text-[15px]">
+                                Events Access and Scheduling Engine
                             </span>
                         </span>
                     </Link>
