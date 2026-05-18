@@ -44,6 +44,7 @@ type MiceRecord = {
     function_halls_count?: number | string | null;
     function_hall_capacity?: number | string | null;
     covered_month?: string | null;
+    month_added?: string | null;
     event_started_at?: string | null;
     event_finished_at?: string | null;
     number_of_hours?: number | string | null;

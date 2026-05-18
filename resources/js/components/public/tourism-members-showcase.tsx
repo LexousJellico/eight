@@ -1,58 +1,49 @@
+import SafeImage from '@/components/system/safe-image';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Mail, Phone, Star, UsersRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Mail, Phone, UserRound, UsersRound } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 type TourismRecord = {
     id?: number | string;
-
     fullName?: string | null;
     full_name?: string | null;
     name?: string | null;
     title?: string | null;
-
     designation?: string | null;
     position?: string | null;
     role?: string | null;
-
     officeSection?: string | null;
     office_section?: string | null;
     unitName?: string | null;
     unit_name?: string | null;
     teamLabel?: string | null;
     team_label?: string | null;
-    reportsToName?: string | null;
-    reports_to_name?: string | null;
     treeLevel?: number | string | null;
     tree_level?: number | string | null;
-
     shortBio?: string | null;
     short_bio?: string | null;
     bio?: string | null;
     description?: string | null;
+    message?: string | null;
     details?: string[] | string | null;
     detailsText?: string | null;
     details_text?: string | null;
-
     photo?: string | null;
     photoUrl?: string | null;
     photo_url?: string | null;
     photoPath?: string | null;
     photo_path?: string | null;
-
     image?: string | null;
     imageUrl?: string | null;
     image_url?: string | null;
     imagePath?: string | null;
     image_path?: string | null;
-
     active?: boolean | number | string | null;
     is_active?: boolean | number | string | null;
     featured?: boolean | number | string | null;
     is_featured?: boolean | number | string | null;
-
     email?: string | null;
     phone?: string | null;
-
     sortOrder?: number | string | null;
     sort_order?: number | string | null;
 };
@@ -61,116 +52,92 @@ type Props = {
     items?: TourismRecord[];
 };
 
+type StageState = {
+    x: number;
+    y: number;
+    scale: number;
+    opacity: number;
+    zIndex: number;
+    rotate: number;
+    blur: number;
+};
+
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
-}
-
-function truthy(value: unknown) {
-    return value === true || value === 1 || value === '1' || value === 'true';
 }
 
 function hidden(value: unknown) {
     return value === false || value === 0 || value === '0' || value === 'false';
 }
 
-function safeString(value: unknown, fallback = '') {
+function truthy(value: unknown) {
+    return value === true || value === 1 || value === '1' || value === 'true';
+}
+
+function text(value: unknown, fallback = '') {
     if (value === null || value === undefined) return fallback;
-    return String(value);
+
+    return String(value).trim() || fallback;
 }
 
 function nameOf(item: TourismRecord) {
-    return safeString(item.fullName || item.full_name || item.name || item.title, 'Tourism Member');
+    return text(item.fullName || item.full_name || item.name || item.title, 'CTCAO Member');
 }
 
-function designationOf(item: TourismRecord) {
-    return safeString(item.designation || item.position || item.role, 'Tourism Office');
+function positionOf(item: TourismRecord) {
+    return text(item.designation || item.position || item.role, 'City Tourism, Culture and Arts Office');
 }
 
-function officeOf(item: TourismRecord) {
-    return safeString(item.officeSection || item.office_section, 'CTCAO');
-}
-
-function unitOf(item: TourismRecord) {
-    return safeString(item.unitName || item.unit_name || item.teamLabel || item.team_label);
-}
-
-function teamOf(item: TourismRecord) {
-    return safeString(item.teamLabel || item.team_label);
-}
-
-function reportsToOf(item: TourismRecord) {
-    return safeString(item.reportsToName || item.reports_to_name);
-}
-
-function levelOf(item: TourismRecord) {
-    return safeString(item.treeLevel || item.tree_level);
-}
-
-function bioOf(item: TourismRecord) {
-    return safeString(item.shortBio || item.short_bio || item.bio || item.description);
+function sectionOf(item: TourismRecord) {
+    return text(item.officeSection || item.office_section || item.teamLabel || item.team_label || item.unitName || item.unit_name, 'CTCAO');
 }
 
 function photoOf(item: TourismRecord) {
-    return safeString(
+    return text(
         item.photo ||
             item.photoUrl ||
             item.photo_url ||
             item.photoPath ||
             item.photo_path ||
+            item.image ||
             item.imageUrl ||
             item.image_url ||
             item.imagePath ||
-            item.image_path ||
-            item.image,
+            item.image_path,
+        '',
     );
 }
 
-function isFeatured(item: TourismRecord) {
-    return truthy(item.featured) || truthy(item.is_featured);
+function messageOf(item: TourismRecord) {
+    const raw = item.message || item.shortBio || item.short_bio || item.bio || item.description || item.details || item.detailsText || item.details_text;
+
+    if (Array.isArray(raw)) {
+        return raw.map((line) => text(line)).filter(Boolean).join('\n');
+    }
+
+    return text(raw, 'This CTCAO team member supports tourism, culture, arts, creative-city programs, event coordination, and public service assistance for Baguio City.');
 }
 
-function isVisible(item: TourismRecord) {
-    if (hidden(item.active) || hidden(item.is_active)) return false;
-    return true;
+function levelOf(item: TourismRecord) {
+    const value = Number(item.treeLevel ?? item.tree_level ?? 99);
+
+    return Number.isFinite(value) ? value : 99;
 }
 
 function sortOrderOf(item: TourismRecord) {
     const value = Number(item.sortOrder ?? item.sort_order ?? 9999);
+
     return Number.isFinite(value) ? value : 9999;
-}
-
-function detailsOf(item: TourismRecord) {
-    const raw = item.details ?? item.detailsText ?? item.details_text;
-
-    if (Array.isArray(raw)) {
-        return raw.map((line) => safeString(line).trim()).filter(Boolean);
-    }
-
-    if (typeof raw === 'string') {
-        return raw
-            .split('\n')
-            .map((line) => line.trim())
-            .filter(Boolean);
-    }
-
-    return [];
 }
 
 function normalizeMembers(items: TourismRecord[]) {
     return items
-        .filter(isVisible)
+        .filter((item) => !hidden(item.active) && !hidden(item.is_active))
         .sort((a, b) => {
-            if (isFeatured(a) !== isFeatured(b)) return isFeatured(a) ? -1 : 1;
-
-            const levelA = Number(levelOf(a) || 99);
-            const levelB = Number(levelOf(b) || 99);
-
-            if (levelA !== levelB) return levelA - levelB;
-
-            const sortA = sortOrderOf(a);
-            const sortB = sortOrderOf(b);
-
-            if (sortA !== sortB) return sortA - sortB;
+            if (truthy(a.featured) !== truthy(b.featured)) return truthy(a.featured) ? -1 : 1;
+            if (truthy(a.is_featured) !== truthy(b.is_featured)) return truthy(a.is_featured) ? -1 : 1;
+            if (levelOf(a) !== levelOf(b)) return levelOf(a) - levelOf(b);
+            if (sortOrderOf(a) !== sortOrderOf(b)) return sortOrderOf(a) - sortOrderOf(b);
 
             return nameOf(a).localeCompare(nameOf(b));
         });
@@ -189,319 +156,397 @@ function signedOffset(index: number, active: number, total: number) {
     return raw;
 }
 
-function cardState(index: number, active: number, total: number, reducedMotion: boolean) {
+function stageState(index: number, active: number, total: number, reducedMotion: boolean): StageState {
     const offset = signedOffset(index, active, total);
 
-    const states: Record<number, { x: number; y: number; scale: number; opacity: number; zIndex: number; filter: string }> = {
-        [-3]: { x: -500, y: 42, scale: 0.54, opacity: 0.12, zIndex: 2, filter: 'grayscale(1) blur(2px) brightness(0.48)' },
-        [-2]: { x: -330, y: 32, scale: 0.68, opacity: 0.34, zIndex: 6, filter: 'grayscale(1) blur(1.2px) brightness(0.60)' },
-        [-1]: { x: -175, y: 18, scale: 0.86, opacity: 0.72, zIndex: 14, filter: 'grayscale(0.8) blur(0.35px) brightness(0.78)' },
-        [0]: { x: 0, y: -18, scale: 1.12, opacity: 1, zIndex: 32, filter: 'grayscale(0) blur(0px) brightness(1.04)' },
-        [1]: { x: 175, y: 18, scale: 0.86, opacity: 0.72, zIndex: 14, filter: 'grayscale(0.8) blur(0.35px) brightness(0.78)' },
-        [2]: { x: 330, y: 32, scale: 0.68, opacity: 0.34, zIndex: 6, filter: 'grayscale(1) blur(1.2px) brightness(0.60)' },
-        [3]: { x: 500, y: 42, scale: 0.54, opacity: 0.12, zIndex: 2, filter: 'grayscale(1) blur(2px) brightness(0.48)' },
+    const map: Record<number, StageState> = {
+        [-4]: { x: -470, y: 46, scale: 0.52, opacity: 0.04, zIndex: 1, rotate: -1.5, blur: 2 },
+        [-3]: { x: -372, y: 40, scale: 0.6, opacity: 0.12, zIndex: 2, rotate: -1.2, blur: 1.4 },
+        [-2]: { x: -270, y: 31, scale: 0.72, opacity: 0.34, zIndex: 8, rotate: -0.8, blur: 0.7 },
+        [-1]: { x: -145, y: 16, scale: 0.88, opacity: 0.82, zIndex: 18, rotate: -0.35, blur: 0 },
+        [0]: { x: 0, y: -5, scale: 1.05, opacity: 1, zIndex: 40, rotate: 0, blur: 0 },
+        [1]: { x: 145, y: 16, scale: 0.88, opacity: 0.82, zIndex: 18, rotate: 0.35, blur: 0 },
+        [2]: { x: 270, y: 31, scale: 0.72, opacity: 0.34, zIndex: 8, rotate: 0.8, blur: 0.7 },
+        [3]: { x: 372, y: 40, scale: 0.6, opacity: 0.12, zIndex: 2, rotate: 1.2, blur: 1.4 },
+        [4]: { x: 470, y: 46, scale: 0.52, opacity: 0.04, zIndex: 1, rotate: 1.5, blur: 2 },
     };
 
-    const fallback = {
-        x: offset * 150,
-        y: 46,
-        scale: 0.42,
+    const state = map[offset] ?? {
+        x: offset * 108,
+        y: 52,
+        scale: 0.46,
         opacity: 0,
         zIndex: 0,
-        filter: 'grayscale(1) blur(3px) brightness(0.35)',
+        rotate: 0,
+        blur: 3,
     };
 
-    const state = states[offset] ?? fallback;
-
-    if (reducedMotion) {
-        return {
-            ...state,
-            y: 0,
-            filter: offset === 0 ? 'brightness(1)' : 'grayscale(1) brightness(0.74)',
-        };
+    if (!reducedMotion) {
+        return state;
     }
 
-    return state;
+    return {
+        ...state,
+        rotate: 0,
+        blur: 0,
+        y: offset === 0 ? -4 : 18,
+    };
 }
 
-function EmptyTourismPanel() {
+function splitName(name: string) {
+    const clean = name.trim();
+    const quotedMatch = clean.match(/^(.*?)(".*?")(.*)$/);
+
+    if (quotedMatch) {
+        return [quotedMatch[1].trim(), `${quotedMatch[2]} ${quotedMatch[3]}`.trim()].filter(Boolean);
+    }
+
+    const parts = clean.split(/\s+/);
+
+    if (parts.length <= 2) return [clean];
+
+    const midpoint = Math.ceil(parts.length / 2);
+
+    return [parts.slice(0, midpoint).join(' '), parts.slice(midpoint).join(' ')];
+}
+
+function EmptyPanel() {
     return (
-        <section className="bg-[#f7f0e3] px-4 py-16 dark:bg-[#080b0f] sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-7xl">
-                <div className="grid min-h-[20rem] place-items-center rounded-[1.5rem] border border-dashed border-[#d9c7a6]/70 bg-white/55 p-8 text-center dark:border-white/10 dark:bg-white/[0.035]">
-                    <div>
-                        <UsersRound className="mx-auto h-10 w-10 text-[#b08d48] dark:text-[#f1d89b]" />
+        <section className="bg-[#e8eef1] px-4 py-14 dark:bg-[#07110f] sm:px-6 lg:px-8">
+            <div className="mx-auto grid max-w-5xl place-items-center rounded-xl border border-dashed border-[#176456]/25 bg-white/60 p-8 text-center shadow-[0_18px_55px_rgba(8,47,42,0.06)] dark:border-white/10 dark:bg-white/[0.04]">
+                <UsersRound className="h-9 w-9 text-[#176456] dark:text-[#9fe8dc]" />
+                <h3 className="mt-4 text-2xl font-bold tracking-[-0.04em] text-[#153d66] dark:text-white">No CTCAO team profiles yet</h3>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-[#425466] dark:text-white/60">Add active Tourism Office members in the Content Manager.</p>
+            </div>
+        </section>
+    );
+}
 
-                        <h3 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-[#21180d] dark:text-white">
-                            No tourism members yet
-                        </h3>
+function TeamImage({ member, className }: { member: TourismRecord; className?: string }) {
+    const src = photoOf(member);
 
-                        <p className="mx-auto mt-3 max-w-[62ch] text-sm leading-7 text-[#6e604c] dark:text-white/56">
-                            Create active Tourism Office profiles in the Content Manager. Saved members will appear here automatically.
-                        </p>
+    if (!src) {
+        return (
+            <div className={cx('grid h-full w-full place-items-center bg-[#dfe9ea] text-[#176456] dark:bg-white/10 dark:text-[#9fe8dc]', className)}>
+                <div className="grid h-16 w-16 place-items-center rounded-full border border-[#176456]/15 bg-white/65 shadow-[0_12px_30px_rgba(21,61,102,0.12)]">
+                    <UserRound className="h-8 w-8" />
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <SafeImage
+            src={src}
+            fallbackSrc="/marketing/images/events/default.png"
+            alt={nameOf(member)}
+            className={cx('h-full w-full object-cover', className)}
+            wrapperClassName="h-full w-full rounded-none border-0"
+        />
+    );
+}
+
+function ReferenceCard({ member, active, onSelect }: { member: TourismRecord; active: boolean; onSelect: () => void }) {
+    const lines = splitName(nameOf(member));
+
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className={cx(
+                'group flex h-[25rem] w-[16.5rem] flex-col overflow-hidden rounded-[3px] border bg-[#edf3f5] text-center shadow-[0_18px_50px_rgba(21,61,102,0.12)] transition focus:outline-none focus:ring-2 focus:ring-[#176456] dark:border-white/10 dark:bg-white/[0.055]',
+                active ? 'border-[#176456]/35' : 'border-[#c6d4d7]/80',
+            )}
+        >
+            <div className="px-5 pb-5 pt-6">
+                <p className="min-h-5 truncate text-[11px] font-black uppercase tracking-[0.09em] text-[#334357] dark:text-white/72">{sectionOf(member)}</p>
+
+                <p className="mt-2 line-clamp-1 text-[11px] font-black uppercase tracking-[0.06em] text-[#176456] dark:text-[#9fe8dc]">{positionOf(member)}</p>
+
+                <div className="mx-auto mt-5 h-[12rem] w-full overflow-hidden rounded-[3px] border border-white/80 bg-white shadow-[0_12px_30px_rgba(21,61,102,0.10)] dark:border-white/10 dark:bg-white/[0.08]">
+                    <TeamImage member={member} className="transition duration-500 group-hover:scale-105" />
+                </div>
+
+                <div className="mt-5 flex min-h-[4.5rem] flex-col items-center justify-center">
+                    {lines.map((line) => (
+                        <span
+                            key={line}
+                            className={cx(
+                                'block font-black uppercase leading-[1.02] tracking-[-0.05em] text-[#17243a] dark:text-white',
+                                active ? 'text-[25px]' : 'text-[20px]',
+                            )}
+                        >
+                            {line}
+                        </span>
+                    ))}
+                </div>
+
+                {active ? (
+                    <span className="mt-2 inline-flex items-center justify-center gap-2 text-[12px] font-bold text-[#176456] transition group-hover:gap-3 dark:text-[#9fe8dc]">
+                        View Profile <ArrowRight className="h-4 w-4" />
+                    </span>
+                ) : null}
+            </div>
+        </button>
+    );
+}
+
+function MobileCard({ member, onSelect }: { member: TourismRecord; onSelect: () => void }) {
+    const lines = splitName(nameOf(member));
+
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className="w-[16.25rem] shrink-0 snap-center overflow-hidden rounded-[4px] border border-[#176456]/16 bg-[#edf3f5] text-center shadow-[0_18px_45px_rgba(21,61,102,0.10)] dark:border-white/10 dark:bg-white/[0.055]"
+        >
+            <div className="p-5">
+                <p className="truncate text-[11px] font-black uppercase tracking-[0.09em] text-[#334357] dark:text-white/72">{sectionOf(member)}</p>
+                <p className="mt-2 truncate text-[11px] font-black uppercase tracking-[0.06em] text-[#176456] dark:text-[#9fe8dc]">{positionOf(member)}</p>
+
+                <div className="mt-4 h-[11.75rem] overflow-hidden rounded-[3px] border border-white/80 bg-white dark:border-white/10 dark:bg-white/[0.08]">
+                    <TeamImage member={member} />
+                </div>
+
+                <div className="mt-5 min-h-[4rem]">
+                    {lines.map((line) => (
+                        <span key={line} className="block text-[22px] font-black uppercase leading-none tracking-[-0.05em] text-[#17243a] dark:text-white">
+                            {line}
+                        </span>
+                    ))}
+                </div>
+
+                <span className="mt-4 inline-flex items-center justify-center gap-2 text-[12px] font-bold text-[#176456] dark:text-[#9fe8dc]">
+                    View Profile <ArrowRight className="h-4 w-4" />
+                </span>
+            </div>
+        </button>
+    );
+}
+
+function ProfileDetail({ member, onBack }: { member: TourismRecord; onBack: () => void }) {
+    const lines = messageOf(member)
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    return (
+        <motion.div
+            key="profile-detail"
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 18 }}
+            transition={{ duration: 0.25 }}
+            className="relative overflow-hidden bg-[#e8eef1] dark:bg-[#07110f]"
+        >
+            <div className="relative mx-auto max-w-[1420px] px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
+                <button
+                    type="button"
+                    onClick={onBack}
+                    className="inline-flex items-center gap-2 rounded-full px-2 py-2 text-sm font-bold text-[#176456] transition hover:bg-[#176456]/10 dark:text-[#9fe8dc] dark:hover:bg-white/10"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Go back
+                </button>
+
+                <div className="mt-8 grid gap-8 lg:grid-cols-[0.48fr_1fr] lg:items-start">
+                    <div className="overflow-hidden rounded-[6px] bg-white shadow-[0_20px_60px_rgba(21,61,102,0.12)] ring-1 ring-[#176456]/14 dark:bg-white/[0.055] dark:ring-white/10">
+                        <div className="aspect-[4/4.45]">
+                            <TeamImage member={member} />
+                        </div>
+                    </div>
+
+                    <div className="pt-1 lg:pt-2">
+                        <p className="text-[12px] font-black uppercase tracking-[0.16em] text-[#176456] dark:text-[#9fe8dc]">{sectionOf(member)}</p>
+
+                        <h2 className="mt-3 max-w-5xl text-4xl font-bold leading-[1.05] tracking-[-0.055em] text-[#174f5f] dark:text-white md:text-5xl">
+                            {nameOf(member)}
+                        </h2>
+
+                        <p className="mt-3 text-base font-semibold uppercase tracking-[0.02em] text-[#243246] dark:text-white/80">{positionOf(member)}</p>
+
+                        {(member.email || member.phone) && (
+                            <div className="mt-5 flex flex-wrap gap-2">
+                                {member.email ? (
+                                    <a
+                                        href={`mailto:${member.email}`}
+                                        className="inline-flex items-center gap-2 rounded-full border border-[#176456]/15 bg-white/70 px-4 py-2 text-xs font-bold text-[#176456] transition hover:bg-[#176456] hover:text-white dark:border-white/10 dark:bg-white/10 dark:text-[#9fe8dc]"
+                                    >
+                                        <Mail className="h-3.5 w-3.5" />
+                                        {member.email}
+                                    </a>
+                                ) : null}
+
+                                {member.phone ? (
+                                    <a
+                                        href={`tel:${member.phone}`}
+                                        className="inline-flex items-center gap-2 rounded-full border border-[#176456]/15 bg-white/70 px-4 py-2 text-xs font-bold text-[#176456] transition hover:bg-[#176456] hover:text-white dark:border-white/10 dark:bg-white/10 dark:text-[#9fe8dc]"
+                                    >
+                                        <Phone className="h-3.5 w-3.5" />
+                                        {member.phone}
+                                    </a>
+                                ) : null}
+                            </div>
+                        )}
+
+                        <div className="mt-9">
+                            <p className="text-sm font-semibold uppercase tracking-[0.08em] text-[#8b98a4] dark:text-white/45">Message</p>
+
+                            <div className="mt-3 space-y-3 text-base leading-8 text-[#1d2d3f] dark:text-white/74">
+                                {lines.map((line) => (
+                                    <p key={line}>{line}</p>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </section>
+        </motion.div>
     );
 }
 
 export default function TourismMembersShowcase({ items = [] }: Props) {
-    const records = useMemo(() => normalizeMembers(Array.isArray(items) ? items : []), [items]);
+    const members = useMemo(() => normalizeMembers(Array.isArray(items) ? items : []), [items]);
     const [active, setActive] = useState(0);
-    const [direction, setDirection] = useState(1);
+    const [selected, setSelected] = useState<TourismRecord | null>(null);
     const reducedMotion = Boolean(useReducedMotion());
 
-    if (records.length === 0) {
-        return <EmptyTourismPanel />;
+    if (members.length === 0) {
+        return <EmptyPanel />;
     }
 
-    const current = records[mod(active, records.length)];
+    const activeIndex = mod(active, members.length);
 
-    function goTo(index: number) {
-        if (index === active) return;
-
-        setDirection(index > active ? 1 : -1);
-        setActive(index);
+    function previous() {
+        setActive((value) => mod(value - 1, members.length));
     }
 
     function next() {
-        setDirection(1);
-        setActive((value) => mod(value + 1, records.length));
+        setActive((value) => mod(value + 1, members.length));
     }
 
-    function previous() {
-        setDirection(-1);
-        setActive((value) => mod(value - 1, records.length));
+    function choose(index: number) {
+        const normalized = mod(index, members.length);
+
+        if (normalized === activeIndex) {
+            setSelected(members[normalized]);
+            return;
+        }
+
+        setActive(normalized);
     }
 
     return (
-        <section className="bg-[#f7f0e3] px-0 py-20 text-[#21180d] dark:bg-[#080b0f] dark:text-white">
-            <div className="mx-auto max-w-[100vw] overflow-hidden">
-                <div className="mx-auto mb-10 max-w-5xl px-4 text-center sm:px-6 lg:px-8">
-                    <p className="text-[18px] font-bold uppercase tracking-[0.26em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                        CITY TOURISM, CULUTURE AND ARTS OFFICE
-                    </p>
-
-                    <h2 className="mt-4 text-5xl font-bold leading-[0.95] tracking-[-0.075em] md:text-7xl">
-                        Meet the Team
-                    </h2>
-                </div>
-
-                <div className="relative isolate min-h-[46rem] overflow-hidden border-y border-[#d9c7a6]/70 bg-white/64 py-10 shadow-[0_28px_90px_rgba(47,37,23,0.10)] dark:border-white/10 dark:bg-white/[0.045]">
-                    <div className="pointer-events-none absolute inset-0 -z-10">
-                        <div className="absolute left-1/2 top-8 h-[28rem] w-[60rem] -translate-x-1/2 rounded-full bg-[#2f4d8d]/10 blur-3xl" />
-                        <div className="absolute left-1/2 top-[8rem] -translate-x-1/2 text-center text-[clamp(5rem,15vw,13rem)] font-black uppercase leading-none tracking-[-0.09em] text-[#2f4d8d]/10 dark:text-white/7">
-                            Our Team
-                        </div>
-                        <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#f7f0e3] to-transparent dark:from-[#080b0f]" />
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={previous}
-                        className="absolute left-4 top-[18rem] z-40 grid h-11 w-11 place-items-center rounded-full bg-[#2f4d8d] text-white shadow-[0_16px_40px_rgba(47,77,141,0.28)] transition hover:-translate-y-1 hover:scale-105 md:left-10"
-                        aria-label="Previous member"
+        <section className="relative overflow-hidden bg-[#e8eef1] text-[#153d66] dark:bg-[#07110f] dark:text-white">
+            <AnimatePresence mode="wait">
+                {selected ? (
+                    <ProfileDetail member={selected} onBack={() => setSelected(null)} />
+                ) : (
+                    <motion.div
+                        key="team-carousel"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.22 }}
+                        className="relative px-0 py-10 lg:py-12"
                     >
-                        <ChevronLeft className="h-5 w-5" />
-                    </button>
+                        <div className="absolute inset-x-0 top-0 h-px bg-[#176456]/12 dark:bg-white/10" />
+                        <div className="absolute left-1/2 top-16 h-52 w-[38rem] -translate-x-1/2 rounded-full bg-[#176456]/8 blur-3xl dark:bg-[#9fe8dc]/8" />
 
-                    <button
-                        type="button"
-                        onClick={next}
-                        className="absolute right-4 top-[18rem] z-40 grid h-11 w-11 place-items-center rounded-full bg-[#2f4d8d] text-white shadow-[0_16px_40px_rgba(47,77,141,0.28)] transition hover:-translate-y-1 hover:scale-105 md:right-10"
-                        aria-label="Next member"
-                    >
-                        <ChevronRight className="h-5 w-5" />
-                    </button>
+                        <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
+                            <span className="inline-flex rounded-full border border-[#176456]/14 bg-white/55 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#176456] shadow-[0_10px_24px_rgba(21,61,102,0.05)] backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-[#9fe8dc]">
+                                Public Service Team
+                            </span>
 
-                    <div className="relative mx-auto h-[28rem] max-w-7xl">
-                        {records.map((member, index) => {
-                            const state = cardState(index, active, records.length, reducedMotion);
-                            const photo = photoOf(member);
-                            const selected = index === active;
+                            <h2 className="mt-4 text-4xl font-bold leading-tight tracking-[-0.055em] text-[#174f5f] dark:text-white md:text-5xl">CTCAO Team</h2>
 
-                            return (
-                                <motion.button
-                                    type="button"
-                                    key={member.id ?? `${nameOf(member)}-${index}`}
-                                    onClick={() => goTo(index)}
-                                    className={cx(
-                                        'absolute left-1/2 top-1/2 h-[20rem] w-[15rem] overflow-hidden rounded-[1.45rem] border bg-white text-left shadow-[0_28px_80px_rgba(32,23,13,0.20)] dark:bg-white/8',
-                                        selected ? 'border-[#2f4d8d]/35 dark:border-white/20' : 'border-white/60 dark:border-white/10',
-                                    )}
-                                    initial={false}
-                                    animate={{
-                                        x: state.x,
-                                        y: state.y,
-                                        scale: state.scale,
-                                        opacity: state.opacity,
-                                        filter: state.filter,
-                                    }}
-                                    transition={{
-                                        type: reducedMotion ? false : 'spring',
-                                        stiffness: 82,
-                                        damping: 22,
-                                        mass: 0.88,
-                                    }}
-                                    style={{
-                                        zIndex: state.zIndex,
-                                        marginLeft: '-7.5rem',
-                                        marginTop: '-10rem',
-                                    }}
-                                    aria-label={`View ${nameOf(member)}`}
-                                >
-                                    {photo ? (
-                                        <img
-                                            src={photo}
-                                            alt={nameOf(member)}
-                                            className="h-full w-full object-cover"
-                                            draggable={false}
-                                        />
-                                    ) : (
-                                        <div className="grid h-full place-items-center bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
-                                            <UsersRound className="h-14 w-14" />
-                                        </div>
-                                    )}
-
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/86 via-black/12 to-transparent" />
-
-                                    {isFeatured(member) ? (
-                                        <span className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#f1d89b] text-[#2f2517] shadow-lg">
-                                            <Star className="h-4 w-4 fill-current" />
-                                        </span>
-                                    ) : null}
-
-                                    <div className="absolute inset-x-0 bottom-0 z-10 p-4">
-                                        <p className="line-clamp-1 text-base font-bold tracking-[-0.02em] text-white">
-                                            {nameOf(member)}
-                                        </p>
-                                        <p className="mt-1 line-clamp-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white/64">
-                                            {designationOf(member)}
-                                        </p>
-                                    </div>
-                                </motion.button>
-                            );
-                        })}
-                    </div>
-
-                    <AnimatePresence mode="wait" initial={false}>
-                        <motion.div
-                            key={`${current.id ?? active}-details`}
-                            initial={
-                                reducedMotion
-                                    ? false
-                                    : {
-                                          opacity: 0,
-                                          y: 18,
-                                          x: direction > 0 ? 22 : -22,
-                                          filter: 'blur(10px)',
-                                      }
-                            }
-                            animate={{ opacity: 1, y: 0, x: 0, filter: 'blur(0px)' }}
-                            exit={
-                                reducedMotion
-                                    ? { opacity: 0 }
-                                    : {
-                                          opacity: 0,
-                                          y: -10,
-                                          x: direction > 0 ? -18 : 18,
-                                          filter: 'blur(8px)',
-                                      }
-                            }
-                            transition={{ duration: reducedMotion ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
-                            className="relative z-30 mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8"
-                        >
-                            <div className="flex items-center justify-center gap-4">
-                                <span className="hidden h-px w-16 bg-[#2f4d8d]/50 sm:block" />
-                                <h3 className="text-3xl font-bold tracking-[-0.055em] text-[#22396b] dark:text-white md:text-4xl">
-                                    {nameOf(current)}
-                                </h3>
-                                <span className="hidden h-px w-16 bg-[#2f4d8d]/50 sm:block" />
-                            </div>
-
-                            <p className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-[#2f4d8d] dark:text-[#f1d89b]">
-                                {designationOf(current)}
+                            <p className="mx-auto mt-3 max-w-3xl text-base leading-7 text-[#243246] dark:text-white/65">
+                                Meet the team supporting Baguio City tourism, culture, arts, creative-city coordination, and public event assistance.
                             </p>
+                        </div>
 
-                            <div className="mt-4 flex flex-wrap justify-center gap-2">
-                                <Badge>{officeOf(current)}</Badge>
+                        <div className="relative mt-8 md:hidden">
+                            <div className="flex snap-x gap-4 overflow-x-auto px-4 pb-5 [scrollbar-width:thin] sm:px-6">
+                                {members.map((member) => (
+                                    <MobileCard key={member.id ?? nameOf(member)} member={member} onSelect={() => setSelected(member)} />
+                                ))}
+                            </div>
+                        </div>
 
-                                {unitOf(current) ? <Badge>{unitOf(current)}</Badge> : null}
-                                {teamOf(current) && teamOf(current) !== unitOf(current) ? <Badge>{teamOf(current)}</Badge> : null}
-                                {levelOf(current) ? <Badge>Level {levelOf(current)}</Badge> : null}
-                                {reportsToOf(current) ? <Badge>Reports to {reportsToOf(current)}</Badge> : null}
+                        <div className="relative mt-8 hidden min-h-[32rem] overflow-hidden md:block">
+                            <div className="pointer-events-none absolute inset-x-0 top-[12rem] z-0 mx-auto h-32 max-w-4xl rounded-full bg-[#176456]/8 blur-3xl dark:bg-[#9fe8dc]/8" />
+
+                            <div className="relative mx-auto h-[27.5rem] max-w-[1040px]">
+                                {members.map((member, index) => {
+                                    const state = stageState(index, activeIndex, members.length, reducedMotion);
+
+                                    return (
+                                        <motion.div
+                                            key={member.id ?? `${nameOf(member)}-${index}`}
+                                            className="absolute left-1/2 top-4 origin-center"
+                                            animate={{
+                                                x: state.x,
+                                                y: state.y,
+                                                scale: state.scale,
+                                                opacity: state.opacity,
+                                                rotate: state.rotate,
+                                                filter: `blur(${state.blur}px)`,
+                                            }}
+                                            transition={{
+                                                type: reducedMotion ? false : 'spring',
+                                                stiffness: 110,
+                                                damping: 25,
+                                                mass: 0.86,
+                                            }}
+                                            style={{
+                                                zIndex: state.zIndex,
+                                                marginLeft: '-8.25rem',
+                                            }}
+                                        >
+                                            <ReferenceCard member={member} active={index === activeIndex} onSelect={() => choose(index)} />
+                                        </motion.div>
+                                    );
+                                })}
                             </div>
 
-                            {bioOf(current) ? (
-                                <p className="mx-auto mt-5 max-w-[70ch] text-base leading-8 text-[#6e604c] dark:text-white/62">
-                                    {bioOf(current)}
-                                </p>
-                            ) : null}
+                            <div className="relative z-40 -mt-6 flex items-center justify-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={previous}
+                                    className="grid h-10 w-10 place-items-center rounded-full bg-[#176456] text-white shadow-[0_12px_30px_rgba(23,100,86,0.24)] transition hover:-translate-y-0.5 hover:bg-[#21836f]"
+                                    aria-label="Previous CTCAO member"
+                                >
+                                    <ChevronLeft className="h-5 w-5" />
+                                </button>
 
-                            {detailsOf(current).length > 0 ? (
-                                <div className="mx-auto mt-5 grid max-w-3xl gap-2 text-left sm:grid-cols-2">
-                                    {detailsOf(current)
-                                        .slice(0, 4)
-                                        .map((detail, index) => (
-                                            <div
-                                                key={`${detail}-${index}`}
-                                                className="rounded-[1rem] border border-[#d9c7a6]/60 bg-white/72 px-4 py-3 text-sm leading-6 text-[#6e604c] dark:border-white/10 dark:bg-white/[0.04] dark:text-white/58"
-                                            >
-                                                {detail}
-                                            </div>
-                                        ))}
-                                </div>
-                            ) : null}
-
-                            <div className="mt-5 flex flex-wrap justify-center gap-2">
-                                {current.email ? (
-                                    <a
-                                        href={`mailto:${current.email}`}
-                                        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
-                                    >
-                                        <Mail className="h-4 w-4" />
-                                        Email
-                                    </a>
-                                ) : null}
-
-                                {current.phone ? (
-                                    <a
-                                        href={`tel:${current.phone}`}
-                                        className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
-                                    >
-                                        <Phone className="h-4 w-4" />
-                                        Call
-                                    </a>
-                                ) : null}
+                                <button
+                                    type="button"
+                                    onClick={next}
+                                    className="grid h-10 w-10 place-items-center rounded-full bg-[#176456] text-white shadow-[0_12px_30px_rgba(23,100,86,0.24)] transition hover:-translate-y-0.5 hover:bg-[#21836f]"
+                                    aria-label="Next CTCAO member"
+                                >
+                                    <ChevronRight className="h-5 w-5" />
+                                </button>
                             </div>
 
-                            <div className="mt-6 flex justify-center gap-2">
-                                {records.map((member, index) => (
+                            <div className="relative z-40 mt-4 flex justify-center gap-2">
+                                {members.map((member, index) => (
                                     <button
-                                        key={member.id ?? index}
+                                        key={member.id ?? `${nameOf(member)}-dot-${index}`}
                                         type="button"
-                                        onClick={() => goTo(index)}
+                                        onClick={() => choose(index)}
                                         className={cx(
-                                            'h-2 rounded-full transition-all',
-                                            index === active ? 'w-7 bg-[#2f4d8d]' : 'w-2 bg-[#2f4d8d]/25 dark:bg-white/25',
+                                            'h-1.5 rounded-full transition-all',
+                                            index === activeIndex ? 'w-7 bg-[#176456]' : 'w-1.5 bg-[#176456]/25 dark:bg-white/25',
                                         )}
-                                        aria-label={`Go to member ${index + 1}`}
+                                        aria-label={`Show ${nameOf(member)}`}
                                     />
                                 ))}
                             </div>
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
-            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </section>
-    );
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-    return (
-        <span className="rounded-full bg-[#f4ead8] px-3 py-1.5 text-xs font-bold text-[#7a5a24] dark:bg-white/10 dark:text-[#f1d89b]">
-            {children}
-        </span>
     );
 }

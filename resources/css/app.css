@@ -10313,3 +10313,191 @@ a.user-calendar-block-row,
     background-color: #176456 !important;
     color: #fff !important;
 }
+
+/* --------------------------------------------------------------------------
+   BCCC PUBLIC FRONTEND FINAL POLISH — May 18 update
+   -------------------------------------------------------------------------- */
+:root {
+    --bccc-public-green: #176456;
+    --bccc-public-green-dark: #0d3f38;
+    --bccc-public-green-soft: #e9f2ef;
+    --bccc-public-page: #e9eef0;
+    --bccc-public-page-dark: #07110f;
+    --bccc-public-text-blue: #153d66;
+    --bccc-public-gold: #e5b85d;
+}
+
+html[data-theme='light'] .bccc-public-shell,
+.bccc-public-shell {
+    background: var(--bccc-public-page) !important;
+    color: #153d66 !important;
+}
+
+html[data-theme='dark'] .bccc-public-shell,
+.dark .bccc-public-shell {
+    background: var(--bccc-public-page-dark) !important;
+    color: #ffffff !important;
+}
+
+.bccc-public-main {
+    background: transparent !important;
+}
+
+.bccc-public-shell :where(p, a, button, input, select, textarea, label, span, li) {
+    letter-spacing: normal;
+}
+
+.bccc-public-shell :where(h1, h2, h3) {
+    text-wrap: balance;
+}
+
+.bccc-public-header {
+    background: rgba(23, 100, 86, 0.97) !important;
+    color: #fff !important;
+    min-height: 78px !important;
+}
+
+.bccc-public-header a,
+.bccc-public-header button {
+    letter-spacing: 0.01em !important;
+}
+
+.bccc-public-header img[alt='Breathe Baguio'] {
+    max-height: 4rem !important;
+    transform: translateY(1px);
+}
+
+.bccc-official-page-hero {
+    margin-top: 0;
+}
+
+.bccc-official-page-hero::after {
+    content: '';
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.bccc-public-footer {
+    background: #e9eef0 !important;
+}
+
+.dark .bccc-public-footer {
+    background: #07110f !important;
+}
+
+.bccc-inner-input {
+    min-height: 3rem !important;
+    width: 100% !important;
+    border-radius: 0.65rem !important;
+    border: 1px solid rgba(148, 163, 184, 0.38) !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    padding-inline: 0.95rem !important;
+    color: #153d66 !important;
+    outline: none !important;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease !important;
+}
+
+.bccc-inner-input:focus {
+    border-color: rgba(23, 100, 86, 0.55) !important;
+    box-shadow: 0 0 0 4px rgba(23, 100, 86, 0.11) !important;
+}
+
+.dark .bccc-inner-input {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    background: rgba(255, 255, 255, 0.065) !important;
+    color: #fff !important;
+}
+
+.bccc-inner-input::placeholder {
+    color: rgba(100, 116, 139, 0.72) !important;
+}
+
+.dark .bccc-inner-input::placeholder {
+    color: rgba(255, 255, 255, 0.38) !important;
+}
+
+/* The dock now stops above the footer instead of sliding over it or creating white space. */
+.bccc-availability-dock {
+    bottom: calc(var(--bccc-dock-footer-lift, 0px) + env(safe-area-inset-bottom)) !important;
+    transition: bottom 160ms linear, transform 260ms ease, opacity 260ms ease !important;
+}
+
+.bccc-availability-dock-panel {
+    background: rgba(255, 250, 240, 0.97) !important;
+    border-color: rgba(217, 199, 166, 0.86) !important;
+}
+
+.dark .bccc-availability-dock-panel {
+    background: rgba(9, 19, 17, 0.97) !important;
+    border-color: rgba(255, 255, 255, 0.11) !important;
+}
+
+body:has(.bccc-availability-dock) main {
+    padding-bottom: clamp(7.5rem, 10svh, 10rem) !important;
+}
+
+@media (max-width: 1279px) {
+    .bccc-public-header {
+        min-height: 72px !important;
+    }
+
+    .bccc-public-main {
+        padding-top: 72px !important;
+    }
+
+    .bccc-public-header img[alt='Breathe Baguio'] {
+        max-height: 3.25rem !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    .bccc-availability-dock {
+        position: fixed !important;
+        inset-inline: 0 !important;
+    }
+
+    .bccc-availability-dock-panel {
+        max-height: min(54svh, 25rem) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .public-container {
+        padding-inline: 1rem !important;
+    }
+
+    .bccc-official-page-hero .public-container {
+        min-height: 17rem !important;
+        padding-top: 3.5rem !important;
+        padding-bottom: 2rem !important;
+    }
+
+    .bccc-official-page-hero h1 {
+        letter-spacing: -0.035em !important;
+    }
+
+    body:has(.bccc-availability-dock) main {
+        padding-bottom: clamp(12rem, 28svh, 19rem) !important;
+    }
+}
+
+@media (max-width: 520px) {
+    .bccc-public-header .sm\:block {
+        display: none !important;
+    }
+
+    .bccc-public-header {
+        min-height: 66px !important;
+    }
+
+    .bccc-public-main {
+        padding-top: 66px !important;
+    }
+
+    .bccc-availability-dock-panel {
+        border-radius: 1rem 1rem 0 0 !important;
+    }
+}

@@ -386,7 +386,15 @@ export default function VenuePackageShowcase({ items = [] }: Props) {
 
     return (
         <section id="venue-packages" className="relative isolate overflow-hidden max-w-[1920px] bg-[#050607] text-white">
-            <h2 className="sr-only">Venue Packages</h2>
+            <div className="relative mx-auto flex max-w-[1120px] flex-col items-center px-4 py-12 text-center sm:px-6 lg:py-16">
+                <p className="text-[10px] font-black uppercase tracking-[0.32em] text-[#d7b56d]/82">Prepared reservations</p>
+                <h2 className="mt-4 text-balance font-mono text-[clamp(2.7rem,6vw,6rem)] font-black uppercase leading-[0.82] tracking-[-0.06em] text-white">
+                    Venue Packages
+                </h2>
+                <p className="mt-5 max-w-2xl text-sm leading-7 text-white/58">
+                    Choose a package to open its full-width image composition, included venue areas, package details, and direct booking action.
+                </p>
+            </div>
 
             <div className="relative max-w-[1920px] w-full">
                 {records.map((item, index) => {

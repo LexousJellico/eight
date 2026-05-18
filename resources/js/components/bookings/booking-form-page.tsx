@@ -177,7 +177,9 @@ type BookingFormItem = {
   quantity: number;
 };
 
-type BookingPaymentMeta = Record<string, unknown>;
+type BookingMetaScalar = string | number | boolean | null | undefined;
+type BookingMetaRow = Record<string, BookingMetaScalar>;
+type BookingPaymentMeta = Record<string, BookingMetaScalar | BookingMetaScalar[] | BookingMetaRow[]>;
 
 type BookingScheduleSegmentPayload = {
   date: string;
@@ -907,7 +909,7 @@ export function BookingFormPage() {
   const initialDateTimes = initialFrom && initialTo
     ? { from: initialFrom, to: initialTo }
     : buildDateTimeFromRange(initialRange, initialBlock, initialAdditionalHours);
-  const initialPaymentMeta = booking?.payment_meta && typeof booking.payment_meta === 'object' ? booking.payment_meta : {};
+  const initialPaymentMeta = (booking?.payment_meta && typeof booking.payment_meta === 'object' ? booking.payment_meta : {}) as BookingPaymentMeta;
 
   const [selectedVenueKeys, setSelectedVenueKeys] = useState<BookingVenueKey[]>(initialSelectedKeys);
   const [selectedPackageCode, setSelectedPackageCode] = useState(initialPackageCode);
@@ -949,7 +951,7 @@ export function BookingFormPage() {
     mice_exemption_reason: firstValue(booking?.mice_exemption_reason),
     private_event_type: firstValue(booking?.private_event_type),
     schedule_version: 'segments_v1',
-    schedule_meta: booking?.schedule_meta && typeof booking.schedule_meta === 'object' ? booking.schedule_meta : {},
+    schedule_meta: (booking?.schedule_meta && typeof booking.schedule_meta === 'object' ? booking.schedule_meta : {}) as BookingPaymentMeta,
     schedule_segments: [],
 
     organization_type: firstValue(booking?.organization_type, 'Private'),

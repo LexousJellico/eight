@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\PublicImagePath;
 
 class PublicSiteController extends Controller
 {
@@ -158,43 +159,70 @@ class PublicSiteController extends Controller
         return collect(VenueAreaCatalog::publicOptions());
     }
 
-    protected function spacesPayload(): Collection
-    {
-        return VenueSpace::query()
-            ->orderBy('sort_order')
-            ->get()
-            ->map(function (VenueSpace $space) {
-                $fallbackLight = '/marketing/images/events/default.png';
-                $fallbackDark = '/marketing/images/events/default.png';
+protected function spacesPayload(): Collection
+{
+    return VenueSpace::query()
+        ->orderBy('sort_order')
+        ->get()
+        ->map(function (VenueSpace $space) {
+            $fallbackLight = '/marketing/images/events/default.png';
+            $fallbackDark = '/marketing/images/events/default.png';
 
-                $light = $space->light_image ?: $fallbackLight;
-                $dark = $space->dark_image ?: ($space->light_image ?: $fallbackDark);
-                $homepageVisible = (bool) $space->homepage_visible;
-                $slug = Str::slug($space->title);
+            $light = PublicImagePath::url($space->light_image ?: ($space->image_path ?? ''), $fallbackLight);
+            $dark = PublicImagePath::url($space->dark_image ?: $space->light_image ?: ($space->image_path ?? ''), $fallbackDark);
 
-                return [
-                    'id' => $space->id,
+            $homepageVisible = (bool) $space->homepage_visible;
+            $slug = Str::slug($space->title);
+
+            return [
+                'id' => $space->id,
+                'slug' => $slug,
+                'title' => $space->title,
+                'name' => $space->title,
+                'label' => $space->title,
+                'shortDescription' => $space->short_description,
+                'short_description' => $space->short_description,
+                'summary' => $space->summary ?: $space->short_description,
+                'description' => $space->description ?? $space->summary ?? $space->short_description ?? '',
+                'details' => is_array($space->details) ? array_values($space->details) : [],
+                'image' => $light,
+                'image_path' => $light,
+                'imagePath' => $light,
+                'image_url' => $light,
+                'imageUrl' => $light,
+                'lightImage' => $light,
+                'light_image' => $light,
+                'darkImage' => $dark,
+                'dark_image' => $dark,
+                'capacity' => $space->capacity ?: 'Flexible venue capacity',
+                'category' => $space->category ?: 'Venue Space',
+                'ctaLabel' => $this->isTourismOfficeSpace([
                     'slug' => $slug,
                     'title' => $space->title,
-                    'shortDescription' => $space->short_description,
-                    'summary' => $space->summary ?: $space->short_description,
-                    'details' => is_array($space->details) ? array_values($space->details) : [],
-                    'image' => $light,
-                    'lightImage' => $light,
-                    'darkImage' => $dark,
-                    'capacity' => $space->capacity ?: 'Flexible venue capacity',
-                    'category' => $space->category ?: 'Venue Space',
-                    'ctaLabel' => $this->isTourismOfficeSpace([
-                        'slug' => $slug,
-                        'title' => $space->title,
-                        'category' => $space->category,
-                    ]) ? 'View Office' : 'View Space',
-                    'homepageVisible' => $homepageVisible,
-                    'featured' => $homepageVisible,
-                ];
-            })
-            ->values();
-    }
+                    'category' => $space->category,
+                ]) ? 'Meet the Tourism Office' : 'Explore Space',
+                'cta_label' => $this->isTourismOfficeSpace([
+                    'slug' => $slug,
+                    'title' => $space->title,
+                    'category' => $space->category,
+                ]) ? 'Meet the Tourism Office' : 'Explore Space',
+                'href' => $this->isTourismOfficeSpace([
+                    'slug' => $slug,
+                    'title' => $space->title,
+                    'category' => $space->category,
+                ]) ? '/tourism-office' : "/facilities/{$slug}",
+                'homepageVisible' => $homepageVisible,
+                'homepage_visible' => $homepageVisible,
+                'isPublic' => $homepageVisible,
+                'is_public' => $homepageVisible,
+                'is_active' => $homepageVisible,
+                'active' => $homepageVisible,
+                'sort_order' => $space->sort_order ?? 999,
+                'sortOrder' => $space->sort_order ?? 999,
+            ];
+        })
+        ->values();
+}
 
     protected function eventsPayload(): Collection
     {
@@ -409,41 +437,68 @@ class PublicSiteController extends Controller
         return $manualBlocks->concat($bookingBlocks)->values();
     }
 
-    protected function membersPayload(): Collection
-    {
-        $query = TourismMember::query()
-            ->where('is_active', true);
+protected function membersPayload(): Collection
+{
+    $query = TourismMember::query()
+        ->where('is_active', true);
 
-        if (Schema::hasColumn('tourism_members', 'tree_level')) {
-            $query->orderByRaw('COALESCE(tree_level, 99) asc');
-        }
-
-        return $query
-            ->orderBy('sort_order')
-            ->orderByDesc('is_featured')
-            ->get()
-            ->map(function (TourismMember $member) {
-                $details = is_array($member->details) ? array_values(array_filter($member->details)) : [];
-
-                return [
-                    'id' => $member->id,
-                    'fullName' => (string) ($member->full_name ?? $member->getAttribute('name') ?? ''),
-                    'designation' => (string) ($member->designation ?? $member->getAttribute('position') ?? ''),
-                    'unitName' => $member->unit_name,
-                    'email' => $member->email,
-                    'phone' => $member->phone,
-                    'shortBio' => $member->short_bio,
-                    'details' => $details,
-                    'photo' => $member->photo_path ?: '/marketing/images/events/default.png',
-                    'featured' => (bool) $member->is_featured,
-                    'officeSection' => $member->getAttribute('office_section'),
-                    'teamName' => $member->getAttribute('team_name'),
-                    'reportsToId' => $member->getAttribute('reports_to_id'),
-                    'treeLevel' => (int) ($member->getAttribute('tree_level') ?? 0),
-                ];
-            })
-            ->values();
+    if (Schema::hasColumn('tourism_members', 'tree_level')) {
+        $query->orderByRaw('COALESCE(tree_level, 99) asc');
     }
+
+    return $query
+        ->orderBy('sort_order')
+        ->orderByDesc('is_featured')
+        ->get()
+        ->map(function (TourismMember $member) {
+            $details = is_array($member->details) ? array_values(array_filter($member->details)) : [];
+            $photo = PublicImagePath::url($member->photo_path, '/marketing/images/events/default.png');
+
+            return [
+                'id' => $member->id,
+                'fullName' => (string) ($member->full_name ?? $member->getAttribute('name') ?? ''),
+                'full_name' => (string) ($member->full_name ?? $member->getAttribute('name') ?? ''),
+                'name' => (string) ($member->full_name ?? $member->getAttribute('name') ?? ''),
+                'title' => (string) ($member->full_name ?? $member->getAttribute('name') ?? ''),
+                'designation' => (string) ($member->designation ?? $member->getAttribute('position') ?? ''),
+                'position' => (string) ($member->designation ?? $member->getAttribute('position') ?? ''),
+                'role' => (string) ($member->designation ?? $member->getAttribute('position') ?? ''),
+                'unitName' => $member->unit_name,
+                'unit_name' => $member->unit_name,
+                'email' => $member->email,
+                'phone' => $member->phone,
+                'shortBio' => $member->short_bio,
+                'short_bio' => $member->short_bio,
+                'bio' => $member->short_bio,
+                'description' => $member->short_bio,
+                'message' => $member->short_bio,
+                'details' => $details,
+                'photo' => $photo,
+                'photoPath' => $photo,
+                'photo_path' => $photo,
+                'photoUrl' => $photo,
+                'photo_url' => $photo,
+                'image' => $photo,
+                'imagePath' => $photo,
+                'image_path' => $photo,
+                'imageUrl' => $photo,
+                'image_url' => $photo,
+                'featured' => (bool) $member->is_featured,
+                'is_featured' => (bool) $member->is_featured,
+                'officeSection' => $member->getAttribute('office_section'),
+                'office_section' => $member->getAttribute('office_section'),
+                'teamLabel' => $member->getAttribute('team_label'),
+                'team_label' => $member->getAttribute('team_label'),
+                'teamName' => $member->getAttribute('team_name'),
+                'reportsToId' => $member->getAttribute('reports_to_id'),
+                'treeLevel' => (int) ($member->getAttribute('tree_level') ?? 0),
+                'tree_level' => (int) ($member->getAttribute('tree_level') ?? 0),
+                'sortOrder' => $member->sort_order ?? 999,
+                'sort_order' => $member->sort_order ?? 999,
+            ];
+        })
+        ->values();
+}
 
     protected function isTourismOfficeSpace(array $item): bool
     {

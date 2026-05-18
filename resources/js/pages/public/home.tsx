@@ -1,3 +1,4 @@
+import AmenitiesRow from '@/components/public/amenities-row';
 import EventsCinemaShowcase from '@/components/public/events-cinema-showcase';
 import FacilitiesLayeredShowcase from '@/components/public/facilities-layered-showcase';
 import HeroAvailabilityBar from '@/components/public/hero-availability-bar';
@@ -9,7 +10,6 @@ import PublicLayout from '@/layouts/public-layout';
 import { Head } from '@inertiajs/react';
 import type {
     FeaturePackageItem,
-    HomepageStatItem,
     PublicEventItem,
     PublicSpaceItem,
     SiteMetricPayload,
@@ -24,9 +24,7 @@ type Props = {
     spaces?: PublicSpaceItem[];
     venueSpaces?: PublicSpaceItem[];
     facilities?: PublicSpaceItem[];
-    stats?: HomepageStatItem[];
     siteMetric?: SiteMetricPayload | null;
-    offers?: FeaturePackageItem[];
     packages?: FeaturePackageItem[];
 };
 
@@ -51,12 +49,12 @@ export default function Home({
             <HeroBanner siteMetric={siteMetric} />
             <HeroAvailabilityBar venueOptions={venueOptions} />
 
-            <FacilitiesLayeredShowcase items={mergedSpaces} />
             <WelcomeSection />
+            <AmenitiesRow siteMetric={siteMetric} />
+
+            <FacilitiesLayeredShowcase items={mergedSpaces} />
             <VenuePackageShowcase items={packages} />
-
             <EventsCinemaShowcase items={mergedEvents} bcccEvents={bcccEvents} cityEvents={cityEvents} />
-
             <LocationAssistance />
         </PublicLayout>
     );

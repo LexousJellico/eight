@@ -35,7 +35,7 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import type { FormEvent, ReactNode } from 'react';
+import type { CSSProperties, FormEvent, ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -537,9 +537,7 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
             <motion.section
     ref={dockRef}
     className="bccc-availability-dock fixed inset-x-0 z-[8500] w-screen px-0"
-    style={{
-        bottom: `calc(${footerLift}px + env(safe-area-inset-bottom))`,
-    }}
+    style={{ '--bccc-dock-footer-lift': `${footerLift}px` } as CSSProperties}
     initial={{ y: 28, opacity: 0, filter: 'blur(10px)' }}
     animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
     transition={{ duration: 0.42, ease }}

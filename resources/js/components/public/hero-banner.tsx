@@ -1,160 +1,490 @@
-import SiteVisitStat, { type SiteMetricPayload } from '@/components/public/site-visit-stat';
 import SafeImage from '@/components/system/safe-image';
-import { Link } from '@inertiajs/react';
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, CalendarDays, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { useRef } from 'react';
+import { motion, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion';
+import { ChevronDown } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import type { SiteMetricPayload } from '@/types/public-content';
 
-const ease = [0.22, 1, 0.36, 1] as const;
-
-type HeroBannerProps = {
+type Props = {
     siteMetric?: SiteMetricPayload | null;
 };
 
-function FloatingBirds() {
+const HERO_IMAGE = '/marketing/images/hero/bccc.png';
+const HERO_FALLBACK = '/marketing/images/hero/noon2.jpg';
+
+const LOADER_SELECTORS = [
+    '[data-bccc-loader]',
+    '[data-system-loader]',
+    '[data-app-loader]',
+    '#bccc-loader',
+    '#app-loader',
+    '#global-loader',
+    '#loading-screen',
+    '.bccc-loader',
+    '.app-loader',
+    '.system-loader',
+    '.global-loader',
+    '.loading-screen',
+    '.preloader',
+    '.page-loader',
+];
+
+function isElementVisible(element: Element) {
+    const target = element as HTMLElement;
+    const style = window.getComputedStyle(target);
+    const rect = target.getBoundingClientRect();
+
     return (
-        <div className="bccc-hero-birds" aria-hidden="true">
-            {Array.from({ length: 11 }).map((_, index) => (
-                <span key={index} className={`bccc-bird bccc-bird-${index + 1}`} />
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        Number(style.opacity || 1) > 0.03 &&
+        rect.width > 0 &&
+        rect.height > 0
+    );
+}
+
+function hasVisibleLoader() {
+    if (typeof window === 'undefined') return false;
+
+    return LOADER_SELECTORS.some((selector) => {
+        try {
+            return Array.from(document.querySelectorAll(selector)).some(isElementVisible);
+        } catch {
+            return false;
+        }
+    });
+}
+
+function useHeroIntroAfterSystemLoader() {
+    const [ready, setReady] = useState(false);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        let done = false;
+        let frame = 0;
+        let settleTimer = 0;
+        let fallbackTimer = 0;
+
+        const finish = (delay = 180) => {
+            if (done) return;
+
+            window.clearTimeout(settleTimer);
+
+            settleTimer = window.setTimeout(() => {
+                if (done) return;
+                done = true;
+                setReady(true);
+            }, delay);
+        };
+
+        const check = () => {
+            if (done) return;
+
+            const loaded = document.readyState === 'complete' || document.readyState === 'interactive';
+
+            if (loaded && !hasVisibleLoader()) {
+                finish(260);
+                return;
+            }
+
+            frame = window.requestAnimationFrame(check);
+        };
+
+        const handleLoaderFinished = () => finish(140);
+
+        window.addEventListener('load', check);
+        window.addEventListener('bccc:loader-finished', handleLoaderFinished);
+        window.addEventListener('bccc:loading-finished', handleLoaderFinished);
+        window.addEventListener('app:loader-finished', handleLoaderFinished);
+
+        const observer = new MutationObserver(check);
+
+        if (document.body) {
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class', 'style', 'hidden', 'aria-hidden', 'data-state'],
+            });
+        }
+
+        /*
+         * Safety fallback: if the loader has a different class/id,
+         * this still waits long enough so the intro does not happen behind it.
+         */
+        fallbackTimer = window.setTimeout(() => finish(0), 3600);
+
+        check();
+
+        return () => {
+            done = true;
+            window.cancelAnimationFrame(frame);
+            window.clearTimeout(settleTimer);
+            window.clearTimeout(fallbackTimer);
+            observer.disconnect();
+            window.removeEventListener('load', check);
+            window.removeEventListener('bccc:loader-finished', handleLoaderFinished);
+            window.removeEventListener('bccc:loading-finished', handleLoaderFinished);
+            window.removeEventListener('app:loader-finished', handleLoaderFinished);
+        };
+    }, []);
+
+    return ready;
+}
+
+function MountainMistLayer({ active }: { active: boolean }) {
+    return (
+        <div className="pointer-events-none absolute inset-0 z-[6] overflow-hidden">
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0, y: 70 }}
+                animate={active ? { opacity: 1, y: 0 } : { opacity: 0, y: 70 }}
+                transition={{ duration: 1.35, delay: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute inset-x-[-8vw] bottom-[12svh] h-[34svh]"
+            >
+                <div
+                    className="absolute inset-x-0 bottom-0 h-[72%] bg-[#08231f]/42 blur-[0.2px]"
+                    style={{
+                        clipPath:
+                            'polygon(0% 80%, 7% 52%, 13% 66%, 21% 31%, 30% 61%, 39% 25%, 48% 58%, 57% 34%, 66% 63%, 76% 28%, 84% 57%, 93% 39%, 100% 70%, 100% 100%, 0% 100%)',
+                    }}
+                />
+                <div
+                    className="absolute inset-x-0 bottom-0 h-[55%] bg-[#0f4f44]/26 blur-[1px]"
+                    style={{
+                        clipPath:
+                            'polygon(0% 88%, 9% 66%, 17% 78%, 26% 48%, 36% 75%, 45% 43%, 55% 76%, 64% 55%, 73% 80%, 82% 47%, 91% 72%, 100% 55%, 100% 100%, 0% 100%)',
+                    }}
+                />
+            </motion.div>
+
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0 }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.12, 0.32, 0.22],
+                              x: ['-6%', '4%', '-2%'],
+                          }
+                        : { opacity: 0 }
+                }
+                transition={{ duration: 18, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut', delay: 0.4 }}
+                className="absolute left-[-10vw] bottom-[21svh] h-[10svh] w-[68vw] rounded-full bg-white/10 blur-3xl"
+            />
+
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0 }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.08, 0.26, 0.18],
+                              x: ['8%', '-5%', '2%'],
+                          }
+                        : { opacity: 0 }
+                }
+                transition={{ duration: 21, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut', delay: 0.7 }}
+                className="absolute right-[-12vw] bottom-[25svh] h-[12svh] w-[72vw] rounded-full bg-[#c9fff4]/10 blur-3xl"
+            />
+        </div>
+    );
+}
+
+function CloudLayer({ active }: { active: boolean }) {
+    return (
+        <div className="pointer-events-none absolute inset-0 z-[7] overflow-hidden">
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0, x: '-22vw', y: 28 }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.04, 0.38, 0.28],
+                              x: ['-22vw', '10vw', '4vw'],
+                              y: [28, 7, 18],
+                          }
+                        : { opacity: 0, x: '-22vw', y: 28 }
+                }
+                transition={{ duration: 22, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+                className="absolute left-[1%] top-[17%] h-[8rem] w-[34rem] rounded-full bg-white/12 blur-2xl"
+            />
+
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0, x: '22vw', y: 0 }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.05, 0.32, 0.24],
+                              x: ['22vw', '-6vw', '3vw'],
+                              y: [0, 18, 7],
+                          }
+                        : { opacity: 0, x: '22vw', y: 0 }
+                }
+                transition={{ duration: 26, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut', delay: 0.5 }}
+                className="absolute right-[2%] top-[28%] h-[7rem] w-[30rem] rounded-full bg-[#f4dfad]/10 blur-2xl"
+            />
+
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0, x: '-12vw', y: 14 }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.02, 0.24, 0.16],
+                              x: ['-12vw', '7vw', '-1vw'],
+                              y: [14, -3, 9],
+                          }
+                        : { opacity: 0, x: '-12vw', y: 14 }
+                }
+                transition={{ duration: 29, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut', delay: 1 }}
+                className="absolute left-[24%] top-[10%] h-[5.5rem] w-[24rem] rounded-full bg-white/9 blur-2xl"
+            />
+        </div>
+    );
+}
+
+function FogLayer({ active }: { active: boolean }) {
+    return (
+        <div className="pointer-events-none absolute inset-0 z-[18] overflow-hidden">
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0, x: '-14%' }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.04, 0.62, 0.46],
+                              x: ['-14%', '4%', '-2%'],
+                          }
+                        : { opacity: 0, x: '-14%' }
+                }
+                transition={{ duration: 10, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+                className="absolute -left-[20%] bottom-[12%] h-[18svh] w-[72vw] rounded-full bg-white/16 blur-3xl"
+            />
+
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0, x: '14%' }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.02, 0.4, 0.54],
+                              x: ['14%', '-5%', '2%'],
+                          }
+                        : { opacity: 0, x: '14%' }
+                }
+                transition={{ duration: 13, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut', delay: 0.4 }}
+                className="absolute -right-[20%] bottom-[23%] h-[20svh] w-[76vw] rounded-full bg-[#d5f6ef]/13 blur-3xl"
+            />
+
+            <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0, x: '-8%' }}
+                animate={
+                    active
+                        ? {
+                              opacity: [0.02, 0.34, 0.26],
+                              x: ['-8%', '7%', '-1%'],
+                          }
+                        : { opacity: 0, x: '-8%' }
+                }
+                transition={{ duration: 16, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut', delay: 0.8 }}
+                className="absolute left-[12%] top-[18%] h-[14svh] w-[52vw] rounded-full bg-white/10 blur-3xl"
+            />
+        </div>
+    );
+}
+
+function BirdsLayer({ active }: { active: boolean }) {
+    const birds = [
+        { top: '21%', left: '58%', delay: 0, scale: 0.72 },
+        { top: '24%', left: '63%', delay: 0.18, scale: 0.55 },
+        { top: '18%', left: '70%', delay: 0.34, scale: 0.64 },
+        { top: '31%', left: '77%', delay: 0.52, scale: 0.48 },
+        { top: '26%', left: '83%', delay: 0.72, scale: 0.58 },
+        { top: '15%', left: '48%', delay: 1.02, scale: 0.42 },
+    ];
+
+    return (
+        <div className="pointer-events-none absolute inset-0 z-[16] overflow-hidden">
+            {birds.map((bird, index) => (
+                <motion.span
+                    key={`${bird.top}-${bird.left}`}
+                    aria-hidden="true"
+                    initial={{ opacity: 0, x: 84, y: 22, scale: bird.scale }}
+                    animate={
+                        active
+                            ? {
+                                  opacity: [0, 0.74, 0.62, 0],
+                                  x: [84, -18, -82, -160],
+                                  y: [22, 2, 14, -10],
+                                  scale: bird.scale,
+                              }
+                            : { opacity: 0, x: 84, y: 22, scale: bird.scale }
+                    }
+                    transition={{
+                        duration: 7.8,
+                        delay: bird.delay + 0.9,
+                        repeat: Infinity,
+                        repeatDelay: 7 + index * 0.38,
+                        ease: 'easeInOut',
+                    }}
+                    style={{ top: bird.top, left: bird.left }}
+                    className="absolute block h-3 w-5"
+                >
+                    <span className="absolute left-0 top-1/2 h-px w-3 origin-right -rotate-[28deg] bg-white/72" />
+                    <span className="absolute right-0 top-1/2 h-px w-3 origin-left rotate-[28deg] bg-white/72" />
+                </motion.span>
             ))}
         </div>
     );
 }
 
-function SkyLayers() {
-    return (
-        <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-            <div className="bccc-sky-gradient absolute inset-0" />
-            <div className="bccc-sky-sun absolute" />
-            <div className="bccc-cloud bccc-cloud-1" />
-            <div className="bccc-cloud bccc-cloud-2" />
-            <div className="bccc-cloud bccc-cloud-3" />
-            <div className="bccc-cloud bccc-cloud-4" />
-            <div className="bccc-hero-fog bccc-hero-fog-1" />
-            <div className="bccc-hero-fog bccc-hero-fog-2" />
-            <FloatingBirds />
-        </div>
-    );
-}
+export default function HeroBanner({ siteMetric = null }: Props) {
+    void siteMetric;
 
-export default function HeroBanner({ siteMetric }: HeroBannerProps) {
-    const reduceMotion = useReducedMotion();
-    const sectionRef = useRef<HTMLElement | null>(null);
+    const heroRef = useRef<HTMLElement | null>(null);
+    const reducedMotion = Boolean(useReducedMotion());
+    const introReady = useHeroIntroAfterSystemLoader();
+
     const { scrollYProgress } = useScroll({
-        target: sectionRef,
+        target: heroRef,
         offset: ['start start', 'end start'],
     });
 
-    const buildingY = useTransform(scrollYProgress, [0, 1], ['-9%', '34%']);
-    const buildingScale = useTransform(scrollYProgress, [0, 1], [1.03, 1.16]);
-    const copyY = useTransform(scrollYProgress, [0, 1], ['0%', '-10%']);
-    const titleY = useTransform(scrollYProgress, [0, 1], ['0%', '10%']);
-    const skyScale = useTransform(scrollYProgress, [0, 1], [1, 1.08]);
-    const heroOpacity = useTransform(scrollYProgress, [0, 0.82, 1], [1, 0.96, 0.72]);
+    const smoothProgress = useSpring(scrollYProgress, {
+        stiffness: 70,
+        damping: 24,
+        mass: 0.86,
+    });
+
+    const imageScrollY = useTransform(smoothProgress, [0, 1], [0, reducedMotion ? 0 : 370]);
+    const textScrollY = useTransform(smoothProgress, [0, 1], [0, reducedMotion ? 0 : 490]);
+    const mountainScrollY = useTransform(smoothProgress, [0, 1], [0, reducedMotion ? 0 : 310]);
+    const fogScrollY = useTransform(smoothProgress, [0, 1], [0, reducedMotion ? 0 : 220]);
+
+    const imageOpacity = useTransform(smoothProgress, [0, 0.72, 1], [1, 0.96, 0.66]);
+    const textOpacity = useTransform(smoothProgress, [0, 0.58, 1], [1, 0.78, 0.24]);
+    const mountainOpacity = useTransform(smoothProgress, [0, 0.72, 1], [1, 0.72, 0.22]);
+    const veilOpacity = useTransform(smoothProgress, [0, 0.58, 1], [0.06, 0.23, 0.58]);
+
+    const scrollCueY = useTransform(smoothProgress, [0, 0.34], [0, reducedMotion ? 0 : 76]);
+    const scrollCueOpacity = useTransform(smoothProgress, [0, 0.25], [1, 0]);
 
     return (
-        <section
-            ref={sectionRef}
-            className="bccc-cinematic-hero bccc-hero-final-stage relative isolate min-h-[126svh] overflow-hidden bg-[#dbeaf1] pt-0 text-[#1a160f] dark:bg-[#0c1118] dark:text-white"
-        >
-            <div className="bccc-hero-perspective-grid" aria-hidden="true" />
-            <div className="bccc-hero-stage-rings" aria-hidden="true">
-                <span />
-                <span />
-                <span />
-            </div>
+        <section ref={heroRef} className="relative isolate h-[142svh] min-h-[54rem] w-full overflow-clip bg-[#081512] text-white">
+            <div className="sticky top-0 h-[100svh] min-h-[42rem] w-full overflow-hidden">
+                <div className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_50%_18%,rgba(244,223,173,0.2),transparent_34%),linear-gradient(180deg,#071411_0%,#10372f_48%,#07110f_100%)]" />
+                <div className="absolute inset-0 -z-20 bg-[linear-gradient(90deg,rgba(0,0,0,0.31),transparent_30%,transparent_70%,rgba(0,0,0,0.31))]" />
 
-            <motion.div style={reduceMotion ? undefined : { scale: skyScale }} className="absolute inset-0 z-0">
-                <SkyLayers />
-            </motion.div>
+                <CloudLayer active={introReady && !reducedMotion} />
 
-            <motion.div
-                style={reduceMotion ? undefined : { y: titleY, opacity: heroOpacity }}
-                className="bccc-hero-giant-word bccc-hero-title-behind"
-                aria-hidden="true"
-            >
-                C O N E A S E
-            </motion.div>
-
-            <motion.div
-                style={reduceMotion ? undefined : { y: buildingY, scale: buildingScale, opacity: heroOpacity }}
-                initial={reduceMotion ? false : { opacity: 0, y: 56, scale: 0.97, filter: 'blur(14px)' }}
-                animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                transition={{ duration: 1.05, delay: 0.08, ease }}
-                className="bccc-hero-building-stage pointer-events-none absolute inset-x-0 bottom-[8svh] z-30 mx-auto h-[102svh] w-full max-w-[1920px]"
-            >
-                <div className="absolute bottom-[3svh] left-1/2 h-[32svh] w-[94vw] -translate-x-1/2 rounded-[50%] bg-[#6f572b]/12 blur-3xl dark:bg-black/35" />
-                <SafeImage
-                    src="/marketing/images/hero/bccc.png"
-                    fallbackSrc="/marketing/images/hero/bccc.png"
-                    alt="Baguio Convention and Cultural Center aerial view"
-                    className="bccc-hero-building relative z-10 h-full w-full object-contain object-bottom drop-shadow-[0_48px_90px_rgba(61,47,25,0.32)]"
-                    wrapperClassName="relative z-10 h-full w-full rounded-none border-0 bg-transparent"
-                />
-            </motion.div>
-
-            <div className="absolute inset-x-0 bottom-0 z-[22] h-[42svh] bg-gradient-to-t from-[#f8f5ef] via-[#f8f5ef]/72 to-transparent dark:from-[#0d0f12] dark:via-[#0d0f12]/72" />
-
-            <motion.div
-                style={reduceMotion ? undefined : { opacity: heroOpacity }}
-                className="relative z-24 mx-auto grid min-h-[126svh] w-full max-w-[1920px] items-start px-4 pb-[32svh] pt-[clamp(2rem,6svh,5rem)] sm:px-6 lg:px-8 xl:px-10"
-            >
-                <motion.div
-                    style={reduceMotion ? undefined : { y: copyY }}
-                    initial={reduceMotion ? false : { opacity: 0, y: 28, filter: 'blur(10px)' }}
-                    animate={reduceMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
-                    transition={{ duration: 0.78, ease }}
-                    className="bccc-hero-copy-panel relative z-20 mt-[5svh] max-w-[70rem] lg:mt-[7svh]"
-                >
-
-                    <h1 className="bccc-hero-main-heading mt-1 max-w-8xl font-serif text-[clamp(4rem,8.3vw,10.6rem)] font-light leading-[0.82] tracking-[-0.078em] text-[#20170d] drop-shadow-[0_18px_55px_rgba(255,255,255,0.48)] dark:text-white dark:drop-shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
-                        B a g u i o 
-                    </h1>
-
-                    <h1 className="bccc-hero-main-heading mt-6 max-w-6xl font-serif text-[clamp(3rem,7.3vw,9.6rem)] font-light leading-[0.82] tracking-[-0.078em] text-[#20170d] drop-shadow-[0_18px_55px_rgba(255,255,255,0.48)] dark:text-white dark:drop-shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
-                        C o n v e
-                    </h1>
-
-                    <p className="mt-6 max-w-2xl text-base leading-8 text-[#4d402d] dark:text-white/72 sm:text-lg">
-                        Discover official venue spaces, check schedule visibility, and reserve event-ready packages through BCCC EASE.
-                    </p>
-
-                    <div className="mt-8 flex flex-col gap-3 z-40 sm:flex-row sm:items-center">
-                        <Link
-                            href="/book"
-                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-6 text-sm font-semibold text-white shadow-[0_18px_50px_rgba(47,37,23,0.24)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b]"
-                        >
-                            Start Reservation
-                            <ArrowRight className="h-4 w-4" />
-                        </Link>
-
-                        <Link
-                            href="/calendar"
-                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#8b672d]/24 bg-white/58 px-6 text-sm font-semibold text-[#2f2517] backdrop-blur-xl transition duration-300 hover:-translate-y-0.5 hover:bg-white dark:border-white/14 dark:bg-white/8 dark:text-white dark:hover:bg-white/12"
-                        >
-                            <CalendarDays className="h-4 w-4" />
-                            View Public Calendar
-                        </Link>
-                    </div>
-
-                    <div className="mt-7 flex flex-wrap items-center gap-3">
-                        <SiteVisitStat metric={siteMetric} compact />
-                        {['Package-ready booking', 'MICE-aligned intake', 'Hourly public metrics'].map((item) => (
-                            <span
-                                key={item}
-                                className="inline-flex items-center gap-2 rounded-full border border-[#8b672d]/18 bg-white/50 px-3 py-2 text-[11px] font-semibold text-[#4e3c20] backdrop-blur-xl dark:border-white/12 dark:bg-white/7 dark:text-white/72"
-                            >
-                                <CheckCircle2 className="h-4 w-4 text-[#9d7b3d] dark:text-[#f4dfad]" />
-                                {item}
-                            </span>
-                        ))}
-                    </div>
+                <motion.div style={{ y: mountainScrollY, opacity: mountainOpacity }} className="pointer-events-none absolute inset-0 z-[6] will-change-transform">
+                    <MountainMistLayer active={introReady && !reducedMotion} />
                 </motion.div>
-            </motion.div>
 
-            <div className="bccc-hero-scroll-cue" aria-hidden="true">
-                <span />
-                <p>Scroll to explore</p>
+                <motion.div
+                    aria-hidden="true"
+                    style={{ y: textScrollY, opacity: textOpacity }}
+                    className="pointer-events-none absolute inset-x-0 top-[8svh] z-[8] flex flex-col items-center justify-center overflow-hidden text-center will-change-transform"
+                >
+                    <motion.div
+                        initial={{
+                            y: reducedMotion ? 0 : '48svh',
+                            opacity: reducedMotion ? 1 : 0,
+                            filter: reducedMotion ? 'blur(0px)' : 'blur(20px)',
+                        }}
+                        animate={
+                            introReady
+                                ? { y: 0, opacity: 1, filter: 'blur(0px)' }
+                                : {
+                                      y: reducedMotion ? 0 : '48svh',
+                                      opacity: reducedMotion ? 1 : 0,
+                                      filter: reducedMotion ? 'blur(0px)' : 'blur(20px)',
+                                  }
+                        }
+                        transition={{
+                            duration: 1.32,
+                            delay: reducedMotion ? 0 : 0.34,
+                            ease: [0.16, 1, 0.3, 1],
+                        }}
+                        className="flex flex-col items-center will-change-transform"
+                    >
+                        <span className="block select-none whitespace-nowrap text-[clamp(5.6rem,21vw,25rem)] font-black uppercase leading-[0.72] tracking-[-0.14em] text-white/[0.115] drop-shadow-[0_24px_72px_rgba(0,0,0,0.34)]">
+                            BAGUIO
+                        </span>
+                        <span className="-mt-1 block select-none whitespace-nowrap text-[clamp(3.5rem,12.5vw,15rem)] font-black uppercase leading-[0.74] tracking-[-0.13em] text-[#f4dfad]/[0.13] drop-shadow-[0_24px_72px_rgba(0,0,0,0.28)]">
+                            CENTER
+                        </span>
+                    </motion.div>
+                </motion.div>
+
+                <motion.div
+                    style={{ y: imageScrollY, opacity: imageOpacity }}
+                    className="absolute inset-x-0 bottom-0 z-10 h-[100svh] min-h-[42rem] w-screen overflow-hidden will-change-transform"
+                >
+                    <motion.div
+                        initial={{
+                            y: reducedMotion ? 0 : '68svh',
+                            opacity: reducedMotion ? 1 : 0,
+                            filter: reducedMotion ? 'blur(0px)' : 'blur(14px)',
+                        }}
+                        animate={
+                            introReady
+                                ? { y: 0, opacity: 1, filter: 'blur(0px)' }
+                                : {
+                                      y: reducedMotion ? 0 : '68svh',
+                                      opacity: reducedMotion ? 1 : 0,
+                                      filter: reducedMotion ? 'blur(0px)' : 'blur(14px)',
+                                  }
+                        }
+                        transition={{
+                            duration: 1.14,
+                            delay: 0,
+                            ease: [0.16, 1, 0.3, 1],
+                        }}
+                        className="h-full w-screen will-change-transform"
+                    >
+                        <SafeImage
+                            src={HERO_IMAGE}
+                            fallbackSrc={HERO_FALLBACK}
+                            alt="Baguio Convention and Cultural Center"
+                            className="h-full w-screen max-w-none object-cover object-center"
+                            wrapperClassName="h-full w-screen max-w-none"
+                        />
+                    </motion.div>
+                </motion.div>
+
+                <BirdsLayer active={introReady && !reducedMotion} />
+
+                <motion.div style={{ y: fogScrollY }} className="pointer-events-none absolute inset-0 z-[18] will-change-transform">
+                    <FogLayer active={introReady && !reducedMotion} />
+                </motion.div>
+
+                <motion.div
+                    style={{ opacity: veilOpacity }}
+                    className="pointer-events-none absolute inset-0 z-20 bg-[linear-gradient(180deg,rgba(0,0,0,0.28),transparent_28%,transparent_60%,rgba(0,0,0,0.56))]"
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[30svh] bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.58))]" />
+
+                <motion.div
+                    style={{ y: scrollCueY, opacity: scrollCueOpacity }}
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={introReady ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+                    transition={{ duration: 0.7, delay: 1.08, ease: [0.16, 1, 0.3, 1] }}
+                    className="absolute bottom-8 left-1/2 z-30 hidden -translate-x-1/2 items-center gap-3 rounded-full border border-white/18 bg-black/20 px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-white/76 shadow-[0_18px_42px_rgba(0,0,0,0.22)] backdrop-blur-md md:inline-flex"
+                >
+                    <span>Scroll</span>
+                    <span className="relative grid h-6 w-6 place-items-center overflow-hidden rounded-full border border-white/20">
+                        <motion.span
+                            animate={introReady && !reducedMotion ? { y: [0, 7, 0], opacity: [0.55, 1, 0.55] } : undefined}
+                            transition={{ duration: 1.25, repeat: Infinity, ease: 'easeInOut' }}
+                        >
+                            <ChevronDown className="h-4 w-4" />
+                        </motion.span>
+                    </span>
+                </motion.div>
             </div>
         </section>
     );

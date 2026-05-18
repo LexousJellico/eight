@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Support\PublicImagePath;
+use App\Support\PublicStorageImage;
 
 class AdminPublicContentController extends Controller
 {
@@ -353,127 +355,139 @@ class AdminPublicContentController extends Controller
     }
 
     public function storeSpace(Request $request): JsonResponse
-    {
-        $this->ensureAdmin($request);
+{
+    $this->ensureAdmin($request);
 
-        $data = $request->validate([
-            'title' => ['nullable', 'string', 'max:255'],
-            'name' => ['nullable', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
-            'subtitle' => ['nullable', 'string', 'max:255'],
-            'capacity' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'short_description' => ['nullable', 'string'],
-            'summary' => ['nullable', 'string'],
-            'details_text' => ['nullable', 'string'],
-            'homepage_visible' => ['nullable', 'boolean'],
-            'sort_order' => ['nullable', 'integer'],
-            'image_path' => ['nullable', 'string', 'max:2000'],
-            'image' => ['nullable', 'image', 'max:8192'],
-            'light_image' => ['nullable', 'image', 'max:8192'],
-            'dark_image' => ['nullable', 'image', 'max:8192'],
-        ]);
+    $data = $request->validate([
+        'title' => ['nullable', 'string', 'max:255'],
+        'name' => ['nullable', 'string', 'max:255'],
+        'category' => ['nullable', 'string', 'max:255'],
+        'subtitle' => ['nullable', 'string', 'max:255'],
+        'capacity' => ['nullable', 'string', 'max:255'],
+        'description' => ['nullable', 'string'],
+        'short_description' => ['nullable', 'string'],
+        'summary' => ['nullable', 'string'],
+        'details_text' => ['nullable', 'string'],
+        'homepage_visible' => ['nullable', 'boolean'],
+        'sort_order' => ['nullable', 'integer'],
+        'image_path' => ['nullable', 'string', 'max:2000'],
+        'image' => ['nullable', 'image', 'max:8192'],
+        'light_image' => ['nullable', 'image', 'max:8192'],
+        'dark_image' => ['nullable', 'image', 'max:8192'],
+    ]);
 
-        $title = $data['title'] ?? $data['name'] ?? null;
+    $title = $data['title'] ?? $data['name'] ?? null;
 
-        if (! $title) {
-            abort(422, 'Facility name is required.');
-        }
-
-        $uploadedImage = $this->storeFirstAvailableImage($request, ['image', 'light_image'], 'venue-spaces');
-        $manualImage = $this->nullableTrim($data['image_path'] ?? null);
-        $image = $uploadedImage ?: $manualImage;
-        $isVisible = $this->booleanInput($data, 'homepage_visible', true);
-
-        $space = $this->saveModel(new VenueSpace(), [
-            'title' => $title,
-            'name' => $title,
-            'category' => $data['category'] ?? 'Facility',
-            'subtitle' => $data['subtitle'] ?? null,
-            'capacity' => $data['capacity'] ?? null,
-            'short_description' => $data['short_description'] ?? $data['description'] ?? $data['subtitle'] ?? '',
-            'summary' => $data['summary'] ?? $data['description'] ?? $data['short_description'] ?? '',
-            'description' => $data['description'] ?? $data['summary'] ?? $data['short_description'] ?? '',
-            'details' => $this->detailsTextToArray($data['details_text'] ?? null),
-            'light_image' => $image,
-            'dark_image' => $this->storeSingleImage($request, 'dark_image', 'venue-spaces') ?: $image,
-            'image_path' => $image,
-            'image_url' => $image,
-            'homepage_visible' => $isVisible,
-            'is_active' => $isVisible,
-            'active' => $isVisible,
-            'sort_order' => $data['sort_order'] ?? ((VenueSpace::query()->max('sort_order') ?? 0) + 1),
-        ]);
-
-        return response()->json([
-            'message' => 'Venue space created successfully.',
-            'item' => $this->spaceRow($space->fresh()),
-            'content' => $this->contentManagerPayload(),
-        ]);
+    if (! $title) {
+        abort(422, 'Facility name is required.');
     }
+
+    $uploadedImage = $this->storeFirstAvailableImage($request, ['image', 'light_image'], PublicImagePath::VENUE_SPACES);
+    $manualImage = $this->nullableTrim($data['image_path'] ?? null);
+    $manualImage = $manualImage ? PublicImagePath::url($manualImage) : null;
+
+    $image = $uploadedImage ?: $manualImage;
+    $darkImage = $this->storeSingleImage($request, 'dark_image', PublicImagePath::VENUE_SPACES) ?: $image;
+    $isVisible = $this->booleanInput($data, 'homepage_visible', true);
+
+    $space = $this->saveModel(new VenueSpace(), [
+        'title' => $title,
+        'name' => $title,
+        'category' => $data['category'] ?? 'Facility',
+        'subtitle' => $data['subtitle'] ?? null,
+        'capacity' => $data['capacity'] ?? null,
+        'short_description' => $data['short_description'] ?? $data['description'] ?? $data['subtitle'] ?? '',
+        'summary' => $data['summary'] ?? $data['description'] ?? $data['short_description'] ?? '',
+        'description' => $data['description'] ?? $data['summary'] ?? $data['short_description'] ?? '',
+        'details' => $this->detailsTextToArray($data['details_text'] ?? null),
+        'light_image' => $image,
+        'dark_image' => $darkImage,
+        'image_path' => $image,
+        'image_url' => $image,
+        'homepage_visible' => $isVisible,
+        'is_active' => $isVisible,
+        'active' => $isVisible,
+        'sort_order' => $data['sort_order'] ?? ((VenueSpace::query()->max('sort_order') ?? 0) + 1),
+    ]);
+
+    return response()->json([
+        'message' => 'Venue space created successfully.',
+        'item' => $this->spaceRow($space->fresh()),
+        'content' => $this->contentManagerPayload(),
+    ]);
+}
 
     public function updateSpace(Request $request, VenueSpace $venueSpace): JsonResponse
-    {
-        $this->ensureAdmin($request);
+{
+    $this->ensureAdmin($request);
 
-        $data = $request->validate([
-            'title' => ['nullable', 'string', 'max:255'],
-            'name' => ['nullable', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
-            'subtitle' => ['nullable', 'string', 'max:255'],
-            'capacity' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'short_description' => ['nullable', 'string'],
-            'summary' => ['nullable', 'string'],
-            'details_text' => ['nullable', 'string'],
-            'homepage_visible' => ['nullable', 'boolean'],
-            'sort_order' => ['nullable', 'integer'],
-            'image_path' => ['nullable', 'string', 'max:2000'],
-            'image' => ['nullable', 'image', 'max:8192'],
-            'light_image' => ['nullable', 'image', 'max:8192'],
-            'dark_image' => ['nullable', 'image', 'max:8192'],
-        ]);
+    $data = $request->validate([
+        'title' => ['nullable', 'string', 'max:255'],
+        'name' => ['nullable', 'string', 'max:255'],
+        'category' => ['nullable', 'string', 'max:255'],
+        'subtitle' => ['nullable', 'string', 'max:255'],
+        'capacity' => ['nullable', 'string', 'max:255'],
+        'description' => ['nullable', 'string'],
+        'short_description' => ['nullable', 'string'],
+        'summary' => ['nullable', 'string'],
+        'details_text' => ['nullable', 'string'],
+        'homepage_visible' => ['nullable', 'boolean'],
+        'sort_order' => ['nullable', 'integer'],
+        'image_path' => ['nullable', 'string', 'max:2000'],
+        'image' => ['nullable', 'image', 'max:8192'],
+        'light_image' => ['nullable', 'image', 'max:8192'],
+        'dark_image' => ['nullable', 'image', 'max:8192'],
+    ]);
 
-        $title = $data['title'] ?? $data['name'] ?? $venueSpace->title;
-        $uploadedImage = $this->storeFirstAvailableImage($request, ['image', 'light_image'], 'venue-spaces');
-        $manualImage = $this->nullableTrim($data['image_path'] ?? null);
-        $image = $uploadedImage ?: $manualImage ?: $venueSpace->light_image;
-        $isVisible = $this->booleanInput($data, 'homepage_visible', true);
+    $title = $data['title'] ?? $data['name'] ?? $venueSpace->title;
 
-        if ($uploadedImage && $venueSpace->light_image) {
-            $this->deleteSingleImage($venueSpace->light_image);
-        }
+    $existingLight = $venueSpace->light_image ?: ($venueSpace->image_path ?? '');
+    $existingDark = $venueSpace->dark_image ?: $existingLight;
 
-        $darkImage = $request->hasFile('dark_image')
-            ? $this->replaceSingleImage($request, 'dark_image', 'venue-spaces', $venueSpace->dark_image)
-            : ($venueSpace->dark_image ?: $image);
+    $uploadedImage = $this->storeFirstAvailableImage($request, ['image', 'light_image'], PublicImagePath::VENUE_SPACES);
+    $manualImage = $this->nullableTrim($data['image_path'] ?? null);
+    $manualImage = $manualImage ? PublicImagePath::url($manualImage) : null;
 
-        $space = $this->saveModel($venueSpace, [
-            'title' => $title,
-            'name' => $title,
-            'category' => $data['category'] ?? $venueSpace->category ?? 'Facility',
-            'subtitle' => $data['subtitle'] ?? null,
-            'capacity' => $data['capacity'] ?? null,
-            'short_description' => $data['short_description'] ?? $data['description'] ?? $data['subtitle'] ?? '',
-            'summary' => $data['summary'] ?? $data['description'] ?? $data['short_description'] ?? '',
-            'description' => $data['description'] ?? $data['summary'] ?? $data['short_description'] ?? '',
-            'details' => $this->detailsTextToArray($data['details_text'] ?? null),
-            'light_image' => $image,
-            'dark_image' => $darkImage,
-            'image_path' => $image,
-            'image_url' => $image,
-            'homepage_visible' => $isVisible,
-            'is_active' => $isVisible,
-            'active' => $isVisible,
-            'sort_order' => $data['sort_order'] ?? $venueSpace->sort_order,
-        ]);
+    $image = $uploadedImage ?: $manualImage ?: PublicImagePath::url($existingLight);
 
-        return response()->json([
-            'message' => 'Venue space updated successfully.',
-            'item' => $this->spaceRow($space->fresh()),
-            'content' => $this->contentManagerPayload(),
-        ]);
+    if ($uploadedImage && $existingLight && PublicImagePath::relative($existingLight) !== PublicImagePath::relative($existingDark)) {
+        $this->deleteSingleImage($existingLight);
     }
+
+    $darkImage = $request->hasFile('dark_image')
+        ? $this->replaceSingleImage($request, 'dark_image', PublicImagePath::VENUE_SPACES, $existingDark)
+        : ($existingDark && PublicImagePath::relative($existingDark) !== PublicImagePath::relative($existingLight)
+            ? PublicImagePath::url($existingDark)
+            : $image);
+
+    $isVisible = $this->booleanInput($data, 'homepage_visible', true);
+
+    $space = $this->saveModel($venueSpace, [
+        'title' => $title,
+        'name' => $title,
+        'category' => $data['category'] ?? $venueSpace->category ?? 'Facility',
+        'subtitle' => $data['subtitle'] ?? null,
+        'capacity' => $data['capacity'] ?? null,
+        'short_description' => $data['short_description'] ?? $data['description'] ?? $data['subtitle'] ?? '',
+        'summary' => $data['summary'] ?? $data['description'] ?? $data['short_description'] ?? '',
+        'description' => $data['description'] ?? $data['summary'] ?? $data['short_description'] ?? '',
+        'details' => $this->detailsTextToArray($data['details_text'] ?? null),
+        'light_image' => $image,
+        'dark_image' => $darkImage,
+        'image_path' => $image,
+        'image_url' => $image,
+        'homepage_visible' => $isVisible,
+        'is_active' => $isVisible,
+        'active' => $isVisible,
+        'sort_order' => $data['sort_order'] ?? $venueSpace->sort_order,
+    ]);
+
+    return response()->json([
+        'message' => 'Venue space updated successfully.',
+        'item' => $this->spaceRow($space->fresh()),
+        'content' => $this->contentManagerPayload(),
+    ]);
+}
 
     public function destroySpace(Request $request, VenueSpace $venueSpace): JsonResponse
     {
@@ -576,135 +590,135 @@ class AdminPublicContentController extends Controller
         ]);
     }
 
-    public function storeTourismMember(Request $request): JsonResponse
-    {
-        $this->ensureAdmin($request);
+public function storeTourismMember(Request $request): JsonResponse
+{
+    $this->ensureAdmin($request);
 
-        $data = $request->validate([
-            'full_name' => ['required', 'string', 'max:255'],
-            'designation' => ['required', 'string', 'max:255'],
-            'office_section' => ['nullable', 'string', 'max:255'],
-            'unit_name' => ['nullable', 'string', 'max:255'],
-            'team_label' => ['nullable', 'string', 'max:255'],
-            'reports_to_name' => ['nullable', 'string', 'max:255'],
-            'tree_level' => ['nullable', 'integer', 'min:1', 'max:6'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:255'],
-            'short_bio' => ['nullable', 'string'],
-            'details_text' => ['nullable', 'string'],
-            'is_active' => ['nullable', 'boolean'],
-            'active' => ['nullable', 'boolean'],
-            'is_featured' => ['nullable', 'boolean'],
-            'featured' => ['nullable', 'boolean'],
-            'sort_order' => ['nullable', 'integer'],
-            'photo' => ['nullable', 'image', 'max:8192'],
-        ]);
+    $data = $request->validate([
+        'full_name' => ['required', 'string', 'max:255'],
+        'designation' => ['required', 'string', 'max:255'],
+        'office_section' => ['nullable', 'string', 'max:255'],
+        'unit_name' => ['nullable', 'string', 'max:255'],
+        'team_label' => ['nullable', 'string', 'max:255'],
+        'reports_to_name' => ['nullable', 'string', 'max:255'],
+        'tree_level' => ['nullable', 'integer', 'min:1', 'max:6'],
+        'email' => ['nullable', 'email', 'max:255'],
+        'phone' => ['nullable', 'string', 'max:255'],
+        'short_bio' => ['nullable', 'string'],
+        'details_text' => ['nullable', 'string'],
+        'is_active' => ['nullable', 'boolean'],
+        'active' => ['nullable', 'boolean'],
+        'is_featured' => ['nullable', 'boolean'],
+        'featured' => ['nullable', 'boolean'],
+        'sort_order' => ['nullable', 'integer'],
+        'photo' => ['nullable', 'image', 'max:8192'],
+    ]);
 
-        $isActive = $this->booleanInput($data, 'is_active', $this->booleanInput($data, 'active', true));
-        $isFeatured = $this->booleanInput($data, 'is_featured', $this->booleanInput($data, 'featured', false));
+    $isActive = $this->booleanInput($data, 'is_active', $this->booleanInput($data, 'active', true));
+    $isFeatured = $this->booleanInput($data, 'is_featured', $this->booleanInput($data, 'featured', false));
 
-        $photo = $this->storeSingleImage($request, 'photo', 'tourism-members');
+    $photo = $this->storeSingleImage($request, 'photo', PublicImagePath::TOURISM_MEMBERS);
 
-        $member = $this->saveModel(new TourismMember(), [
-            'full_name' => $data['full_name'],
-            'name' => $data['full_name'],
-            'designation' => $data['designation'],
-            'position' => $data['designation'],
-            'role' => $data['designation'],
-            'office_section' => $data['office_section'] ?? null,
-            'unit_name' => $data['unit_name'] ?? null,
-            'team_label' => $data['team_label'] ?? null,
-            'reports_to_name' => $data['reports_to_name'] ?? null,
-            'tree_level' => array_key_exists('tree_level', $data) ? (int) $data['tree_level'] : 1,
-            'email' => $data['email'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'short_bio' => $data['short_bio'] ?? null,
-            'bio' => $data['short_bio'] ?? null,
-            'description' => $data['short_bio'] ?? null,
-            'details' => $this->detailsTextToArray($data['details_text'] ?? null),
-            'photo_path' => $photo,
-            'photo' => $photo,
-            'image_path' => $photo,
-            'image_url' => $photo,
-            'is_active' => $isActive,
-            'active' => $isActive,
-            'is_featured' => $isFeatured,
-            'featured' => $isFeatured,
-            'sort_order' => $data['sort_order'] ?? ((TourismMember::query()->max('sort_order') ?? 0) + 1),
-        ]);
+    $member = $this->saveModel(new TourismMember(), [
+        'full_name' => $data['full_name'],
+        'name' => $data['full_name'],
+        'designation' => $data['designation'],
+        'position' => $data['designation'],
+        'role' => $data['designation'],
+        'office_section' => $data['office_section'] ?? null,
+        'unit_name' => $data['unit_name'] ?? null,
+        'team_label' => $data['team_label'] ?? null,
+        'reports_to_name' => $data['reports_to_name'] ?? null,
+        'tree_level' => array_key_exists('tree_level', $data) ? (int) $data['tree_level'] : 1,
+        'email' => $data['email'] ?? null,
+        'phone' => $data['phone'] ?? null,
+        'short_bio' => $data['short_bio'] ?? null,
+        'bio' => $data['short_bio'] ?? null,
+        'description' => $data['short_bio'] ?? null,
+        'details' => $this->detailsTextToArray($data['details_text'] ?? null),
+        'photo_path' => $photo,
+        'photo' => $photo,
+        'image_path' => $photo,
+        'image_url' => $photo,
+        'is_active' => $isActive,
+        'active' => $isActive,
+        'is_featured' => $isFeatured,
+        'featured' => $isFeatured,
+        'sort_order' => $data['sort_order'] ?? ((TourismMember::query()->max('sort_order') ?? 0) + 1),
+    ]);
 
-        return response()->json([
-            'message' => 'Tourism member profile created successfully.',
-            'item' => $this->memberRow($member->fresh()),
-            'content' => $this->contentManagerPayload(),
-        ]);
-    }
+    return response()->json([
+        'message' => 'Tourism member profile created successfully.',
+        'item' => $this->memberRow($member->fresh()),
+        'content' => $this->contentManagerPayload(),
+    ]);
+}
 
-    public function updateTourismMember(Request $request, TourismMember $tourismMember): JsonResponse
-    {
-        $this->ensureAdmin($request);
+public function updateTourismMember(Request $request, TourismMember $tourismMember): JsonResponse
+{
+    $this->ensureAdmin($request);
 
-        $data = $request->validate([
-            'full_name' => ['required', 'string', 'max:255'],
-            'designation' => ['required', 'string', 'max:255'],
-            'office_section' => ['nullable', 'string', 'max:255'],
-            'unit_name' => ['nullable', 'string', 'max:255'],
-            'team_label' => ['nullable', 'string', 'max:255'],
-            'reports_to_name' => ['nullable', 'string', 'max:255'],
-            'tree_level' => ['nullable', 'integer', 'min:1', 'max:6'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:255'],
-            'short_bio' => ['nullable', 'string'],
-            'details_text' => ['nullable', 'string'],
-            'is_active' => ['nullable', 'boolean'],
-            'active' => ['nullable', 'boolean'],
-            'is_featured' => ['nullable', 'boolean'],
-            'featured' => ['nullable', 'boolean'],
-            'sort_order' => ['nullable', 'integer'],
-            'photo' => ['nullable', 'image', 'max:8192'],
-        ]);
+    $data = $request->validate([
+        'full_name' => ['required', 'string', 'max:255'],
+        'designation' => ['required', 'string', 'max:255'],
+        'office_section' => ['nullable', 'string', 'max:255'],
+        'unit_name' => ['nullable', 'string', 'max:255'],
+        'team_label' => ['nullable', 'string', 'max:255'],
+        'reports_to_name' => ['nullable', 'string', 'max:255'],
+        'tree_level' => ['nullable', 'integer', 'min:1', 'max:6'],
+        'email' => ['nullable', 'email', 'max:255'],
+        'phone' => ['nullable', 'string', 'max:255'],
+        'short_bio' => ['nullable', 'string'],
+        'details_text' => ['nullable', 'string'],
+        'is_active' => ['nullable', 'boolean'],
+        'active' => ['nullable', 'boolean'],
+        'is_featured' => ['nullable', 'boolean'],
+        'featured' => ['nullable', 'boolean'],
+        'sort_order' => ['nullable', 'integer'],
+        'photo' => ['nullable', 'image', 'max:8192'],
+    ]);
 
-        $photo = $request->hasFile('photo')
-            ? $this->replaceSingleImage($request, 'photo', 'tourism-members', $tourismMember->photo_path)
-            : $tourismMember->photo_path;
+    $photo = $request->hasFile('photo')
+        ? $this->replaceSingleImage($request, 'photo', PublicImagePath::TOURISM_MEMBERS, $tourismMember->photo_path)
+        : PublicImagePath::url($tourismMember->photo_path);
 
-        $isActive = $this->booleanInput($data, 'is_active', $this->booleanInput($data, 'active', true));
-        $isFeatured = $this->booleanInput($data, 'is_featured', $this->booleanInput($data, 'featured', false));
+    $isActive = $this->booleanInput($data, 'is_active', $this->booleanInput($data, 'active', true));
+    $isFeatured = $this->booleanInput($data, 'is_featured', $this->booleanInput($data, 'featured', false));
 
-        $member = $this->saveModel($tourismMember, [
-            'full_name' => $data['full_name'],
-            'name' => $data['full_name'],
-            'designation' => $data['designation'],
-            'position' => $data['designation'],
-            'role' => $data['designation'],
-            'office_section' => $data['office_section'] ?? null,
-            'unit_name' => $data['unit_name'] ?? null,
-            'team_label' => $data['team_label'] ?? null,
-            'reports_to_name' => $data['reports_to_name'] ?? null,
-            'tree_level' => array_key_exists('tree_level', $data) ? (int) $data['tree_level'] : 1,
-            'email' => $data['email'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'short_bio' => $data['short_bio'] ?? null,
-            'bio' => $data['short_bio'] ?? null,
-            'description' => $data['short_bio'] ?? null,
-            'details' => $this->detailsTextToArray($data['details_text'] ?? null),
-            'photo_path' => $photo,
-            'photo' => $photo,
-            'image_path' => $photo,
-            'image_url' => $photo,
-            'is_active' => $isActive,
-            'active' => $isActive,
-            'is_featured' => $isFeatured,
-            'featured' => $isFeatured,
-            'sort_order' => $data['sort_order'] ?? $tourismMember->sort_order,
-        ]);
+    $member = $this->saveModel($tourismMember, [
+        'full_name' => $data['full_name'],
+        'name' => $data['full_name'],
+        'designation' => $data['designation'],
+        'position' => $data['designation'],
+        'role' => $data['designation'],
+        'office_section' => $data['office_section'] ?? null,
+        'unit_name' => $data['unit_name'] ?? null,
+        'team_label' => $data['team_label'] ?? null,
+        'reports_to_name' => $data['reports_to_name'] ?? null,
+        'tree_level' => array_key_exists('tree_level', $data) ? (int) $data['tree_level'] : 1,
+        'email' => $data['email'] ?? null,
+        'phone' => $data['phone'] ?? null,
+        'short_bio' => $data['short_bio'] ?? null,
+        'bio' => $data['short_bio'] ?? null,
+        'description' => $data['short_bio'] ?? null,
+        'details' => $this->detailsTextToArray($data['details_text'] ?? null),
+        'photo_path' => $photo,
+        'photo' => $photo,
+        'image_path' => $photo,
+        'image_url' => $photo,
+        'is_active' => $isActive,
+        'active' => $isActive,
+        'is_featured' => $isFeatured,
+        'featured' => $isFeatured,
+        'sort_order' => $data['sort_order'] ?? $tourismMember->sort_order,
+    ]);
 
-        return response()->json([
-            'message' => 'Tourism member profile updated successfully.',
-            'item' => $this->memberRow($member->fresh()),
-            'content' => $this->contentManagerPayload(),
-        ]);
-    }
+    return response()->json([
+        'message' => 'Tourism member profile updated successfully.',
+        'item' => $this->memberRow($member->fresh()),
+        'content' => $this->contentManagerPayload(),
+    ]);
+}
 
     public function destroyTourismMember(Request $request, TourismMember $tourismMember): JsonResponse
     {
@@ -1018,45 +1032,48 @@ class AdminPublicContentController extends Controller
         ];
     }
 
-    protected function spaceRow(VenueSpace $space): array
-    {
-        $image = $space->light_image ?: $space->dark_image ?: ($space->image_path ?? '');
-        $details = is_array($space->details) ? array_values($space->details) : [];
-        $detailsText = collect($details)->filter()->implode("\n");
-        $visible = (bool) ($space->homepage_visible ?? $space->is_active ?? $space->active ?? true);
+protected function spaceRow(VenueSpace $space): array
+{
+    $light = PublicImagePath::url($space->light_image ?: ($space->image_path ?? ''));
+    $dark = PublicImagePath::url($space->dark_image ?: $light);
+    $image = $light ?: $dark;
 
-        return [
-            'id' => $space->id,
-            'title' => $space->title,
-            'name' => $space->title,
-            'label' => $space->title,
-            'category' => $space->category ?? '',
-            'subtitle' => $space->subtitle ?? $space->category ?? '',
-            'capacity' => $space->capacity ?? '',
-            'shortDescription' => $space->short_description ?? '',
-            'short_description' => $space->short_description ?? '',
-            'summary' => $space->summary ?: $space->short_description,
-            'description' => $space->description ?? $space->summary ?? $space->short_description ?? '',
-            'details' => $details,
-            'details_text' => $detailsText,
-            'detailsText' => $detailsText,
-            'lightImage' => $space->light_image ?? '',
-            'light_image' => $space->light_image ?? '',
-            'darkImage' => $space->dark_image ?? '',
-            'dark_image' => $space->dark_image ?? '',
-            'image' => $image,
-            'image_path' => $image,
-            'imagePath' => $image,
-            'image_url' => $image,
-            'imageUrl' => $image,
-            'homepageVisible' => $visible,
-            'homepage_visible' => $visible,
-            'is_active' => $visible,
-            'active' => $visible,
-            'sort_order' => $space->sort_order ?? 999,
-            'sortOrder' => $space->sort_order ?? 999,
-        ];
-    }
+    $details = is_array($space->details) ? array_values($space->details) : [];
+    $detailsText = collect($details)->filter()->implode("\n");
+    $visible = (bool) ($space->homepage_visible ?? $space->is_active ?? $space->active ?? true);
+
+    return [
+        'id' => $space->id,
+        'title' => $space->title,
+        'name' => $space->title,
+        'label' => $space->title,
+        'category' => $space->category ?? '',
+        'subtitle' => $space->subtitle ?? $space->category ?? '',
+        'capacity' => $space->capacity ?? '',
+        'shortDescription' => $space->short_description ?? '',
+        'short_description' => $space->short_description ?? '',
+        'summary' => $space->summary ?: $space->short_description,
+        'description' => $space->description ?? $space->summary ?? $space->short_description ?? '',
+        'details' => $details,
+        'details_text' => $detailsText,
+        'detailsText' => $detailsText,
+        'lightImage' => $light,
+        'light_image' => $light,
+        'darkImage' => $dark,
+        'dark_image' => $dark,
+        'image' => $image,
+        'image_path' => $image,
+        'imagePath' => $image,
+        'image_url' => $image,
+        'imageUrl' => $image,
+        'homepageVisible' => $visible,
+        'homepage_visible' => $visible,
+        'is_active' => $visible,
+        'active' => $visible,
+        'sort_order' => $space->sort_order ?? 999,
+        'sortOrder' => $space->sort_order ?? 999,
+    ];
+}
 
     protected function statRow(HomepageStat $stat): array
     {
@@ -1079,63 +1096,64 @@ class AdminPublicContentController extends Controller
         ];
     }
 
-    protected function memberRow(TourismMember $member): array
-    {
-        $details = is_array($member->details) ? array_values($member->details) : [];
-        $detailsText = collect($details)->filter()->implode("\n");
-        $photo = $member->photo_path ?? '';
-        $active = (bool) ($member->is_active ?? $member->active ?? true);
-        $featured = (bool) ($member->is_featured ?? $member->featured ?? false);
+protected function memberRow(TourismMember $member): array
+{
+    $details = is_array($member->details) ? array_values($member->details) : [];
+    $detailsText = collect($details)->filter()->implode("\n");
+    $photo = PublicImagePath::url($member->photo_path, '/marketing/images/events/default.png');
+    $active = (bool) ($member->is_active ?? $member->active ?? true);
+    $featured = (bool) ($member->is_featured ?? $member->featured ?? false);
 
-        return [
-            'id' => $member->id,
-            'full_name' => $member->full_name,
-            'fullName' => $member->full_name,
-            'name' => $member->full_name,
-            'title' => $member->full_name,
-            'designation' => $member->designation,
-            'position' => $member->designation,
-            'role' => $member->designation,
-            'office_section' => $member->office_section ?? '',
-            'officeSection' => $member->office_section ?? '',
-            'unit_name' => $member->unit_name ?? '',
-            'unitName' => $member->unit_name ?? '',
-            'team_label' => $member->team_label ?? '',
-            'teamLabel' => $member->team_label ?? '',
-            'reports_to_name' => $member->reports_to_name ?? '',
-            'reportsToName' => $member->reports_to_name ?? '',
-            'tree_level' => (int) ($member->tree_level ?? 1),
-            'treeLevel' => (int) ($member->tree_level ?? 1),
-            'email' => $member->email ?? '',
-            'phone' => $member->phone ?? '',
-            'short_bio' => $member->short_bio ?? '',
-            'shortBio' => $member->short_bio ?? '',
-            'bio' => $member->short_bio ?? '',
-            'description' => $member->short_bio ?? '',
-            'details' => $details,
-            'details_text' => $detailsText,
-            'detailsText' => $detailsText,
-            'photo' => $photo,
-            'photo_path' => $photo,
-            'photoPath' => $photo,
-            'photo_url' => $photo,
-            'photoUrl' => $photo,
-            'image' => $photo,
-            'image_path' => $photo,
-            'imagePath' => $photo,
-            'image_url' => $photo,
-            'imageUrl' => $photo,
-            'active' => $active,
-            'is_active' => $active,
-            'homepage_visible' => $active,
-            'homepageVisible' => $active,
-            'featured' => $featured,
-            'is_featured' => $featured,
-            'isFeatured' => $featured,
-            'sort_order' => $member->sort_order ?? 999,
-            'sortOrder' => $member->sort_order ?? 999,
-        ];
-    }
+    return [
+        'id' => $member->id,
+        'full_name' => $member->full_name,
+        'fullName' => $member->full_name,
+        'name' => $member->full_name,
+        'title' => $member->full_name,
+        'designation' => $member->designation,
+        'position' => $member->designation,
+        'role' => $member->designation,
+        'office_section' => $member->office_section ?? '',
+        'officeSection' => $member->office_section ?? '',
+        'unit_name' => $member->unit_name ?? '',
+        'unitName' => $member->unit_name ?? '',
+        'team_label' => $member->team_label ?? '',
+        'teamLabel' => $member->team_label ?? '',
+        'reports_to_name' => $member->reports_to_name ?? '',
+        'reportsToName' => $member->reports_to_name ?? '',
+        'tree_level' => (int) ($member->tree_level ?? 1),
+        'treeLevel' => (int) ($member->tree_level ?? 1),
+        'email' => $member->email ?? '',
+        'phone' => $member->phone ?? '',
+        'short_bio' => $member->short_bio ?? '',
+        'shortBio' => $member->short_bio ?? '',
+        'bio' => $member->short_bio ?? '',
+        'description' => $member->short_bio ?? '',
+        'message' => $member->short_bio ?? '',
+        'details' => $details,
+        'details_text' => $detailsText,
+        'detailsText' => $detailsText,
+        'photo' => $photo,
+        'photo_path' => $photo,
+        'photoPath' => $photo,
+        'photo_url' => $photo,
+        'photoUrl' => $photo,
+        'image' => $photo,
+        'image_path' => $photo,
+        'imagePath' => $photo,
+        'image_url' => $photo,
+        'imageUrl' => $photo,
+        'active' => $active,
+        'is_active' => $active,
+        'homepage_visible' => $active,
+        'homepageVisible' => $active,
+        'featured' => $featured,
+        'is_featured' => $featured,
+        'isFeatured' => $featured,
+        'sort_order' => $member->sort_order ?? 999,
+        'sortOrder' => $member->sort_order ?? 999,
+    ];
+}
 
     protected function saveModel(Model $model, array $payload): Model
     {
@@ -1265,85 +1283,75 @@ class AdminPublicContentController extends Controller
         }
     }
 
-    protected function storeManyImages(Request $request, string $field, string $directory): array
-    {
-        if (! $request->hasFile($field)) {
-            return [];
-        }
-
-        $paths = [];
-
-        foreach ((array) $request->file($field) as $file) {
-            if (! $file) {
-                continue;
-            }
-
-            $stored = $file->store($directory, 'public');
-
-            if ($stored) {
-                $paths[] = '/storage/' . ltrim($stored, '/');
-            }
-        }
-
-        return array_values($paths);
+protected function storeManyImages(Request $request, string $field, string $directory): array
+{
+    if (! $request->hasFile($field)) {
+        return [];
     }
 
-    protected function replaceManyImages(Request $request, string $field, string $directory, array $oldPaths): array
-    {
-        $newPaths = $this->storeManyImages($request, $field, $directory);
+    $paths = [];
 
-        if (! empty($newPaths)) {
-            $this->deleteManyImages($oldPaths);
-
-            return $newPaths;
+    foreach ((array) $request->file($field) as $file) {
+        if (! $file) {
+            continue;
         }
 
-        return array_values($oldPaths);
-    }
+        $stored = PublicImagePath::store($file, $directory);
 
-    protected function deleteManyImages(array $paths): void
-    {
-        foreach ($paths as $path) {
-            $this->deleteSingleImage($path);
+        if ($stored) {
+            $paths[] = $stored;
         }
     }
 
-    protected function storeSingleImage(Request $request, string $field, string $directory): ?string
-    {
-        if (! $request->hasFile($field)) {
-            return null;
-        }
+    return array_values($paths);
+}
 
-        $stored = $request->file($field)->store($directory, 'public');
+protected function replaceManyImages(Request $request, string $field, string $directory, array $oldPaths): array
+{
+    $newPaths = $this->storeManyImages($request, $field, $directory);
 
-        return $stored ? '/storage/' . ltrim($stored, '/') : null;
+    if (! empty($newPaths)) {
+        $this->deleteManyImages($oldPaths);
+
+        return $newPaths;
     }
 
-    protected function replaceSingleImage(Request $request, string $field, string $directory, ?string $oldPath): ?string
-    {
-        $newPath = $this->storeSingleImage($request, $field, $directory);
+    return array_values(array_map(fn ($path) => PublicImagePath::url($path), $oldPaths));
+}
 
-        if ($newPath) {
-            $this->deleteSingleImage($oldPath);
+protected function deleteManyImages(array $paths): void
+{
+    foreach ($paths as $path) {
+        $this->deleteSingleImage($path);
+    }
+}
 
-            return $newPath;
-        }
-
-        return $oldPath;
+protected function storeSingleImage(Request $request, string $field, string $directory): ?string
+{
+    if (! $request->hasFile($field)) {
+        return null;
     }
 
-    protected function deleteSingleImage(?string $path): void
-    {
-        if (! $path) {
-            return;
-        }
+    return PublicImagePath::store($request->file($field), $directory);
+}
 
-        $relative = ltrim(str_replace('/storage/', '', (string) $path), '/');
+protected function replaceSingleImage(Request $request, string $field, string $directory, ?string $oldPath): ?string
+{
+    $newPath = $this->storeSingleImage($request, $field, $directory);
 
-        if ($relative !== '') {
-            Storage::disk('public')->delete($relative);
-        }
+    if ($newPath) {
+        $this->deleteSingleImage($oldPath);
+
+        return $newPath;
     }
+
+    return $oldPath ? PublicImagePath::url($oldPath) : null;
+}
+
+protected function deleteSingleImage(?string $path): void
+{
+    PublicImagePath::delete($path);
+}
 
     protected function nullableTrim(?string $value): ?string
     {

@@ -1,33 +1,35 @@
 import SafeImage from '@/components/system/safe-image';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, usePage } from '@inertiajs/react';
-import { AnimatePresence, motion } from 'framer-motion';
 import {
+    ArrowRight,
     BookOpenCheck,
     Building2,
     CalendarDays,
     ChevronDown,
+    Contact,
     ExternalLink,
     FileQuestion,
-    Info,
+    Home,
+    LandPlot,
     MapPinned,
     Megaphone,
     Menu,
     Moon,
     Palette,
+    Sparkles,
     Sun,
+    UsersRound,
     X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export type PublicSiteSettings = {
     logo_url?: string | null;
     logoUrl?: string | null;
     city_seal_url?: string | null;
     citySealUrl?: string | null;
-    baguio_logo_url?: string | null;
-    baguioLogoUrl?: string | null;
     breathe_baguio_logo_url?: string | null;
     breatheBaguioLogoUrl?: string | null;
     visitaUrl?: string | null;
@@ -47,7 +49,13 @@ type PageProps = {
     siteSettings?: PublicSiteSettings;
 };
 
-type NavChild = {
+type NavItem = {
+    label: string;
+    href: string;
+    icon?: LucideIcon;
+};
+
+type MoreItem = {
     label: string;
     href: string;
     description: string;
@@ -55,22 +63,14 @@ type NavChild = {
     icon: LucideIcon;
 };
 
-type NavItem = {
-    label: string;
-    href: string;
-    external?: boolean;
-};
-
 const MAIN_NAV: NavItem[] = [
-    { label: 'Home', href: '/' },
-    { label: 'Venue Packages', href: '/#venue-packages' },
-    { label: 'Events', href: '/events' },
-    { label: 'Calendar', href: '/calendar' },
-    { label: 'Tourism Office', href: '/tourism-office' },
-    { label: 'Contact', href: '/contact' },
+    { label: 'Home', href: '/', icon: Home },
+    { label: 'Facilities', href: '/facilities', icon: LandPlot },
+    { label: 'Events', href: '/events', icon: Sparkles },
+    { label: 'Calendar', href: '/calendar', icon: CalendarDays },
+    { label: 'Tourism Office', href: '/tourism-office', icon: UsersRound },
+    { label: 'Contact', href: '/contact', icon: Contact },
 ];
-
-const ease = [0.22, 1, 0.36, 1] as const;
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
@@ -79,6 +79,7 @@ function cx(...classes: Array<string | false | null | undefined>) {
 function setting(settings: PublicSiteSettings | undefined, ...keys: Array<keyof PublicSiteSettings>) {
     for (const key of keys) {
         const value = settings?.[key];
+
         if (typeof value === 'string' && value.trim()) {
             return value.trim();
         }
@@ -87,60 +88,40 @@ function setting(settings: PublicSiteSettings | undefined, ...keys: Array<keyof 
     return '';
 }
 
-function isActive(url: string, href: string): boolean {
-    if (href.startsWith('http') || href.startsWith('#')) return false;
-    if (href === '/') return url === '/' || url.startsWith('/?');
-    const base = href.split('#')[0];
-    return url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`) || url.startsWith(`${base}#`);
-}
-
 function isExternal(href: string) {
     return /^https?:\/\//i.test(href);
 }
 
-function ThemeButton() {
-    const { appearance, updateAppearance } = useAppearance();
-    const [systemDark, setSystemDark] = useState(false);
-    const [mounted, setMounted] = useState(false);
+function isActive(url: string, href: string) {
+    if (href.startsWith('http') || href.startsWith('#')) return false;
 
-    useEffect(() => {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const sync = () => {
-            setSystemDark(mediaQuery.matches);
-            setMounted(true);
-        };
+    if (href === '/') {
+        return url === '/' || url.startsWith('/?');
+    }
 
-        sync();
-        mediaQuery.addEventListener('change', sync);
-        return () => mediaQuery.removeEventListener('change', sync);
-    }, []);
+    const base = href.split('#')[0];
 
-    const isDark = appearance === 'dark' || (appearance === 'system' && systemDark);
-
-    return (
-        <button
-            type="button"
-            onClick={() => updateAppearance(isDark ? 'light' : 'dark')}
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/18 bg-white/10 text-white shadow-[0_12px_30px_rgba(0,0,0,0.10)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/18"
-            aria-label="Toggle theme"
-        >
-            {!mounted ? <span className="h-4 w-4 rounded-full border border-current opacity-45" /> : isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-        </button>
-    );
+    return url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`) || url.startsWith(`${base}#`);
 }
 
-function moreItems(settings?: PublicSiteSettings): NavChild[] {
+function moreItems(settings?: PublicSiteSettings): MoreItem[] {
     return [
+        {
+            label: 'Venue Packages',
+            href: '/#venue-packages',
+            description: 'Prepared venue combinations and package-style booking options for BCCC clients.',
+            icon: Sparkles,
+        },
         {
             label: 'Booking Guidelines',
             href: '/guidelines',
-            description: 'Venue rules, booking reminders, payment deadlines, and client responsibilities.',
+            description: 'Venue use rules, requirements, payment reminders, and booking policies.',
             icon: BookOpenCheck,
         },
         {
             label: 'Frequently Asked Questions',
             href: setting(settings, 'faqsUrl', 'faqs_url') || 'https://main.baguio.gov.ph/more/frequently-asked-questions',
-            description: 'Quick answers to common public service and venue-use concerns.',
+            description: 'Quick answers to common public service and venue-use questions.',
             external: true,
             icon: FileQuestion,
         },
@@ -154,7 +135,7 @@ function moreItems(settings?: PublicSiteSettings): NavChild[] {
         {
             label: 'VISITA Baguio',
             href: setting(settings, 'visitaUrl', 'visita_url') || 'https://visita.baguio.gov.ph/',
-            description: 'Travel assistance and official Baguio visitor information.',
+            description: 'Official visitor assistance and travel information.',
             external: true,
             icon: MapPinned,
         },
@@ -175,21 +156,132 @@ function moreItems(settings?: PublicSiteSettings): NavChild[] {
     ];
 }
 
+function ThinScrollbarStyle() {
+    return (
+        <style>
+            {`
+                html {
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(23, 100, 86, 0.52) transparent;
+                }
+
+                html::-webkit-scrollbar,
+                body::-webkit-scrollbar,
+                *::-webkit-scrollbar {
+                    width: 5px;
+                    height: 5px;
+                }
+
+                html::-webkit-scrollbar-track,
+                body::-webkit-scrollbar-track,
+                *::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+
+                html::-webkit-scrollbar-thumb,
+                body::-webkit-scrollbar-thumb,
+                *::-webkit-scrollbar-thumb {
+                    border-radius: 999px;
+                    background: rgba(23, 100, 86, 0.64);
+                    border: 1px solid rgba(255, 255, 255, 0.42);
+                }
+
+                html::-webkit-scrollbar-thumb:hover,
+                body::-webkit-scrollbar-thumb:hover,
+                *::-webkit-scrollbar-thumb:hover {
+                    background: rgba(23, 100, 86, 0.88);
+                }
+
+                html.dark {
+                    scrollbar-color: rgba(244, 223, 173, 0.42) transparent;
+                }
+
+                html.dark::-webkit-scrollbar-thumb,
+                html.dark body::-webkit-scrollbar-thumb,
+                html.dark *::-webkit-scrollbar-thumb {
+                    background: rgba(244, 223, 173, 0.42);
+                    border-color: rgba(255, 255, 255, 0.12);
+                }
+            `}
+        </style>
+    );
+}
+
+function ThemeButton() {
+    const { appearance, updateAppearance } = useAppearance();
+    const [systemDark, setSystemDark] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+        const sync = () => {
+            setSystemDark(mediaQuery.matches);
+            setMounted(true);
+        };
+
+        sync();
+        mediaQuery.addEventListener('change', sync);
+
+        return () => mediaQuery.removeEventListener('change', sync);
+    }, []);
+
+    const isDark = appearance === 'dark' || (appearance === 'system' && systemDark);
+
+    return (
+        <button
+            type="button"
+            onClick={() => updateAppearance(isDark ? 'light' : 'dark')}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-white/20 bg-white/10 text-white shadow-[0_12px_28px_rgba(0,0,0,0.12)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
+            aria-label="Toggle theme"
+        >
+            {!mounted ? (
+                <span className="h-4 w-4 rounded-full border border-current opacity-45" />
+            ) : isDark ? (
+                <Moon className="h-4 w-4 text-[#f4dfad]" />
+            ) : (
+                <Sun className="h-4 w-4 text-[#f4dfad]" />
+            )}
+        </button>
+    );
+}
+
+function BookNowButton({ mobile = false, onClick }: { mobile?: boolean; onClick?: () => void }) {
+    return (
+        <Link
+            href="/book"
+            onClick={onClick}
+            className={cx(
+                'group relative isolate inline-flex items-center justify-center overflow-hidden border border-[#f4dfad]/45 bg-[#f4dfad]/10 text-white shadow-[0_12px_28px_rgba(0,0,0,0.12)] transition duration-300 hover:-translate-y-0.5 hover:border-[#f4dfad] hover:bg-[#f4dfad] hover:text-[#153f37]',
+                'before:absolute before:inset-0 before:-z-10 before:bg-[linear-gradient(120deg,rgba(255,255,255,0.18),transparent_42%,rgba(0,0,0,0.08))]',
+                mobile ? 'min-h-12 w-full rounded-xl px-4 text-[12px]' : 'hidden min-h-10 rounded-md px-4 text-[11px] lg:inline-flex',
+                'font-black uppercase tracking-[0.12em]',
+            )}
+        >
+            <BookOpenCheck className="mr-2 h-4 w-4" />
+            Book Now
+            <ArrowRight className="ml-2 h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+        </Link>
+    );
+}
+
 function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSettings }) {
     const [moreOpen, setMoreOpen] = useState(false);
     const items = moreItems(settings);
 
     return (
-        <nav className="hidden flex-1 items-center justify-center gap-1.5 xl:flex" aria-label="Primary navigation">
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 xl:flex 2xl:gap-1.5" aria-label="Primary navigation">
             {MAIN_NAV.map((item) => {
                 const active = isActive(url, item.href);
+
                 return (
                     <Link
                         key={item.label}
                         href={item.href}
                         className={cx(
-                            'relative inline-flex min-h-10 items-center rounded-xl px-3.5 text-sm font-semibold text-white/88 transition hover:bg-white/10 hover:text-white',
-                            active && 'bg-white/12 text-white after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-white/80',
+                            'relative inline-flex min-h-10 items-center rounded-md px-2.5 text-[12px] font-bold tracking-[0.01em] text-white/90 transition hover:bg-white/10 hover:text-white 2xl:px-3.5 2xl:text-sm',
+                            active &&
+                                'bg-white/10 text-white after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-[#f4dfad]/90',
                         )}
                     >
                         {item.label}
@@ -202,118 +294,133 @@ function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSetti
                     type="button"
                     onClick={() => setMoreOpen((value) => !value)}
                     className={cx(
-                        'inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold text-white/88 transition hover:bg-white/10 hover:text-white',
-                        moreOpen && 'bg-white/12 text-white',
+                        'inline-flex min-h-10 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-bold tracking-[0.01em] text-white/90 transition hover:bg-white/10 hover:text-white 2xl:px-3.5 2xl:text-sm',
+                        moreOpen && 'bg-white/10 text-white',
                     )}
                     aria-expanded={moreOpen}
                 >
                     More <ChevronDown className={cx('h-3.5 w-3.5 transition', moreOpen && 'rotate-180')} />
                 </button>
 
-                <AnimatePresence>
-                    {moreOpen ? (
-                        <motion.div
-                            initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 12, scale: 0.98 }}
-                            transition={{ duration: 0.18, ease }}
-                            className="absolute left-1/2 top-full z-[99995] mt-2 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white/96 p-4 text-slate-800 shadow-[0_26px_70px_rgba(2,26,22,0.22)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0d1715]/96"
-                        >
-                            <div className="grid gap-2 md:grid-cols-2">
-                                {items.map((child) => {
-                                    const Icon = child.icon;
-                                    const content = (
-                                        <>
-                                            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e5f1ef] text-[#1f7465] dark:bg-white/10 dark:text-[#7dd7c6]">
-                                                <Icon className="h-4 w-4" />
+                {moreOpen ? (
+                    <div className="absolute left-1/2 top-full z-[99995] mt-3 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white/96 p-4 text-slate-800 shadow-[0_26px_70px_rgba(2,26,22,0.22)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0d1715]/96">
+                        <div className="grid gap-2 md:grid-cols-2">
+                            {items.map((child) => {
+                                const Icon = child.icon;
+                                const content = (
+                                    <>
+                                        <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e5f1ef] text-[#1f7465] dark:bg-white/10 dark:text-[#7dd7c6]">
+                                            <Icon className="h-4 w-4" />
+                                        </span>
+                                        <span className="min-w-0 flex-1">
+                                            <span className="flex items-center gap-2 text-sm font-bold tracking-normal text-slate-700 dark:text-white/90">
+                                                {child.label}
+                                                {child.external ? <ExternalLink className="h-3.5 w-3.5 text-slate-400" /> : null}
                                             </span>
-                                            <span className="min-w-0 flex-1">
-                                                <span className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-white/88">
-                                                    {child.label}
-                                                    {child.external ? <ExternalLink className="h-3.5 w-3.5 text-slate-400" /> : null}
-                                                </span>
-                                                <span className="mt-1 block text-sm leading-6 text-slate-500 dark:text-white/52">{child.description}</span>
+                                            <span className="mt-1 block text-sm leading-6 tracking-normal text-slate-500 dark:text-white/55">
+                                                {child.description}
                                             </span>
-                                        </>
-                                    );
+                                        </span>
+                                    </>
+                                );
 
-                                    const className = 'group flex min-h-[5.25rem] items-start gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-slate-100 dark:hover:bg-white/8';
+                                const className =
+                                    'group flex min-h-[5.25rem] items-start gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-slate-100 dark:hover:bg-white/10';
 
-                                    return child.external || isExternal(child.href) ? (
-                                        <a key={child.label} href={child.href} target="_blank" rel="noreferrer" className={className}>{content}</a>
-                                    ) : (
-                                        <Link key={child.label} href={child.href} className={className}>{content}</Link>
-                                    );
-                                })}
-                            </div>
-                        </motion.div>
-                    ) : null}
-                </AnimatePresence>
+                                return child.external || isExternal(child.href) ? (
+                                    <a key={child.label} href={child.href} target="_blank" rel="noreferrer" className={className}>
+                                        {content}
+                                    </a>
+                                ) : (
+                                    <Link key={child.label} href={child.href} className={className}>
+                                        {content}
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ) : null}
             </div>
         </nav>
     );
 }
 
-function MobileMenu({ open, url, onClose, settings }: { open: boolean; url: string; onClose: () => void; settings?: PublicSiteSettings }) {
+function MobileMenu({
+    open,
+    url,
+    onClose,
+    settings,
+}: {
+    open: boolean;
+    url: string;
+    onClose: () => void;
+    settings?: PublicSiteSettings;
+}) {
     const items = moreItems(settings);
 
     useEffect(() => {
         document.body.classList.toggle('overflow-hidden', open);
+
         return () => document.body.classList.remove('overflow-hidden');
     }, [open]);
 
+    if (!open) return null;
+
     return (
-        <AnimatePresence>
-            {open ? (
-                <motion.div className="fixed inset-0 z-[99990] xl:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-                    <button type="button" className="absolute inset-0 bg-[#001f1b]/56 backdrop-blur-xl" onClick={onClose} aria-label="Close menu" />
+        <div className="fixed inset-0 z-[99990] xl:hidden">
+            <button type="button" className="absolute inset-0 bg-[#001f1b]/56 backdrop-blur-xl" onClick={onClose} aria-label="Close menu" />
 
-                    <motion.aside
-                        className="absolute right-3 top-3 flex max-h-[calc(100dvh-1.5rem)] w-[min(29rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-white/18 bg-[#135b50]/97 text-white shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-2xl"
-                        initial={{ x: 34, opacity: 0, filter: 'blur(8px)' }}
-                        animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
-                        exit={{ x: 34, opacity: 0, filter: 'blur(8px)' }}
-                        transition={{ duration: 0.28, ease }}
+            <aside className="absolute right-3 top-3 flex max-h-[calc(100dvh-1.5rem)] w-[min(29rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-white/20 bg-[#135b50]/96 text-white shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+                <div className="flex items-center justify-between border-b border-white/12 px-4 py-4">
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">Official Public Menu</p>
+                        <p className="mt-1 text-sm font-semibold tracking-normal">City Government of Baguio</p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="grid h-10 w-10 place-items-center rounded-full border border-white/20 bg-white/10 transition hover:bg-white/20"
+                        aria-label="Close menu"
                     >
-                        <div className="flex items-center justify-between border-b border-white/12 px-4 py-4">
-                            <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/58">Official Public Menu</p>
-                                <p className="mt-1 text-sm font-semibold">City Government of Baguio</p>
-                            </div>
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
 
-                            <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full border border-white/16 bg-white/10 transition hover:bg-white/18" aria-label="Close menu">
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin]">
+                    <BookNowButton mobile onClick={onClose} />
 
-                        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                            {[...MAIN_NAV, ...items].map((item) => {
-                                const Icon = 'icon' in item ? item.icon : null;
-                                const external = 'external' in item ? item.external : isExternal(item.href);
-                                const active = isActive(url, item.href);
-                                const className = cx(
-                                    'mb-1 flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
-                                    active ? 'bg-white text-[#125749]' : 'text-white/82 hover:bg-white/10 hover:text-white',
-                                );
-                                const content = (
-                                    <>
-                                        {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
-                                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                                        {external ? <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" /> : null}
-                                    </>
-                                );
+                    <div className="mt-3">
+                        {[...MAIN_NAV, ...items].map((item) => {
+                            const Icon = 'icon' in item ? item.icon : null;
+                            const external = 'external' in item ? item.external : isExternal(item.href);
+                            const active = isActive(url, item.href);
+                            const className = cx(
+                                'mb-1 flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold tracking-normal transition',
+                                active ? 'bg-white text-[#125749]' : 'text-white/80 hover:bg-white/10 hover:text-white',
+                            );
+                            const content = (
+                                <>
+                                    {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
+                                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                    {external ? <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" /> : null}
+                                </>
+                            );
 
-                                return external ? (
-                                    <a key={item.label} href={item.href} target="_blank" rel="noreferrer" onClick={onClose} className={className}>{content}</a>
-                                ) : (
-                                    <Link key={item.label} href={item.href} onClick={onClose} className={className}>{content}</Link>
-                                );
-                            })}
-                        </div>
-                    </motion.aside>
-                </motion.div>
-            ) : null}
-        </AnimatePresence>
+                            return external ? (
+                                <a key={item.label} href={item.href} target="_blank" rel="noreferrer" onClick={onClose} className={className}>
+                                    {content}
+                                </a>
+                            ) : (
+                                <Link key={item.label} href={item.href} onClick={onClose} className={className}>
+                                    {content}
+                                </Link>
+                            );
+                        })}
+                    </div>
+                </div>
+            </aside>
+        </div>
     );
 }
 
@@ -321,38 +428,66 @@ export default function PublicHeader() {
     const page = usePage<PageProps>();
     const settings = page.props.siteSettings;
     const [mobileOpen, setMobileOpen] = useState(false);
+
     const sealSrc = setting(settings, 'city_seal_url', 'citySealUrl', 'logo_url', 'logoUrl') || '/marketing/images/logo/bccc-seal.png';
     const breatheSrc = setting(settings, 'breathe_baguio_logo_url', 'breatheBaguioLogoUrl') || '/marketing/images/branding/breathe-light.png';
 
-    const headerClass = useMemo(
-        () => 'fixed inset-x-0 top-0 z-[99980] border-t-[3px] border-[#514237] bg-[#176456]/94 text-white shadow-[0_10px_28px_rgba(2,26,22,0.18)] backdrop-blur-xl',
-        [],
-    );
-
     return (
         <>
-            <header className={headerClass}>
-                <div className="mx-auto flex min-h-[78px] w-full max-w-[1640px] items-center gap-4 px-3 sm:px-5 lg:px-8">
-                    <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-3" aria-label="BCCC EASE home">
-                        <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.14)] ring-1 ring-white/35 sm:h-16 sm:w-16">
-                            <SafeImage src={sealSrc} fallbackSrc="/marketing/images/logo/bccc-seal.png" alt="City Government of Baguio seal" className="h-full w-full object-contain p-1" wrapperClassName="h-full w-full" />
+            <ThinScrollbarStyle />
+
+            <header className="bccc-public-header fixed inset-x-0 top-0 z-[99980] border-t-[3px] border-[#514237] bg-[#176456]/96 text-white shadow-[0_10px_28px_rgba(2,26,22,0.18)] backdrop-blur-xl">
+                <div className="mx-auto flex h-[74px] w-full max-w-[1720px] items-center gap-3 px-3 sm:px-5 lg:h-[80px] lg:px-7 2xl:px-10">
+                    <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-3" aria-label="City Government of Baguio home">
+                        <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_10px_24px_rgba(0,0,0,0.12)] ring-1 ring-white/35 sm:h-12 sm:w-12 lg:h-14 lg:w-14">
+                            <SafeImage
+                                src={sealSrc}
+                                fallbackSrc="/marketing/images/logo/bccc-seal.png"
+                                alt="City Government of Baguio seal"
+                                className="h-full w-full object-contain p-1"
+                                wrapperClassName="h-full w-full"
+                            />
                         </span>
+
                         <span className="hidden min-w-0 sm:block">
-                            <span className="block text-sm font-bold leading-tight text-white">BAGUIO CONVENTION & CULTURAL CENTER</span>
-                            <span className="mt-1 block text-base font-bold leading-tight text-white">EVENT ACCESS & SCHEDULING ENGINE</span>
+                            <span className="block w-fit border-b border-white/75 pb-1 text-[12px] font-bold leading-none tracking-[-0.01em] text-white lg:text-[15px]">
+                                Republic of the Philippines
+                            </span>
+                            <span className="mt-2 block text-[12px] font-bold leading-none tracking-[-0.01em] text-white lg:text-[15px]">
+                                City Government of Baguio
+                            </span>
                         </span>
                     </Link>
 
                     <DesktopNav url={page.url} settings={settings} />
 
-                    <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
                         <ThemeButton />
 
-                        <a href="https://main.baguio.gov.ph/" target="_blank" rel="noreferrer" className="hidden h-12 w-28 items-center justify-center lg:flex" aria-label="Breathe Baguio website">
-                            <SafeImage src={breatheSrc} fallbackSrc="/marketing/images/branding/breathe-light.png" alt="Breathe Baguio" className="h-full w-full object-contain" wrapperClassName="h-full w-full" />
+                        <a
+                            href="https://main.baguio.gov.ph/"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hidden h-[54px] w-[118px] items-center justify-center overflow-visible md:flex lg:h-[62px] lg:w-[146px] 2xl:w-[168px]"
+                            aria-label="Breathe Baguio website"
+                        >
+                            <SafeImage
+                                src={breatheSrc}
+                                fallbackSrc="/marketing/images/branding/breathe-light.png"
+                                alt="Breathe Baguio"
+                                className="h-full w-full scale-[2.8] -translate-y-[7.5px] object-contain"
+                                wrapperClassName="h-full w-full overflow-visible"
+                            />
                         </a>
 
-                        <button type="button" onClick={() => setMobileOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-white/18 bg-white/10 text-white transition hover:bg-white/18 xl:hidden" aria-label="Open public menu">
+                        <BookNowButton />
+
+                        <button
+                            type="button"
+                            onClick={() => setMobileOpen(true)}
+                            className="grid h-10 w-10 place-items-center rounded-xl border border-white/20 bg-white/10 text-white transition hover:bg-white/20 xl:hidden"
+                            aria-label="Open public menu"
+                        >
                             <Menu className="h-5 w-5" />
                         </button>
                     </div>

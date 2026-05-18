@@ -1,6 +1,6 @@
+import SafeImage from '@/components/system/safe-image';
 import {
     EmptyPublicPanel,
-    SectionIntro,
     cx,
     descriptionOf,
     formatPublicDate,
@@ -9,8 +9,16 @@ import {
     visibleRecords,
     type PublicImageRecord,
 } from '@/components/public/public-display-system';
+import { Link } from '@inertiajs/react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { CalendarDays, ChevronLeft, ChevronRight, Film, Sparkles } from 'lucide-react';
+import {
+    ArrowRight,
+    CalendarDays,
+    Clock3,
+    Film,
+    MapPin,
+    Sparkles,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 type Props = {
@@ -19,173 +27,139 @@ type Props = {
     cityEvents?: PublicImageRecord[];
 };
 
-type EventPanelState = {
-    x: number;
-    z: number;
-    rotateY: number;
-    rotateZ: number;
-    scale: number;
-    opacity: number;
-    zIndex: number;
-    filter: string;
+type EventMode = 'bccc' | 'city';
+
+type PreviewEvent = {
+    item: PublicImageRecord;
+    index: number;
+    offset: number;
 };
+
+const DEFAULT_IMAGE = '/marketing/images/events/default.png';
+const AUTO_ADVANCE_MS = 6200;
+const ease = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
 function mod(value: number, total: number) {
     return ((value % total) + total) % total;
 }
 
-function categoryOf(item: PublicImageRecord) {
-    return String(item.category || item.event_category || '').toLowerCase();
-}
-
-function cleanCategory(item: PublicImageRecord) {
-    return String(item.category || item.event_category || 'Event Highlight');
-}
-
-function eventDate(item: PublicImageRecord) {
-    return item.starts_at || item.startsAt || item.event_date || item.date || null;
-}
-
-function signedOffset(index: number, active: number, total: number) {
-    const raw = index - active;
-
-    if (raw > total / 2) {
-        return raw - total;
+function textValue(value: unknown) {
+    if (value === null || value === undefined) {
+        return '';
     }
 
-    if (raw < -total / 2) {
-        return raw + total;
+    if (typeof value === 'string' || typeof value === 'number') {
+        return String(value).trim();
     }
 
-    return raw;
+    return '';
 }
 
-function panelState(offset: number, reducedMotion: boolean): EventPanelState {
-    const states: Record<number, EventPanelState> = {
-        [-4]: {
-            x: -690,
-            z: -430,
-            rotateY: 78,
-            rotateZ: -4,
-            scale: 0.48,
-            opacity: 0.07,
-            zIndex: 2,
-            filter: 'brightness(0.18) grayscale(1) blur(2px)',
-        },
-        [-3]: {
-            x: -520,
-            z: -300,
-            rotateY: 70,
-            rotateZ: -3,
-            scale: 0.58,
-            opacity: 0.16,
-            zIndex: 4,
-            filter: 'brightness(0.25) grayscale(1) blur(1.4px)',
-        },
-        [-2]: {
-            x: -355,
-            z: -170,
-            rotateY: 54,
-            rotateZ: -2,
-            scale: 0.72,
-            opacity: 0.42,
-            zIndex: 8,
-            filter: 'brightness(0.42) grayscale(1) blur(0.7px)',
-        },
-        [-1]: {
-            x: -185,
-            z: -20,
-            rotateY: 34,
-            rotateZ: -1,
-            scale: 0.9,
-            opacity: 0.78,
-            zIndex: 18,
-            filter: 'brightness(0.7) grayscale(0.45) blur(0.15px)',
-        },
-        [0]: {
-            x: 0,
-            z: 190,
-            rotateY: 0,
-            rotateZ: 0,
-            scale: 1.12,
-            opacity: 1,
-            zIndex: 40,
-            filter: 'brightness(1.06) grayscale(0) blur(0px)',
-        },
-        [1]: {
-            x: 185,
-            z: -20,
-            rotateY: -34,
-            rotateZ: 1,
-            scale: 0.9,
-            opacity: 0.78,
-            zIndex: 18,
-            filter: 'brightness(0.7) grayscale(0.45) blur(0.15px)',
-        },
-        [2]: {
-            x: 355,
-            z: -170,
-            rotateY: -54,
-            rotateZ: 2,
-            scale: 0.72,
-            opacity: 0.42,
-            zIndex: 8,
-            filter: 'brightness(0.42) grayscale(1) blur(0.7px)',
-        },
-        [3]: {
-            x: 520,
-            z: -300,
-            rotateY: -70,
-            rotateZ: 3,
-            scale: 0.58,
-            opacity: 0.16,
-            zIndex: 4,
-            filter: 'brightness(0.25) grayscale(1) blur(1.4px)',
-        },
-        [4]: {
-            x: 690,
-            z: -430,
-            rotateY: -78,
-            rotateZ: 4,
-            scale: 0.48,
-            opacity: 0.07,
-            zIndex: 2,
-            filter: 'brightness(0.18) grayscale(1) blur(2px)',
-        },
-    };
-
-    const fallback = {
-        x: offset * 180,
-        z: -520,
-        rotateY: offset > 0 ? -82 : 82,
-        rotateZ: offset > 0 ? 5 : -5,
-        scale: 0.42,
-        opacity: 0,
-        zIndex: 0,
-        filter: 'brightness(0.12) grayscale(1) blur(2.5px)',
-    };
-
-    if (reducedMotion) {
-        const state = states[offset] ?? fallback;
-
-        return {
-            ...state,
-            z: 0,
-            rotateY: 0,
-            rotateZ: 0,
-            filter: offset === 0 ? 'brightness(1)' : 'brightness(0.55) grayscale(1)',
-        };
+function recordValue(item: PublicImageRecord | null | undefined, keys: string[]) {
+    if (!item) {
+        return '';
     }
 
-    return states[offset] ?? fallback;
+    const record = item as Record<string, unknown>;
+
+    for (const key of keys) {
+        const value = textValue(record[key]);
+
+        if (value) {
+            return value;
+        }
+    }
+
+    return '';
 }
 
-function mergedUniqueEvents(items: PublicImageRecord[], bcccEvents: PublicImageRecord[], cityEvents: PublicImageRecord[]) {
+function eventKey(item: PublicImageRecord, index: number) {
+    return String(item.id ?? item.slug ?? item.title ?? item.name ?? `event-${index}`);
+}
+
+function imageFor(item?: PublicImageRecord | null) {
+    if (!item) {
+        return DEFAULT_IMAGE;
+    }
+
+    const record = item as Record<string, unknown>;
+    const images = Array.isArray(record.images) ? record.images.map(textValue).filter(Boolean) : [];
+
+    return (
+        recordValue(item, [
+            'image_url',
+            'imageUrl',
+            'image_path',
+            'imagePath',
+            'lightImage',
+            'light_image',
+            'darkImage',
+            'dark_image',
+            'thumbnail_url',
+            'thumbnail',
+            'image',
+        ]) ||
+        imageOf(item) ||
+        images[0] ||
+        DEFAULT_IMAGE
+    );
+}
+
+function eventDate(item?: PublicImageRecord | null) {
+    return recordValue(item, ['starts_at', 'startsAt', 'event_date', 'eventDate', 'date', 'published_at']);
+}
+
+function eventEndDate(item?: PublicImageRecord | null) {
+    return recordValue(item, ['ends_at', 'endsAt', 'date_end', 'dateEnd', 'event_date_end', 'eventDateEnd']);
+}
+
+function eventTime(item?: PublicImageRecord | null) {
+    return recordValue(item, ['time', 'event_time', 'eventTime', 'starts_time', 'startsTime']);
+}
+
+function eventVenue(item?: PublicImageRecord | null) {
+    return recordValue(item, ['venue', 'location', 'event_location', 'eventLocation']) || 'Baguio Convention and Cultural Center';
+}
+
+function eventCategory(item?: PublicImageRecord | null) {
+    return recordValue(item, ['category', 'event_category', 'eventCategory', 'scope', 'type']) || 'Event Highlight';
+}
+
+function isCityEvent(item: PublicImageRecord) {
+    const category = eventCategory(item).toLowerCase();
+    const scope = recordValue(item, ['scope']).toLowerCase();
+
+    return scope === 'city' || category.includes('city') || category.includes('baguio city');
+}
+
+function displayDate(item?: PublicImageRecord | null) {
+    const start = eventDate(item);
+    const end = eventEndDate(item);
+
+    if (start && end && start !== end) {
+        return `${formatPublicDate(start)} — ${formatPublicDate(end)}`;
+    }
+
+    return formatPublicDate(start) || 'Date to be announced';
+}
+
+function displayDescription(item?: PublicImageRecord | null) {
+    return descriptionOf(
+        item,
+        'A featured public event curated for the Baguio Convention and Cultural Center community.',
+    );
+}
+
+function mergedUniqueEvents(
+    items: PublicImageRecord[],
+    bcccEvents: PublicImageRecord[],
+    cityEvents: PublicImageRecord[],
+) {
     const merged = [...items, ...bcccEvents, ...cityEvents];
     const seen = new Set<string>();
 
     return merged.filter((item, index) => {
-        const key = String(item.id ?? `${titleOf(item, 'Event')}-${index}`);
+        const key = String(item.id ?? item.slug ?? `${titleOf(item, 'Event')}-${index}`);
 
         if (seen.has(key)) {
             return false;
@@ -196,45 +170,467 @@ function mergedUniqueEvents(items: PublicImageRecord[], bcccEvents: PublicImageR
     });
 }
 
-export default function EventsCinemaShowcase({ items = [], bcccEvents = [], cityEvents = [] }: Props) {
+function getPreviewStack(records: PublicImageRecord[], active: number): PreviewEvent[] {
+    const offsets = [-2, -1, 1, 2];
+
+    return offsets.map((offset) => {
+        const index = mod(active + offset, records.length);
+
+        return {
+            item: records[index],
+            index,
+            offset,
+        };
+    });
+}
+
+function EventModeSwitch({
+    mode,
+    onChange,
+    bcccCount,
+    cityCount,
+}: {
+    mode: EventMode;
+    onChange: (mode: EventMode) => void;
+    bcccCount: number;
+    cityCount: number;
+}) {
+    return (
+        <div className="inline-flex rounded-full border border-white/10 bg-white/[0.055] p-1 shadow-[0_18px_60px_rgba(0,0,0,0.26)] backdrop-blur-xl">
+            {[
+                { value: 'bccc' as const, label: 'BCCC Events', count: bcccCount },
+                { value: 'city' as const, label: 'Baguio City Events', count: cityCount },
+            ].map((item) => (
+                <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => onChange(item.value)}
+                    className={cx(
+                        'min-h-10 rounded-full px-4 text-[10px] font-black uppercase tracking-[0.18em] transition duration-300 sm:px-5',
+                        mode === item.value
+                            ? 'bg-[#f4efe4] text-[#0b312d] shadow-[0_10px_32px_rgba(0,0,0,0.2)]'
+                            : 'text-white/54 hover:bg-white/8 hover:text-white',
+                    )}
+                >
+                    {item.label}
+                    <span className={cx('ml-2', mode === item.value ? 'text-[#0b312d]/50' : 'text-white/30')}>
+                        {item.count}
+                    </span>
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function EventMeta({ item }: { item: PublicImageRecord }) {
+    const time = eventTime(item);
+
+    return (
+        <div className="mt-6 grid gap-3 text-xs text-white/78 sm:grid-cols-3">
+            <div className="flex items-start gap-3">
+                <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-[#d7b56d]" />
+                <span>
+                    <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-white/42">Date</span>
+                    <span className="mt-1 block font-semibold">{displayDate(item)}</span>
+                </span>
+            </div>
+
+            <div className="flex items-start gap-3">
+                <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-[#d7b56d]" />
+                <span>
+                    <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-white/42">Time</span>
+                    <span className="mt-1 block font-semibold">{time || 'Schedule to be announced'}</span>
+                </span>
+            </div>
+
+            <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-[#d7b56d]" />
+                <span>
+                    <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-white/42">Venue</span>
+                    <span className="mt-1 block font-semibold">{eventVenue(item)}</span>
+                </span>
+            </div>
+        </div>
+    );
+}
+
+function PreviewCard({
+    event,
+    active,
+    onSelect,
+}: {
+    event: PreviewEvent;
+    active: number;
+    onSelect: (index: number) => void;
+}) {
+    const reducedMotion = Boolean(useReducedMotion());
+    const title = titleOf(event.item, 'Event');
+    const position = event.offset < 0 ? 'upper' : 'lower';
+
+    const pose =
+        event.offset === -2
+            ? {
+                  top: '-9%',
+                  right: '-1.4rem',
+                  width: 'min(21vw, 23rem)',
+                  rotate: -13,
+                  scale: 0.76,
+                  opacity: 0.46,
+                  zIndex: 14,
+              }
+            : event.offset === -1
+              ? {
+                    top: '12%',
+                    right: '2.4rem',
+                    width: 'min(24vw, 27rem)',
+                    rotate: -6,
+                    scale: 0.92,
+                    opacity: 0.88,
+                    zIndex: 24,
+                }
+              : event.offset === 1
+                ? {
+                      top: '56%',
+                      right: '2rem',
+                      width: 'min(24vw, 27rem)',
+                      rotate: 6,
+                      scale: 0.92,
+                      opacity: 0.88,
+                      zIndex: 23,
+                  }
+                : {
+                      top: '80%',
+                      right: '-1.7rem',
+                      width: 'min(21vw, 23rem)',
+                      rotate: 13,
+                      scale: 0.76,
+                      opacity: 0.46,
+                      zIndex: 13,
+                  };
+
+    return (
+        <motion.button
+            type="button"
+            aria-label={`View event ${title}`}
+            onClick={() => onSelect(event.index)}
+            className="group absolute aspect-[16/10] overflow-hidden rounded-[1.35rem] bg-white/8 p-[3px] text-left shadow-[0_34px_100px_rgba(0,0,0,0.34)] outline-none backdrop-blur-xl transition duration-500 hover:z-[70] hover:brightness-110 focus-visible:ring-4 focus-visible:ring-white/24"
+            style={{
+                top: pose.top,
+                right: pose.right,
+                width: pose.width,
+                zIndex: pose.zIndex,
+                transformOrigin: '100% 50%',
+            }}
+            initial={
+                reducedMotion
+                    ? false
+                    : {
+                          opacity: 0,
+                          x: 120,
+                          y: position === 'upper' ? -20 : 20,
+                          scale: pose.scale * 0.84,
+                          rotate: pose.rotate + (position === 'upper' ? -7 : 7),
+                          filter: 'blur(8px)',
+                      }
+            }
+            animate={{
+                opacity: pose.opacity,
+                x: 0,
+                y: 0,
+                scale: pose.scale,
+                rotate: pose.rotate,
+                filter: event.index === active ? 'blur(0px)' : 'blur(0px)',
+            }}
+            exit={
+                reducedMotion
+                    ? undefined
+                    : {
+                          opacity: 0,
+                          x: 110,
+                          y: position === 'upper' ? -20 : 20,
+                          scale: pose.scale * 0.86,
+                          rotate: pose.rotate + (position === 'upper' ? -7 : 7),
+                          filter: 'blur(8px)',
+                      }
+            }
+            transition={
+                reducedMotion
+                    ? { duration: 0 }
+                    : {
+                          type: 'spring',
+                          stiffness: 70,
+                          damping: 22,
+                          mass: 0.92,
+                      }
+            }
+        >
+            <div className="relative h-full overflow-hidden rounded-[1.12rem] bg-[#0b312d]">
+                <SafeImage
+                    src={imageFor(event.item)}
+                    fallbackSrc={DEFAULT_IMAGE}
+                    alt={title}
+                    className="h-full w-full object-cover transition duration-[1200ms] ease-out group-hover:scale-[1.06]"
+                    loading="lazy"
+                    decoding="async"
+                />
+
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.62),rgba(0,0,0,0.08)_68%)]" />
+                <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/74 via-black/20 to-transparent" />
+
+                <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#d7b56d]">
+                        {formatPublicDate(eventDate(event.item)) || eventCategory(event.item)}
+                    </p>
+
+                    <p className="mt-2 line-clamp-2 max-w-[15rem] text-2xl font-semibold leading-[0.9] tracking-[-0.06em] text-white drop-shadow-[0_12px_28px_rgba(0,0,0,0.36)]">
+                        {title}
+                    </p>
+                </div>
+            </div>
+        </motion.button>
+    );
+}
+
+function MobileEventStrip({
+    records,
+    active,
+    onSelect,
+}: {
+    records: PublicImageRecord[];
+    active: number;
+    onSelect: (index: number) => void;
+}) {
+    const shown = useMemo(() => {
+        if (records.length <= 5) {
+            return records.map((item, index) => ({ item, index }));
+        }
+
+        return [-2, -1, 0, 1, 2].map((offset) => {
+            const index = mod(active + offset, records.length);
+            return { item: records[index], index };
+        });
+    }, [records, active]);
+
+    return (
+        <div className="absolute inset-x-0 bottom-4 z-40 px-4 lg:hidden">
+            <div className="mx-auto grid max-w-[34rem] grid-cols-5 gap-1.5 rounded-[1.1rem] bg-black/30 p-1.5 shadow-[0_22px_80px_rgba(0,0,0,0.32)] backdrop-blur-xl">
+                {shown.map(({ item, index }) => {
+                    const selected = index === active;
+                    const title = titleOf(item, 'Event');
+
+                    return (
+                        <button
+                            key={`mobile-event-${eventKey(item, index)}`}
+                            type="button"
+                            onClick={() => onSelect(index)}
+                            aria-label={selected ? `Current event: ${title}` : `View event ${title}`}
+                            className={cx(
+                                'relative aspect-[4/5] overflow-hidden rounded-[0.85rem] outline-none transition duration-500 focus-visible:ring-[3px] focus-visible:ring-white/28',
+                                selected ? 'scale-[1.03] opacity-100' : 'opacity-65 hover:opacity-100',
+                            )}
+                        >
+                            <SafeImage
+                                src={imageFor(item)}
+                                fallbackSrc={DEFAULT_IMAGE}
+                                alt={title}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                            <span className={cx('absolute inset-0', selected ? 'bg-black/10' : 'bg-black/42')} />
+                            {selected ? (
+                                <span className="absolute inset-x-1 bottom-1 rounded-full bg-white/90 px-1 py-1 text-center text-[8px] font-black uppercase tracking-[0.12em] text-[#0b312d]">
+                                    Now
+                                </span>
+                            ) : null}
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function EventFeature({
+    item,
+    index,
+    total,
+    onNext,
+    onPrevious,
+    onPause,
+}: {
+    item: PublicImageRecord;
+    index: number;
+    total: number;
+    onNext: () => void;
+    onPrevious: () => void;
+    onPause: (value: boolean) => void;
+}) {
+    const reducedMotion = Boolean(useReducedMotion());
+    const title = titleOf(item, 'Event Highlight');
+    const image = imageFor(item);
+
+    const visualTransition = reducedMotion
+        ? { duration: 0 }
+        : {
+              duration: 1.02,
+              ease,
+          };
+
+    const contentTransition = reducedMotion
+        ? { duration: 0 }
+        : {
+              duration: 0.72,
+              ease,
+          };
+
+    return (
+        <motion.article
+            key={`event-feature-${eventKey(item, index)}`}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.12}
+            dragMomentum={false}
+            onDragStart={() => onPause(true)}
+            onDragEnd={(_, info) => {
+                onPause(false);
+
+                if (info.offset.x < -70 || info.velocity.x < -480) {
+                    onNext();
+                }
+
+                if (info.offset.x > 70 || info.velocity.x > 480) {
+                    onPrevious();
+                }
+            }}
+            className="absolute inset-0 z-10 cursor-grab overflow-hidden bg-[#061514] text-white active:cursor-grabbing"
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reducedMotion ? undefined : { opacity: 0 }}
+            transition={visualTransition}
+        >
+            <motion.div
+                className="absolute inset-0"
+                initial={reducedMotion ? false : { scale: 1.05, x: 32, filter: 'blur(12px)' }}
+                animate={{ scale: 1, x: 0, filter: 'blur(0px)' }}
+                exit={reducedMotion ? undefined : { scale: 1.035, x: -24, filter: 'blur(10px)' }}
+                transition={visualTransition}
+            >
+                <SafeImage
+                    src={image}
+                    fallbackSrc={DEFAULT_IMAGE}
+                    alt={title}
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                    decoding="async"
+                />
+            </motion.div>
+
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_46%,rgba(7,76,66,0.06)_0%,rgba(3,18,18,0.16)_38%,rgba(0,0,0,0.78)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,#07110f_0%,rgba(7,17,15,0.94)_17%,rgba(7,17,15,0.64)_34%,rgba(7,17,15,0.16)_57%,rgba(7,17,15,0.68)_100%)]" />
+            <div className="absolute inset-x-0 bottom-0 h-[54%] bg-gradient-to-t from-black/80 via-black/22 to-transparent" />
+
+            <div className="pointer-events-none absolute -right-[15rem] top-1/2 hidden h-[72rem] w-[72rem] -translate-y-1/2 rounded-full border border-[#d7b56d]/22 lg:block" />
+            <div className="pointer-events-none absolute -right-[25rem] top-1/2 hidden h-[58rem] w-[58rem] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(16,105,91,0.34)_0%,rgba(6,45,42,0.22)_42%,transparent_72%)] lg:block" />
+
+            <div className="relative z-20 flex min-h-[100svh] w-full flex-col justify-between px-5 py-7 sm:px-7 lg:min-h-[min(100svh,60rem)] lg:px-12 lg:py-10 xl:px-16 2xl:px-20">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="inline-flex items-center gap-3">
+                        <div className="grid h-11 w-11 place-items-center rounded-full border border-[#d7b56d]/28 bg-white/8 shadow-[0_18px_52px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+                            <Film className="h-5 w-5 text-[#d7b56d]" />
+                        </div>
+
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#d7b56d]">
+                                Event Highlights
+                            </p>
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-white/42">
+                                BCCC EASE Public Showcase
+                            </p>
+                        </div>
+                    </div>
+
+                    <Link
+                        href="/events"
+                        className="group inline-flex min-h-10 items-center gap-3 rounded-full border border-white/12 bg-white/7 px-4 text-[10px] font-black uppercase tracking-[0.18em] text-white/70 backdrop-blur-xl transition duration-300 hover:-translate-y-0.5 hover:bg-white/12 hover:text-white"
+                    >
+                        View all events
+                        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                    </Link>
+                </div>
+
+                <div className="grid flex-1 items-end gap-10 pb-[8.5rem] pt-12 sm:pb-[7.5rem] lg:grid-cols-[minmax(22rem,35rem)_1fr] lg:pb-10 lg:pt-10 xl:grid-cols-[minmax(24rem,39rem)_1fr]">
+                    <motion.div
+                        initial={reducedMotion ? false : { opacity: 0, x: -26, filter: 'blur(8px)' }}
+                        animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+                        exit={reducedMotion ? undefined : { opacity: 0, x: -18, filter: 'blur(8px)' }}
+                        transition={{ ...contentTransition, delay: reducedMotion ? 0 : 0.1 }}
+                        className="max-w-[37rem]"
+                    >
+                        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-4 py-2 backdrop-blur-xl">
+                            <Sparkles className="h-3.5 w-3.5 text-[#d7b56d]" />
+                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d7b56d]">
+                                {eventCategory(item)}
+                            </p>
+                        </div>
+
+                        <h2 className="mt-5 max-w-[10ch] text-[clamp(3.35rem,7vw,7.4rem)] font-semibold leading-[0.86] tracking-[-0.095em] text-white drop-shadow-[0_18px_42px_rgba(0,0,0,0.38)]">
+                            {title}
+                        </h2>
+
+                        <div className="mt-7 h-0.5 w-12 bg-[#d7b56d]" />
+
+                        <p className="mt-7 max-w-[36rem] text-sm leading-7 text-white/72 sm:text-base sm:leading-8">
+                            {displayDescription(item)}
+                        </p>
+
+                        <EventMeta item={item} />
+
+                        <div className="mt-8 flex flex-wrap items-center gap-5">
+                            <Link
+                                href="/events"
+                                className="group inline-flex items-center gap-4 border-b border-[#d7b56d] pb-2 text-[11px] font-black uppercase tracking-[0.22em] text-white transition hover:gap-5 hover:text-[#d7b56d]"
+                            >
+                                Explore event details
+                                <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                            </Link>
+
+                            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/38">
+                                {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+                            </span>
+                        </div>
+                    </motion.div>
+                </div>
+            </div>
+        </motion.article>
+    );
+}
+
+export default function EventsCinemaShowcase({
+    items = [],
+    bcccEvents = [],
+    cityEvents = [],
+}: Props) {
     const all = useMemo(
         () => visibleRecords(mergedUniqueEvents(items, bcccEvents, cityEvents)),
         [items, bcccEvents, cityEvents],
     );
 
-    const [mode, setMode] = useState<'bccc' | 'city'>('bccc');
+    const bcccRecords = useMemo(() => {
+        const filtered = all.filter((item) => !isCityEvent(item));
+        return filtered.length > 0 ? filtered : all;
+    }, [all]);
+
+    const cityRecords = useMemo(() => all.filter((item) => isCityEvent(item)), [all]);
+
+    const [mode, setMode] = useState<EventMode>('bccc');
     const [active, setActive] = useState(0);
-    const [direction, setDirection] = useState(1);
+    const [paused, setPaused] = useState(false);
     const reducedMotion = Boolean(useReducedMotion());
 
-    const records = useMemo(() => {
-        const filtered = all.filter((item) => {
-            const category = categoryOf(item);
-
-            if (mode === 'city') {
-                return category.includes('city') || category.includes('baguio');
-            }
-
-            return category.includes('bccc') || !category.includes('city');
-        });
-
-        return filtered.length > 0 ? filtered : all;
-    }, [all, mode]);
-
-    const current = records[active % Math.max(records.length, 1)];
-
-    useEffect(() => {
-        records.forEach((item) => {
-            const src = imageOf(item);
-
-            if (!src) {
-                return;
-            }
-
-            const img = new Image();
-            img.src = src;
-        });
-    }, [records]);
+    const records = mode === 'city' ? (cityRecords.length > 0 ? cityRecords : all) : bcccRecords;
+    const current = records.length > 0 ? records[mod(active, records.length)] : null;
+    const previewStack = useMemo(() => (records.length > 0 ? getPreviewStack(records, active) : []), [records, active]);
 
     useEffect(() => {
         if (records.length === 0) {
@@ -244,10 +640,46 @@ export default function EventsCinemaShowcase({ items = [], bcccEvents = [], city
         setActive((value) => mod(value, records.length));
     }, [records.length]);
 
-    if (records.length === 0) {
+    useEffect(() => {
+        if (records.length < 2 || paused || reducedMotion) {
+            return;
+        }
+
+        const timer = window.setInterval(() => {
+            setActive((value) => mod(value + 1, records.length));
+        }, AUTO_ADVANCE_MS);
+
+        return () => window.clearInterval(timer);
+    }, [paused, records.length, reducedMotion]);
+
+    useEffect(() => {
+        records.slice(0, 8).forEach((item) => {
+            const img = new Image();
+            img.src = imageFor(item);
+        });
+    }, [records]);
+
+    function changeMode(nextMode: EventMode) {
+        if (nextMode === mode) {
+            return;
+        }
+
+        setMode(nextMode);
+        setActive(0);
+    }
+
+    function go(direction: number) {
+        setActive((value) => mod(value + direction, records.length));
+    }
+
+    function jump(index: number) {
+        setActive(mod(index, records.length));
+    }
+
+    if (all.length === 0 || !current) {
         return (
-            <section className="public-display-page py-16">
-                <div className="public-section-shell">
+            <section id="events" className="bg-[#061514] py-16 text-white">
+                <div className="mx-auto w-full max-w-[1560px] px-4 sm:px-6 lg:px-8">
                     <EmptyPublicPanel
                         icon={CalendarDays}
                         title="No events yet"
@@ -258,250 +690,60 @@ export default function EventsCinemaShowcase({ items = [], bcccEvents = [], city
         );
     }
 
-    function changeActive(index: number) {
-        if (index === active) {
-            return;
-        }
-
-        const forwardDistance = mod(index - active, records.length);
-        const backwardDistance = mod(active - index, records.length);
-
-        setDirection(forwardDistance <= backwardDistance ? 1 : -1);
-        setActive(index);
-    }
-
-    function switchMode(nextMode: 'bccc' | 'city') {
-        if (nextMode === mode) {
-            return;
-        }
-
-        setDirection(nextMode === 'city' ? 1 : -1);
-        setMode(nextMode);
-        setActive(0);
-    }
-
-    function next() {
-        setDirection(1);
-        setActive((value) => mod(value + 1, records.length));
-    }
-
-    function previous() {
-        setDirection(-1);
-        setActive((value) => mod(value - 1, records.length));
-    }
-
     return (
-        <section className="event-cinema-fullbleed public-display-page overflow-hidden py-20">
-            <div className="event-cinema-intro-wrap">
-                <SectionIntro
-                    kicker=""
-                    title="Event Highlights"
-                    align="center"
+        <section
+            id="events"
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+            onFocus={() => setPaused(true)}
+            onBlur={() => setPaused(false)}
+            className="relative isolate min-h-[100svh] overflow-hidden bg-[#061514] text-white lg:min-h-[min(100svh,60rem)]"
+        >
+            <AnimatePresence initial={false} mode="sync">
+                <EventFeature
+                    key={`event-active-${eventKey(current, active)}-${mode}`}
+                    item={current}
+                    index={mod(active, records.length)}
+                    total={records.length}
+                    onNext={() => go(1)}
+                    onPrevious={() => go(-1)}
+                    onPause={setPaused}
                 />
+            </AnimatePresence>
 
-                <div className="mt-8 flex justify-center">
-                    <div className="event-cinema-toggle creative">
-                        <button
-                            type="button"
-                            onClick={() => switchMode('bccc')}
-                            className={cx('event-cinema-toggle-button', mode === 'bccc' && 'is-active')}
-                        >
-                            BCCC Events
-                        </button>
+            <div className="pointer-events-none absolute inset-0 z-30 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_18%,transparent_78%,rgba(0,0,0,0.28))]" />
 
-                        <button
-                            type="button"
-                            onClick={() => switchMode('city')}
-                            className={cx('event-cinema-toggle-button', mode === 'city' && 'is-active')}
-                        >
-                            Baguio City Events
-                        </button>
-                    </div>
-                </div>
+            <div className="absolute left-1/2 top-8 z-40 hidden -translate-x-1/2 lg:block">
+                <EventModeSwitch
+                    mode={mode}
+                    onChange={changeMode}
+                    bcccCount={bcccRecords.length}
+                    cityCount={cityRecords.length}
+                />
             </div>
 
-            <div className="event-cinema-stage event-cinema-stage-full mt-10">
-                <div className="event-cinema-ambient-grid" />
-                <div className="event-cinema-vignette" />
-                <div className="event-cinema-top-glow" />
-                <div className="event-cinema-side-glow left" />
-                <div className="event-cinema-side-glow right" />
-                <div className="event-cinema-floor" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-40 hidden w-[39rem] overflow-hidden [perspective:1600px] lg:block xl:w-[45rem] 2xl:w-[51rem]">
+                <div className="pointer-events-none absolute inset-y-0 right-0 w-[76%] bg-gradient-to-l from-[#062421]/80 via-[#062421]/22 to-transparent" />
 
-                <motion.div
-                    key={`${mode}-${current?.id ?? active}-hero-glow`}
-                    className="event-cinema-active-glow"
-                    initial={{ opacity: 0, scale: 0.96 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: reducedMotion ? 0 : 0.7, ease: [0.22, 1, 0.36, 1] }}
-                >
-                    {imageOf(current) ? (
-                        <img src={imageOf(current)} alt="" draggable={false} />
-                    ) : null}
-                </motion.div>
-
-                <button
-                    type="button"
-                    onClick={previous}
-                    className="event-cinema-arrow event-cinema-arrow-wide left-5 md:left-10"
-                    aria-label="Previous event"
-                >
-                    <ChevronLeft className="h-5 w-5" />
-                </button>
-
-                <button
-                    type="button"
-                    onClick={next}
-                    className="event-cinema-arrow event-cinema-arrow-wide right-5 md:right-10"
-                    aria-label="Next event"
-                >
-                    <ChevronRight className="h-5 w-5" />
-                </button>
-
-                <div className="event-cinema-track event-cinema-track-wide">
-                    <AnimatePresence initial={false}>
-                        {records.map((item, index) => {
-                            const offset = signedOffset(index, active, records.length);
-                            const state = panelState(offset, reducedMotion);
-                            const visible = Math.abs(offset) <= 4;
-                            const image = imageOf(item);
-                            const isActive = offset === 0;
-
-                            return (
-                                <motion.button
-                                    type="button"
-                                    key={item.id ?? index}
-                                    className={cx(
-                                        'event-cinema-panel event-cinema-panel-creative',
-                                        isActive && 'is-active',
-                                        !visible && 'pointer-events-none',
-                                    )}
-                                    initial={false}
-                                    animate={{
-                                        x: state.x,
-                                        z: state.z,
-                                        rotateY: state.rotateY,
-                                        rotateZ: state.rotateZ,
-                                        scale: state.scale,
-                                        opacity: state.opacity,
-                                        filter: state.filter,
-                                    }}
-                                    transition={{
-                                        type: reducedMotion ? false : 'spring',
-                                        stiffness: 64,
-                                        damping: 18,
-                                        mass: 0.96,
-                                    }}
-                                    style={{
-                                        zIndex: state.zIndex,
-                                        transformStyle: 'preserve-3d',
-                                        pointerEvents: visible ? 'auto' : 'none',
-                                    }}
-                                    onClick={() => changeActive(index)}
-                                    aria-label={`View ${titleOf(item, 'Event')}`}
-                                >
-                                    <div className="event-cinema-panel-inner">
-                                        {image ? (
-                                            <img
-                                                src={image}
-                                                alt={titleOf(item, 'Event')}
-                                                draggable={false}
-                                            />
-                                        ) : (
-                                            <div className="grid h-full place-items-center bg-neutral-900 text-white/45">
-                                                <Film className="h-12 w-12" />
-                                            </div>
-                                        )}
-
-                                        <div className="event-cinema-panel-shade" />
-
-                                        <div className="event-cinema-panel-rim" />
-
-                                        <div className="event-cinema-panel-content">
-                                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#f1d89b]">
-                                                {formatPublicDate(eventDate(item)) || cleanCategory(item)}
-                                            </p>
-
-                                            <p className="mt-1 line-clamp-2 text-sm font-semibold leading-tight text-white">
-                                                {titleOf(item, 'Event')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </motion.button>
-                            );
-                        })}
-                    </AnimatePresence>
-                </div>
-
-                <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                        key={`${mode}-${current?.id ?? active}-details`}
-                        className="event-cinema-details event-cinema-details-wide"
-                        initial={
-                            reducedMotion
-                                ? false
-                                : {
-                                      opacity: 0,
-                                      y: 20,
-                                      x: direction > 0 ? 24 : -24,
-                                      filter: 'blur(10px)',
-                                  }
-                        }
-                        animate={{
-                            opacity: 1,
-                            y: 0,
-                            x: 0,
-                            filter: 'blur(0px)',
-                        }}
-                        exit={
-                            reducedMotion
-                                ? { opacity: 0 }
-                                : {
-                                      opacity: 0,
-                                      y: -10,
-                                      x: direction > 0 ? -18 : 18,
-                                      filter: 'blur(8px)',
-                                  }
-                        }
-                        transition={{
-                            duration: reducedMotion ? 0 : 0.5,
-                            ease: [0.22, 1, 0.36, 1],
-                        }}
-                    >
-                        <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-4 py-2 backdrop-blur-xl">
-                            <Sparkles className="h-3.5 w-3.5 text-[#f1d89b]" />
-                            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#f1d89b]">
-                                {formatPublicDate(eventDate(current)) || cleanCategory(current)}
-                            </p>
+                <AnimatePresence initial={false} mode="popLayout">
+                    {previewStack.map((event) => (
+                        <div key={`event-preview-${eventKey(event.item, event.index)}-${event.offset}`} className="pointer-events-auto">
+                            <PreviewCard event={event} active={mod(active, records.length)} onSelect={jump} />
                         </div>
-
-                        <h3 className="mt-3 text-3xl font-semibold tracking-[-0.055em] text-white md:text-5xl">
-                            {titleOf(current, 'Event')}
-                        </h3>
-
-                        {descriptionOf(current) ? (
-                            <p className="public-readable mx-auto mt-3 max-w-[70ch] text-sm text-white/68 md:text-base">
-                                {descriptionOf(current)}
-                            </p>
-                        ) : null}
-
-                        <div className="mt-5 flex justify-center gap-1.5">
-                            {records.map((item, index) => (
-                                <button
-                                    key={item.id ?? index}
-                                    type="button"
-                                    onClick={() => changeActive(index)}
-                                    className={cx(
-                                        'event-cinema-dot',
-                                        index === active && 'is-active',
-                                    )}
-                                    aria-label={`Go to event ${index + 1}`}
-                                />
-                            ))}
-                        </div>
-                    </motion.div>
+                    ))}
                 </AnimatePresence>
             </div>
+
+            <div className="absolute left-1/2 top-6 z-40 -translate-x-1/2 lg:hidden">
+                <EventModeSwitch
+                    mode={mode}
+                    onChange={changeMode}
+                    bcccCount={bcccRecords.length}
+                    cityCount={cityRecords.length}
+                />
+            </div>
+
+            <MobileEventStrip records={records} active={mod(active, records.length)} onSelect={jump} />
         </section>
     );
 }
