@@ -108,11 +108,11 @@ export default function HeroBanner({ siteMetric }: HeroBannerProps) {
                 >
 
                     <h1 className="bccc-hero-main-heading mt-1 max-w-8xl font-serif text-[clamp(4rem,8.3vw,10.6rem)] font-light leading-[0.82] tracking-[-0.078em] text-[#20170d] drop-shadow-[0_18px_55px_rgba(255,255,255,0.48)] dark:text-white dark:drop-shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
-                        B a g u i o C o n v
+                        B a g u i o 
                     </h1>
 
                     <h1 className="bccc-hero-main-heading mt-6 max-w-6xl font-serif text-[clamp(3rem,7.3vw,9.6rem)] font-light leading-[0.82] tracking-[-0.078em] text-[#20170d] drop-shadow-[0_18px_55px_rgba(255,255,255,0.48)] dark:text-white dark:drop-shadow-[0_20px_80px_rgba(0,0,0,0.55)]">
-                        C u l t u r a l C e n t e r
+                        C o n v e
                     </h1>
 
                     <p className="mt-6 max-w-2xl text-base leading-8 text-[#4d402d] dark:text-white/72 sm:text-lg">

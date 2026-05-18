@@ -279,17 +279,13 @@ export default function TourismMembersShowcase({ items = [] }: Props) {
         <section className="bg-[#f7f0e3] px-0 py-20 text-[#21180d] dark:bg-[#080b0f] dark:text-white">
             <div className="mx-auto max-w-[100vw] overflow-hidden">
                 <div className="mx-auto mb-10 max-w-5xl px-4 text-center sm:px-6 lg:px-8">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.26em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                        Tourism Office
+                    <p className="text-[18px] font-bold uppercase tracking-[0.26em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                        CITY TOURISM, CULUTURE AND ARTS OFFICE
                     </p>
 
-                    <h2 className="mt-4 text-5xl font-semibold leading-[0.95] tracking-[-0.075em] md:text-7xl">
+                    <h2 className="mt-4 text-5xl font-bold leading-[0.95] tracking-[-0.075em] md:text-7xl">
                         Meet the Team
                     </h2>
-
-                    <p className="mx-auto mt-5 max-w-[70ch] text-base leading-8 text-[#6e604c] dark:text-white/62">
-                        A center-focused profile carousel for Tourism Office and BCCC support members.
-                    </p>
                 </div>
 
                 <div className="relative isolate min-h-[46rem] overflow-hidden border-y border-[#d9c7a6]/70 bg-white/64 py-10 shadow-[0_28px_90px_rgba(47,37,23,0.10)] dark:border-white/10 dark:bg-white/[0.045]">

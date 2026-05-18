@@ -232,14 +232,6 @@ export default function FacilitiesLayeredShowcase({ items = [] }: Props) {
 
     return (
         <section className="facility-display-section public-display-page overflow-hidden">
-            <div className="facility-display-intro">
-                <SectionIntro
-                    kicker="Facilities"
-                    title="Explore BCCC venue spaces"
-                    description="Browse each facility through a full-width visual stage. Select a landscape preview at the bottom-right to expand it into the main display."
-                />
-            </div>
-
             <div ref={stageRef} className="facility-image-stage" aria-live="polite">
                 <div className="facility-image-stage-bg">
                     {imageOf(current) ? (
