@@ -1,5 +1,7 @@
 import { ImageOff } from 'lucide-react';
-import { type ImgHTMLAttributes, useMemo, useState } from 'react';
+import { type ImgHTMLAttributes, useEffect, useMemo, useState } from 'react';
+
+export const DEFAULT_PUBLIC_IMAGE = '/marketing/images/events/default.png';
 
 type SafeImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
     src?: string | null;
@@ -8,33 +10,65 @@ type SafeImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
     wrapperClassName?: string;
 };
 
-const DEFAULT_FALLBACK = '/marketing/images/facilities/darkvip.jpg';
-
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
 }
 
+export function normalizeImageSrc(value?: string | null, fallback = DEFAULT_PUBLIC_IMAGE) {
+    const raw = String(value || '').trim();
+
+    if (!raw) {
+        return fallback;
+    }
+
+    if (/^(https?:)?\/\//i.test(raw) || raw.startsWith('data:')) {
+        return raw;
+    }
+
+    const clean = raw
+        .replace(/\\/g, '/')
+        .replace(/^public\//, '')
+        .replace(/^\/public\//, '/')
+        .replace(/^storage\/app\/public\//, 'storage/')
+        .replace(/^app\/public\//, 'storage/');
+
+    if (clean.startsWith('/')) {
+        return clean;
+    }
+
+    if (clean.startsWith('marketing/') || clean.startsWith('images/')) {
+        return `/${clean}`;
+    }
+
+    if (clean.startsWith('storage/')) {
+        return `/${clean}`;
+    }
+
+    return `/storage/${clean}`;
+}
+
 export default function SafeImage({
     src,
-    fallbackSrc = DEFAULT_FALLBACK,
+    fallbackSrc = DEFAULT_PUBLIC_IMAGE,
     fallbackLabel = 'Image unavailable',
     wrapperClassName,
     className,
     alt = '',
     ...props
 }: SafeImageProps) {
-    const resolvedInitialSrc = useMemo(() => {
-        const candidate = typeof src === 'string' ? src.trim() : '';
-
-        return candidate || fallbackSrc;
-    }, [src, fallbackSrc]);
-
+    const resolvedInitialSrc = useMemo(() => normalizeImageSrc(src, fallbackSrc), [src, fallbackSrc]);
+    const resolvedFallback = useMemo(() => normalizeImageSrc(fallbackSrc, DEFAULT_PUBLIC_IMAGE), [fallbackSrc]);
     const [currentSrc, setCurrentSrc] = useState(resolvedInitialSrc);
     const [failed, setFailed] = useState(false);
 
+    useEffect(() => {
+        setCurrentSrc(resolvedInitialSrc);
+        setFailed(false);
+    }, [resolvedInitialSrc]);
+
     const handleError = () => {
-        if (currentSrc !== fallbackSrc) {
-            setCurrentSrc(fallbackSrc);
+        if (currentSrc !== resolvedFallback) {
+            setCurrentSrc(resolvedFallback);
             setFailed(false);
             return;
         }
@@ -46,7 +80,7 @@ export default function SafeImage({
         return (
             <div
                 className={cx(
-                    'grid min-h-[12rem] place-items-center rounded-[1.25rem] border border-dashed border-black/15 bg-slate-100 text-center text-slate-500 dark:border-white/15 dark:bg-white/7 dark:text-white/50',
+                    'grid min-h-[12rem] place-items-center rounded-[1rem] border border-dashed border-black/15 bg-slate-100 text-center text-slate-500 dark:border-white/15 dark:bg-white/7 dark:text-white/50',
                     wrapperClassName,
                 )}
             >

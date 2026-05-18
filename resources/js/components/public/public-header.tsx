@@ -1,28 +1,46 @@
 import SafeImage from '@/components/system/safe-image';
 import { useAppearance } from '@/hooks/use-appearance';
 import { Link, usePage } from '@inertiajs/react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
+    BookOpenCheck,
+    Building2,
     CalendarDays,
     ChevronDown,
     ExternalLink,
+    FileQuestion,
+    Info,
+    MapPinned,
+    Megaphone,
     Menu,
     Moon,
+    Palette,
     Sun,
     X,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 export type PublicSiteSettings = {
     logo_url?: string | null;
+    logoUrl?: string | null;
     city_seal_url?: string | null;
+    citySealUrl?: string | null;
     baguio_logo_url?: string | null;
+    baguioLogoUrl?: string | null;
     breathe_baguio_logo_url?: string | null;
+    breatheBaguioLogoUrl?: string | null;
     visitaUrl?: string | null;
     visita_url?: string | null;
     creativeBaguioUrl?: string | null;
     creative_baguio_url?: string | null;
     arts_url?: string | null;
+    cityGovernmentUrl?: string | null;
+    city_government_url?: string | null;
+    announcementsUrl?: string | null;
+    announcements_url?: string | null;
+    faqsUrl?: string | null;
+    faqs_url?: string | null;
 };
 
 type PageProps = {
@@ -32,65 +50,24 @@ type PageProps = {
 type NavChild = {
     label: string;
     href: string;
+    description: string;
     external?: boolean;
+    icon: LucideIcon;
 };
 
 type NavItem = {
     label: string;
     href: string;
-    children?: NavChild[];
+    external?: boolean;
 };
 
-const NAV_ITEMS: NavItem[] = [
-    {
-        label: 'Home',
-        href: '/',
-    },
-    {
-        label: 'Venue',
-        href: '/facilities',
-        children: [
-            { label: 'Venue Spaces', href: '/facilities#spaces' },
-            { label: 'Facilities and Rates', href: '/facilities' },
-            { label: 'Booking Guidelines', href: '/guidelines' },
-        ],
-    },
-    {
-        label: 'Events',
-        href: '/events',
-        children: [
-            { label: 'BCCC Events', href: '/events?type=bccc' },
-            { label: 'Baguio City Events', href: '/events?type=city' },
-            { label: 'Event Highlights', href: '/events#highlights' },
-        ],
-    },
-    {
-        label: 'Calendar',
-        href: '/calendar',
-        children: [
-            { label: 'Availability Calendar', href: '/calendar' },
-            { label: 'Check Venue Availability', href: '/calendar#availability' },
-            { label: 'Start Booking Request', href: '/book' },
-        ],
-    },
-    {
-        label: 'Tourism Office',
-        href: '/tourism-office',
-        children: [
-            { label: 'Office Profile', href: '/tourism-office' },
-            { label: 'VISITA Baguio', href: 'https://visita.baguio.gov.ph/', external: true },
-            { label: 'Creative Baguio', href: 'https://creativecity.baguio.gov.ph/', external: true },
-        ],
-    },
-    {
-        label: 'Contact',
-        href: '/contact',
-        children: [
-            { label: 'Contact Details', href: '/contact' },
-            { label: 'Send an Inquiry', href: '/contact#inquiry' },
-            { label: 'City Government Website', href: 'https://main.baguio.gov.ph/', external: true },
-        ],
-    },
+const MAIN_NAV: NavItem[] = [
+    { label: 'Home', href: '/' },
+    { label: 'Venue Packages', href: '/#venue-packages' },
+    { label: 'Events', href: '/events' },
+    { label: 'Calendar', href: '/calendar' },
+    { label: 'Tourism Office', href: '/tourism-office' },
+    { label: 'Contact', href: '/contact' },
 ];
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -99,16 +76,26 @@ function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
 }
 
+function setting(settings: PublicSiteSettings | undefined, ...keys: Array<keyof PublicSiteSettings>) {
+    for (const key of keys) {
+        const value = settings?.[key];
+        if (typeof value === 'string' && value.trim()) {
+            return value.trim();
+        }
+    }
+
+    return '';
+}
+
 function isActive(url: string, href: string): boolean {
-    if (href.startsWith('http')) {
-        return false;
-    }
+    if (href.startsWith('http') || href.startsWith('#')) return false;
+    if (href === '/') return url === '/' || url.startsWith('/?');
+    const base = href.split('#')[0];
+    return url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`) || url.startsWith(`${base}#`);
+}
 
-    if (href === '/') {
-        return url === '/' || url.startsWith('/?');
-    }
-
-    return url === href || url.startsWith(`${href}/`) || url.startsWith(`${href}?`) || url.startsWith(`${href}#`);
+function isExternal(href: string) {
+    return /^https?:\/\//i.test(href);
 }
 
 function ThemeButton() {
@@ -118,7 +105,6 @@ function ThemeButton() {
 
     useEffect(() => {
         const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-
         const sync = () => {
             setSystemDark(mediaQuery.matches);
             setMounted(true);
@@ -126,7 +112,6 @@ function ThemeButton() {
 
         sync();
         mediaQuery.addEventListener('change', sync);
-
         return () => mediaQuery.removeEventListener('change', sync);
     }, []);
 
@@ -136,259 +121,194 @@ function ThemeButton() {
         <button
             type="button"
             onClick={() => updateAppearance(isDark ? 'light' : 'dark')}
-            className="group grid h-10 w-10 shrink-0 place-items-center rounded-full border border-black/10 bg-white/78 text-[#352819] shadow-[0_10px_28px_rgba(54,39,20,0.08)] backdrop-blur-xl transition duration-300 hover:-translate-y-0.5 hover:border-[#b08d48]/45 hover:bg-white dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/14"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/18 bg-white/10 text-white shadow-[0_12px_30px_rgba(0,0,0,0.10)] backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/18"
             aria-label="Toggle theme"
         >
-            {!mounted ? (
-                <span className="h-4 w-4 rounded-full border border-current opacity-40" />
-            ) : isDark ? (
-                <Moon className="h-4 w-4 transition duration-300 group-hover:rotate-12" />
-            ) : (
-                <Sun className="h-4 w-4 transition duration-300 group-hover:rotate-45" />
-            )}
+            {!mounted ? <span className="h-4 w-4 rounded-full border border-current opacity-45" /> : isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
         </button>
     );
 }
 
-function ExternalMiniLinks({
-    visitaUrl,
-    artsUrl,
-}: {
-    visitaUrl: string;
-    artsUrl: string;
-}) {
-    return (
-        <div className="hidden items-center gap-2 2xl:flex">
-            <a
-                href={visitaUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white/72 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#352819] shadow-[0_10px_28px_rgba(54,39,20,0.07)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#b08d48]/45 hover:bg-white dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/14"
-            >
-                VISITA
-                <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-
-            <a
-                href={artsUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-10 items-center gap-2 rounded-full border border-black/10 bg-white/72 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[#352819] shadow-[0_10px_28px_rgba(54,39,20,0.07)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-[#b08d48]/45 hover:bg-white dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/14"
-            >
-                Arts
-                <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-        </div>
-    );
+function moreItems(settings?: PublicSiteSettings): NavChild[] {
+    return [
+        {
+            label: 'Booking Guidelines',
+            href: '/guidelines',
+            description: 'Venue rules, booking reminders, payment deadlines, and client responsibilities.',
+            icon: BookOpenCheck,
+        },
+        {
+            label: 'Frequently Asked Questions',
+            href: setting(settings, 'faqsUrl', 'faqs_url') || 'https://main.baguio.gov.ph/more/frequently-asked-questions',
+            description: 'Quick answers to common public service and venue-use concerns.',
+            external: true,
+            icon: FileQuestion,
+        },
+        {
+            label: 'News & Announcements',
+            href: setting(settings, 'announcementsUrl', 'announcements_url') || 'https://main.baguio.gov.ph/news-and-announcements',
+            description: 'Official advisories, announcements, and city updates.',
+            external: true,
+            icon: Megaphone,
+        },
+        {
+            label: 'VISITA Baguio',
+            href: setting(settings, 'visitaUrl', 'visita_url') || 'https://visita.baguio.gov.ph/',
+            description: 'Travel assistance and official Baguio visitor information.',
+            external: true,
+            icon: MapPinned,
+        },
+        {
+            label: 'Arts Website',
+            href: setting(settings, 'creativeBaguioUrl', 'creative_baguio_url', 'arts_url') || 'https://creativecity.baguio.gov.ph/',
+            description: 'Creative Baguio culture, arts, and creative-city resources.',
+            external: true,
+            icon: Palette,
+        },
+        {
+            label: 'City Government Website',
+            href: setting(settings, 'cityGovernmentUrl', 'city_government_url') || 'https://main.baguio.gov.ph/',
+            description: 'Main website of the City Government of Baguio.',
+            external: true,
+            icon: Building2,
+        },
+    ];
 }
 
-function DesktopNav({ url }: { url: string }) {
+function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSettings }) {
+    const [moreOpen, setMoreOpen] = useState(false);
+    const items = moreItems(settings);
+
     return (
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 xl:flex">
-            {NAV_ITEMS.map((item) => {
+        <nav className="hidden flex-1 items-center justify-center gap-1.5 xl:flex" aria-label="Primary navigation">
+            {MAIN_NAV.map((item) => {
                 const active = isActive(url, item.href);
-
                 return (
-                    <div key={item.label} className="group relative">
-                        <Link
-                            href={item.href}
-                            className={cx(
-                                'inline-flex h-12 items-center gap-1.5 rounded-full px-3 text-[11px] font-semibold uppercase tracking-[0.16em] transition duration-300',
-                                active
-                                    ? 'bg-[#2f2517] text-white shadow-[0_18px_42px_rgba(48,36,21,0.16)] dark:bg-white dark:text-[#17120b]'
-                                    : 'text-[#392d1d]/72 hover:bg-white/72 hover:text-[#17120b] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white',
-                            )}
-                        >
-                            {item.label}
-                            {item.children ? <ChevronDown className="h-3.5 w-3.5 opacity-60" /> : null}
-                        </Link>
-
-                        {item.children ? (
-                            <div className="pointer-events-none absolute left-1/2 top-full z-50 w-72 -translate-x-1/2 translate-y-2 opacity-0 transition duration-300 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
-                                <div className="mt-2 overflow-hidden rounded-[1.35rem] border border-black/10 bg-white/95 p-2 shadow-[0_28px_80px_rgba(46,34,18,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#111418]/95">
-                                    {item.children.map((child) =>
-                                        child.external ? (
-                                            <a
-                                                key={child.label}
-                                                href={child.href}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#352819] transition hover:bg-[#f6efe1] dark:text-white dark:hover:bg-white/10"
-                                            >
-                                                {child.label}
-                                                <ExternalLink className="h-3.5 w-3.5 opacity-55" />
-                                            </a>
-                                        ) : (
-                                            <Link
-                                                key={child.label}
-                                                href={child.href}
-                                                className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-[#352819] transition hover:bg-[#f6efe1] dark:text-white dark:hover:bg-white/10"
-                                            >
-                                                {child.label}
-                                            </Link>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
-                        ) : null}
-                    </div>
+                    <Link
+                        key={item.label}
+                        href={item.href}
+                        className={cx(
+                            'relative inline-flex min-h-10 items-center rounded-xl px-3.5 text-sm font-semibold text-white/88 transition hover:bg-white/10 hover:text-white',
+                            active && 'bg-white/12 text-white after:absolute after:inset-x-3 after:bottom-1 after:h-0.5 after:rounded-full after:bg-white/80',
+                        )}
+                    >
+                        {item.label}
+                    </Link>
                 );
             })}
+
+            <div className="relative" onMouseEnter={() => setMoreOpen(true)} onMouseLeave={() => setMoreOpen(false)}>
+                <button
+                    type="button"
+                    onClick={() => setMoreOpen((value) => !value)}
+                    className={cx(
+                        'inline-flex min-h-10 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold text-white/88 transition hover:bg-white/10 hover:text-white',
+                        moreOpen && 'bg-white/12 text-white',
+                    )}
+                    aria-expanded={moreOpen}
+                >
+                    More <ChevronDown className={cx('h-3.5 w-3.5 transition', moreOpen && 'rotate-180')} />
+                </button>
+
+                <AnimatePresence>
+                    {moreOpen ? (
+                        <motion.div
+                            initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+                            transition={{ duration: 0.18, ease }}
+                            className="absolute left-1/2 top-full z-[99995] mt-2 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white/96 p-4 text-slate-800 shadow-[0_26px_70px_rgba(2,26,22,0.22)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0d1715]/96"
+                        >
+                            <div className="grid gap-2 md:grid-cols-2">
+                                {items.map((child) => {
+                                    const Icon = child.icon;
+                                    const content = (
+                                        <>
+                                            <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#e5f1ef] text-[#1f7465] dark:bg-white/10 dark:text-[#7dd7c6]">
+                                                <Icon className="h-4 w-4" />
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-white/88">
+                                                    {child.label}
+                                                    {child.external ? <ExternalLink className="h-3.5 w-3.5 text-slate-400" /> : null}
+                                                </span>
+                                                <span className="mt-1 block text-sm leading-6 text-slate-500 dark:text-white/52">{child.description}</span>
+                                            </span>
+                                        </>
+                                    );
+
+                                    const className = 'group flex min-h-[5.25rem] items-start gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-slate-100 dark:hover:bg-white/8';
+
+                                    return child.external || isExternal(child.href) ? (
+                                        <a key={child.label} href={child.href} target="_blank" rel="noreferrer" className={className}>{content}</a>
+                                    ) : (
+                                        <Link key={child.label} href={child.href} className={className}>{content}</Link>
+                                    );
+                                })}
+                            </div>
+                        </motion.div>
+                    ) : null}
+                </AnimatePresence>
+            </div>
         </nav>
     );
 }
 
-function MobileMenu({
-    open,
-    url,
-    onClose,
-}: {
-    open: boolean;
-    url: string;
-    onClose: () => void;
-}) {
-    const [expanded, setExpanded] = useState<string | null>(null);
+function MobileMenu({ open, url, onClose, settings }: { open: boolean; url: string; onClose: () => void; settings?: PublicSiteSettings }) {
+    const items = moreItems(settings);
 
     useEffect(() => {
-        if (!open) {
-            setExpanded(null);
-        }
+        document.body.classList.toggle('overflow-hidden', open);
+        return () => document.body.classList.remove('overflow-hidden');
     }, [open]);
 
     return (
         <AnimatePresence>
             {open ? (
-                <motion.div
-                    className="fixed inset-0 z-[99990] xl:hidden"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                >
-                    <button
-                        type="button"
-                        className="absolute inset-0 bg-[#17120b]/36 backdrop-blur-xl dark:bg-black/50"
-                        onClick={onClose}
-                        aria-label="Close menu"
-                    />
+                <motion.div className="fixed inset-0 z-[99990] xl:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+                    <button type="button" className="absolute inset-0 bg-[#001f1b]/56 backdrop-blur-xl" onClick={onClose} aria-label="Close menu" />
 
                     <motion.aside
-                        className="absolute right-3 top-3 flex max-h-[calc(100vh-1.5rem)] w-[min(28rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-[1.65rem] border border-black/10 bg-[#fffaf0]/96 shadow-[0_28px_90px_rgba(23,18,11,0.28)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#111418]/96"
-                        initial={{ x: 32, opacity: 0, filter: 'blur(8px)' }}
+                        className="absolute right-3 top-3 flex max-h-[calc(100dvh-1.5rem)] w-[min(29rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-white/18 bg-[#135b50]/97 text-white shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-2xl"
+                        initial={{ x: 34, opacity: 0, filter: 'blur(8px)' }}
                         animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
-                        exit={{ x: 32, opacity: 0, filter: 'blur(8px)' }}
+                        exit={{ x: 34, opacity: 0, filter: 'blur(8px)' }}
                         transition={{ duration: 0.28, ease }}
                     >
-                        <div className="flex items-center justify-between border-b border-black/10 px-4 py-4 dark:border-white/10">
+                        <div className="flex items-center justify-between border-b border-white/12 px-4 py-4">
                             <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#9b7739]">
-                                    BCCC EASE
-                                </p>
-                                <p className="mt-1 text-sm font-semibold text-[#231a10] dark:text-white">
-                                    Official Public Menu
-                                </p>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/58">Official Public Menu</p>
+                                <p className="mt-1 text-sm font-semibold">City Government of Baguio</p>
                             </div>
 
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="grid h-10 w-10 place-items-center rounded-full border border-black/10 bg-white/70 text-[#231a10] transition hover:bg-white dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/14"
-                                aria-label="Close menu"
-                            >
+                            <button type="button" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full border border-white/16 bg-white/10 transition hover:bg-white/18" aria-label="Close menu">
                                 <X className="h-4 w-4" />
                             </button>
                         </div>
 
-                        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-                            {NAV_ITEMS.map((item) => {
+                        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                            {[...MAIN_NAV, ...items].map((item) => {
+                                const Icon = 'icon' in item ? item.icon : null;
+                                const external = 'external' in item ? item.external : isExternal(item.href);
                                 const active = isActive(url, item.href);
-                                const isExpanded = expanded === item.label;
+                                const className = cx(
+                                    'mb-1 flex min-h-12 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
+                                    active ? 'bg-white text-[#125749]' : 'text-white/82 hover:bg-white/10 hover:text-white',
+                                );
+                                const content = (
+                                    <>
+                                        {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
+                                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                        {external ? <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60" /> : null}
+                                    </>
+                                );
 
-                                return (
-                                    <div key={item.label} className="mb-1">
-                                        <div className="flex items-center gap-2">
-                                            <Link
-                                                href={item.href}
-                                                className={cx(
-                                                    'min-h-12 flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition',
-                                                    active
-                                                        ? 'bg-[#302517] text-white dark:bg-white dark:text-[#17120b]'
-                                                        : 'text-[#2f2517] hover:bg-white/70 dark:text-white dark:hover:bg-white/10',
-                                                )}
-                                            >
-                                                {item.label}
-                                            </Link>
-
-                                            {item.children ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setExpanded((current) =>
-                                                            current === item.label ? null : item.label,
-                                                        )
-                                                    }
-                                                    className="grid h-12 w-12 place-items-center rounded-2xl border border-black/10 bg-white/60 text-[#2f2517] dark:border-white/10 dark:bg-white/8 dark:text-white"
-                                                    aria-label={`Toggle ${item.label}`}
-                                                >
-                                                    <ChevronDown
-                                                        className={cx(
-                                                            'h-4 w-4 transition',
-                                                            isExpanded && 'rotate-180',
-                                                        )}
-                                                    />
-                                                </button>
-                                            ) : null}
-                                        </div>
-
-                                        <AnimatePresence initial={false}>
-                                            {item.children && isExpanded ? (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.22 }}
-                                                    className="overflow-hidden"
-                                                >
-                                                    <div className="mt-1 space-y-1 rounded-2xl border border-black/10 bg-white/55 p-2 dark:border-white/10 dark:bg-white/5">
-                                                        {item.children.map((child) =>
-                                                            child.external ? (
-                                                                <a
-                                                                    key={child.label}
-                                                                    href={child.href}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
-                                                                    className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm text-[#4b3b25] hover:bg-[#f5ead8] dark:text-white/80 dark:hover:bg-white/10"
-                                                                >
-                                                                    {child.label}
-                                                                    <ExternalLink className="h-3.5 w-3.5 opacity-55" />
-                                                                </a>
-                                                            ) : (
-                                                                <Link
-                                                                    key={child.label}
-                                                                    href={child.href}
-                                                                    className="block rounded-xl px-3 py-2.5 text-sm text-[#4b3b25] hover:bg-[#f5ead8] dark:text-white/80 dark:hover:bg-white/10"
-                                                                >
-                                                                    {child.label}
-                                                                </Link>
-                                                            ),
-                                                        )}
-                                                    </div>
-                                                </motion.div>
-                                            ) : null}
-                                        </AnimatePresence>
-                                    </div>
+                                return external ? (
+                                    <a key={item.label} href={item.href} target="_blank" rel="noreferrer" onClick={onClose} className={className}>{content}</a>
+                                ) : (
+                                    <Link key={item.label} href={item.href} onClick={onClose} className={className}>{content}</Link>
                                 );
                             })}
-                        </div>
-
-                        <div className="grid gap-2 border-t border-black/10 p-4 dark:border-white/10">
-                            <Link
-                                href="/book"
-                                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#2f2517] px-5 text-sm font-semibold text-white shadow-[0_18px_45px_rgba(47,37,23,0.22)] transition hover:-translate-y-0.5 dark:bg-white dark:text-[#17120b]"
-                            >
-                                <CalendarDays className="h-4 w-4" />
-                                Book Your Event
-                            </Link>
                         </div>
                     </motion.aside>
                 </motion.div>
@@ -398,103 +318,48 @@ function MobileMenu({
 }
 
 export default function PublicHeader() {
-    const { props, url } = usePage<PageProps>();
+    const page = usePage<PageProps>();
+    const settings = page.props.siteSettings;
     const [mobileOpen, setMobileOpen] = useState(false);
+    const sealSrc = setting(settings, 'city_seal_url', 'citySealUrl', 'logo_url', 'logoUrl') || '/marketing/images/logo/bccc-seal.png';
+    const breatheSrc = setting(settings, 'breathe_baguio_logo_url', 'breatheBaguioLogoUrl') || '/marketing/images/branding/breathe-light.png';
 
-    const settings = (props.siteSettings || {}) as PublicSiteSettings;
-
-    const sealUrl = settings.city_seal_url || settings.logo_url || '/marketing/images/branding/FINAL.png';
-    const breatheLogoUrl =
-        settings.breathe_baguio_logo_url || settings.baguio_logo_url || '/marketing/images/logo/breathe-baguio.png';
-
-    const visitaUrl = settings.visitaUrl || settings.visita_url || 'https://visita.baguio.gov.ph/';
-    const artsUrl =
-        settings.creativeBaguioUrl ||
-        settings.creative_baguio_url ||
-        settings.arts_url ||
-        'https://creativecity.baguio.gov.ph/';
-
-    useEffect(() => {
-        setMobileOpen(false);
-    }, [url]);
-
-    useEffect(() => {
-        document.body.classList.toggle('overflow-hidden', mobileOpen);
-
-        return () => document.body.classList.remove('overflow-hidden');
-    }, [mobileOpen]);
-
-    const officialCaption = useMemo(
-        () => (
-            <div className="leading-tight">
-                <p className="text-[14px] font-semibold uppercase tracking-[0.05rem] text-[#8d6a30] dark:text-[#f0d69a]">
-                    Baguio Convention and Cultural Center
-                </p>
-                <p className="mt-0.5 text-[11px] font-semibold text-[#21180d] dark:text-white">
-                    EVENTS ACCESS AND SCHEDULING ENGINE
-                </p>
-            </div>
-        ),
+    const headerClass = useMemo(
+        () => 'fixed inset-x-0 top-0 z-[99980] border-t-[3px] border-[#514237] bg-[#176456]/94 text-white shadow-[0_10px_28px_rgba(2,26,22,0.18)] backdrop-blur-xl',
         [],
     );
 
     return (
         <>
-            <header className="bccc-public-header fixed inset-x-0 top-0 z-[99980] border-b border-black/8 bg-[#fffaf0]/88 shadow-[0_12px_50px_rgba(49,37,19,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0f1216]/82">
-                <div className="bccc-public-header-inner mx-auto flex h-[68px] w-full max-w-[1920px] items-center gap-2 px-3 sm:px-4 lg:px-5 2xl:px-7">
-                    <Link href="/" className="bccc-public-brand group flex min-w-0 items-center gap-3">
-                        <span className="bccc-public-seal grid h-10 w-10 shrink-0 place-items-center overflow-hidden sm:h-11 sm:w-11">
-                            <SafeImage
-                                src={sealUrl}
-                                fallbackSrc="/marketing/images/branding/FINAL.png"
-                                alt="City Government of Baguio"
-                                className="h-full w-full object-contain p-1"
-                            />
+            <header className={headerClass}>
+                <div className="mx-auto flex min-h-[78px] w-full max-w-[1640px] items-center gap-4 px-3 sm:px-5 lg:px-8">
+                    <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-3" aria-label="BCCC EASE home">
+                        <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_10px_30px_rgba(0,0,0,0.14)] ring-1 ring-white/35 sm:h-16 sm:w-16">
+                            <SafeImage src={sealSrc} fallbackSrc="/marketing/images/logo/bccc-seal.png" alt="City Government of Baguio seal" className="h-full w-full object-contain p-1" wrapperClassName="h-full w-full" />
                         </span>
-
-                        <span className="bccc-public-caption hidden min-w-0 sm:block">
-                            {officialCaption}
+                        <span className="hidden min-w-0 sm:block">
+                            <span className="block text-sm font-bold leading-tight text-white">BAGUIO CONVENTION & CULTURAL CENTER</span>
+                            <span className="mt-1 block text-base font-bold leading-tight text-white">EVENT ACCESS & SCHEDULING ENGINE</span>
                         </span>
                     </Link>
 
-                    <div className="hidden h-8 w-px bg-black/10 dark:bg-white/10 lg:block" />
+                    <DesktopNav url={page.url} settings={settings} />
 
-                    <DesktopNav url={url} />
-
-                    <div className="bccc-public-actions ml-auto flex shrink-0 items-center gap-2">
-                        <ExternalMiniLinks visitaUrl={visitaUrl} artsUrl={artsUrl} />
-
+                    <div className="ml-auto flex shrink-0 items-center gap-2">
                         <ThemeButton />
 
-                        <SafeImage
-                            src={breatheLogoUrl}
-                            fallbackSrc="/marketing/images/branding/breathe-light.png"
-                            alt="Breathe Baguio"
-                            className="bccc-public-breathe-logo hidden h-8 w-auto max-w-[6.5rem] object-contain xl:block"
-                            wrapperClassName="hidden h-8 w-[6.5rem] xl:grid"
-                        />
+                        <a href="https://main.baguio.gov.ph/" target="_blank" rel="noreferrer" className="hidden h-12 w-28 items-center justify-center lg:flex" aria-label="Breathe Baguio website">
+                            <SafeImage src={breatheSrc} fallbackSrc="/marketing/images/branding/breathe-light.png" alt="Breathe Baguio" className="h-full w-full object-contain" wrapperClassName="h-full w-full" />
+                        </a>
 
-                        <Link
-                            href="/book"
-                            className="hidden h-11 items-center gap-2 rounded-full bg-[#2f2517] px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-white shadow-[0_18px_45px_rgba(47,37,23,0.22)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#4a3921] dark:bg-white dark:text-[#17120b] dark:hover:bg-[#f3ead9] lg:inline-flex"
-                        >
-                            <CalendarDays className="h-4 w-4" />
-                            Book
-                        </Link>
-
-                        <button
-                            type="button"
-                            onClick={() => setMobileOpen((value) => !value)}
-                            className="grid h-11 w-11 place-items-center rounded-full border border-black/10 bg-white/78 text-[#2f2517] shadow-[0_10px_28px_rgba(54,39,20,0.08)] backdrop-blur-xl transition hover:bg-white dark:border-white/10 dark:bg-white/8 dark:text-white xl:hidden"
-                            aria-label="Open menu"
-                        >
-                            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                        <button type="button" onClick={() => setMobileOpen(true)} className="grid h-10 w-10 place-items-center rounded-xl border border-white/18 bg-white/10 text-white transition hover:bg-white/18 xl:hidden" aria-label="Open public menu">
+                            <Menu className="h-5 w-5" />
                         </button>
                     </div>
                 </div>
             </header>
 
-            <MobileMenu open={mobileOpen} url={url} onClose={() => setMobileOpen(false)} />
+            <MobileMenu open={mobileOpen} url={page.url} onClose={() => setMobileOpen(false)} settings={settings} />
         </>
     );
 }

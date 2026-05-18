@@ -90,7 +90,7 @@ function offerImage(offer: FeaturePackageItem) {
         offer.thumbnail ||
         offer.thumbnail_url ||
         offer.images?.[0] ||
-        '/marketing/images/facilities/darkvip.jpg'
+        '/marketing/images/facilities/darkvip.JPG'
     );
 }
 
@@ -112,7 +112,7 @@ function OfferCard({ offer, index }: { offer: FeaturePackageItem; index: number 
             <div className="absolute inset-0">
                 <SafeImage
                     src={lightImage}
-                    fallbackSrc="/marketing/images/facilities/darkvip.jpg"
+                    fallbackSrc="/marketing/images/facilities/darkvip.JPG"
                     alt={offer.title}
                     className="h-full w-full object-cover transition duration-700 group-hover:scale-105 dark:hidden"
                     wrapperClassName="h-full w-full rounded-none border-0"
@@ -120,7 +120,7 @@ function OfferCard({ offer, index }: { offer: FeaturePackageItem; index: number 
 
                 <SafeImage
                     src={darkImage}
-                    fallbackSrc="/marketing/images/facilities/darkvip.jpg"
+                    fallbackSrc="/marketing/images/facilities/darkvip.JPG"
                     alt={offer.title}
                     className="hidden h-full w-full object-cover transition duration-700 group-hover:scale-105 dark:block"
                     wrapperClassName="hidden h-full w-full rounded-none border-0 dark:grid"

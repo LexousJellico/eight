@@ -82,7 +82,7 @@ class UpdateBookingRequest extends FormRequest
             'schedule_segments.*.area_keys.*' => ['string', 'max:80'],
 
             'organization_type' => ['nullable', 'string', 'max:100'],
-            'company_name' => ['required', 'string', 'max:255'],
+            'company_name' => ['nullable', 'string', 'max:255'],
             'client_name' => ['required', 'string', 'max:255'],
             'client_contact_number' => ['required', 'string', 'max:30'],
             'client_email' => ['required', 'email', 'max:255'],

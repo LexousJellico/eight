@@ -379,6 +379,7 @@ const SCHEDULE_BASE_BLOCKS: Record<ScheduleBaseBlock, { label: string; start: st
 
 const ADDITIONAL_HOUR_OPTIONS = [0, 1, 2, 3, 4, 5, 6];
 const PUBLIC_EVENT_CENTER = 'BAGUIO CONVENTION AND CULTURAL CENTER';
+const DEFAULT_BOOKING_IMAGE = '/marketing/images/events/default.png';
 
 function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(' ');
@@ -679,6 +680,38 @@ function buildDateTimeFromRange(range: BookingDateRange, block: ScheduleBaseBloc
   return { from: `${range.from}T${base.start}`, to: `${range.to}T${end}` };
 }
 
+function clockMinutes(value?: string | null): number | null {
+  const time = String(value || '').match(/T?(\d{2}):(\d{2})/);
+  if (!time) return null;
+  const hour = Number(time[1]);
+  const minute = Number(time[2]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return hour * 60 + minute;
+}
+
+function inferInitialScheduleBlock(from?: string | null, to?: string | null): { block: ScheduleBaseBlock; additionalHours: number } {
+  const start = clockMinutes(from);
+  const end = clockMinutes(to);
+
+  if (start === null || end === null) {
+    return { block: 'WHOLE_DAY', additionalHours: 0 };
+  }
+
+  const six = 6 * 60;
+  const noon = 12 * 60;
+  const sixPm = 18 * 60;
+
+  if (start === six && end <= noon) {
+    return { block: 'AM', additionalHours: 0 };
+  }
+
+  if (start === noon) {
+    return { block: 'PM', additionalHours: Math.max(0, Math.round((end - sixPm) / 60)) };
+  }
+
+  return { block: 'WHOLE_DAY', additionalHours: Math.max(0, Math.round((end - sixPm) / 60)) };
+}
+
 function optionsFromMaybe(value?: SelectOption[]): SelectOption[] {
   return Array.isArray(value) ? value : [];
 }
@@ -868,16 +901,19 @@ export function BookingFormPage() {
   const initialDateTo = dateInputOnly(initialTo) || initialDateFrom;
   const initialRange: BookingDateRange = { from: minDateString(initialDateFrom, initialDateTo), to: maxDateString(initialDateFrom, initialDateTo) };
   const hasPublicPrefill = Boolean(props.initialVenue || props.initialPackageCode || props.initialEventType || props.initialGuests || initialFrom || initialTo);
-  const initialBlock: ScheduleBaseBlock = 'WHOLE_DAY';
-  const initialAdditionalHours = 0;
-  const initialDateTimes = buildDateTimeFromRange(initialRange, initialBlock, initialAdditionalHours);
+  const inferredInitialSchedule = inferInitialScheduleBlock(initialFrom, initialTo);
+  const initialBlock: ScheduleBaseBlock = inferredInitialSchedule.block;
+  const initialAdditionalHours = inferredInitialSchedule.additionalHours;
+  const initialDateTimes = initialFrom && initialTo
+    ? { from: initialFrom, to: initialTo }
+    : buildDateTimeFromRange(initialRange, initialBlock, initialAdditionalHours);
   const initialPaymentMeta = booking?.payment_meta && typeof booking.payment_meta === 'object' ? booking.payment_meta : {};
 
   const [selectedVenueKeys, setSelectedVenueKeys] = useState<BookingVenueKey[]>(initialSelectedKeys);
   const [selectedPackageCode, setSelectedPackageCode] = useState(initialPackageCode);
   const [packageSelectionMode, setPackageSelectionMode] = useState<'packages' | 'manual'>(() => (packageOptions.length > 0 && initialPackageCode ? 'packages' : packageOptions.length > 0 ? 'packages' : 'manual'));
   const [previewVenueKey, setPreviewVenueKey] = useState<BookingVenueKey>(initialSelectedKeys[0] ?? matchedInitialVenue?.key ?? 'FULL_HALL');
-  const [usage, setUsage] = useState<BookingUsageKey>('whole_day');
+  const [usage, setUsage] = useState<BookingUsageKey>(initialBlock === 'WHOLE_DAY' ? 'whole_day' : 'half_day');
   const [baseBlock, setBaseBlock] = useState<ScheduleBaseBlock>(initialBlock);
   const [additionalHours, setAdditionalHours] = useState(initialAdditionalHours);
   const [rangeClickAnchor, setRangeClickAnchor] = useState<string | null>(null);
@@ -945,12 +981,12 @@ export function BookingFormPage() {
     is_public_calendar_visible: Boolean(booking?.is_public_calendar_visible ?? false),
     public_calendar_title: firstValue(booking?.public_calendar_title),
 
-    package_acknowledged: Boolean(editing || hasPublicPrefill),
+    package_acknowledged: Boolean(editing || hasPublicPrefill || initialSelectedKeys.length > 0),
     policy_acknowledged: Boolean(editing),
     accuracy_acknowledged: Boolean(editing),
 
-    estimated_usage: 'whole_day',
-    estimated_duration_hours: '0',
+    estimated_usage: initialBlock === 'WHOLE_DAY' ? 'whole_day' : 'half_day',
+    estimated_duration_hours: String(initialAdditionalHours),
     estimated_other_rentals: optionValue(selectedDressingRoom?.value ?? 'none'),
     estimated_additional_charges: String(initialDressingCharge),
     reservation_notes: '',
@@ -1027,6 +1063,7 @@ export function BookingFormPage() {
     setData('items', serviceItems(nextServiceIds));
     setData('selected_area_keys', next);
     setData('selected_package_code', packageCode);
+    setData('package_acknowledged', next.length > 0);
     setData('payment_meta', paymentMeta);
   }
 
@@ -1171,7 +1208,6 @@ export function BookingFormPage() {
     if (step === 0) {
       if (selectedVenueKeys.length === 0) nextErrors.package = 'Select at least one venue area or public package.';
       if (selectedVenueKeys.length > 0 && selectedChargedItems.length === 0) nextErrors.service_id = 'The selected area is missing a matching backend Rental Option.';
-      if (!data.package_acknowledged) nextErrors.package_acknowledged = 'Confirm that you reviewed the package, rates, and inclusions.';
     }
 
     if (step === 1) {
@@ -1186,7 +1222,7 @@ export function BookingFormPage() {
     }
 
     if (step === 2) {
-      if (!data.company_name.trim()) nextErrors.company_name = 'Name of organization is required.';
+      if (data.organization_type !== 'Private' && !data.company_name.trim()) nextErrors.company_name = 'Name of organization is required for non-private organizers.';
       if (!data.client_name.trim()) nextErrors.client_name = 'Contact person is required.';
       if (!/^09\d{9}$/.test(data.client_contact_number.replace(/\D+/g, ''))) nextErrors.client_contact_number = 'Use a valid Philippine mobile number, example: 09171234567.';
       if (!data.client_email.trim()) nextErrors.client_email = 'Email address is required.';
@@ -1393,6 +1429,7 @@ export function BookingFormPage() {
       public_calendar_title: current.public_calendar_title || current.type_of_event,
       selected_package_code: selectedPackageCode,
       selected_area_keys: selectedVenueKeys,
+      package_acknowledged: true,
       dressing_room_selection: current.dressing_room_selection,
       dressing_room_charge: current.dressing_room_charge,
       mice_required: isMiceRequired,
@@ -1636,7 +1673,7 @@ export function BookingFormPage() {
             <div className="booking-public-package-gallery booking-public-package-carousel" ref={packageCarouselRef}>
               {featuredPackages.map((packageOption, index) => {
                 const active = selectedPackageCode === packageOption.code;
-                const imagePath = packageOption.image_path || (index % 2 === 0 ? '/marketing/images/facilities/darkmain.JPG' : '/marketing/images/facilities/darkvip.JPG');
+                const imagePath = packageOption.image_path || DEFAULT_BOOKING_IMAGE;
                 const areas = packageOption.area_labels ?? venueKeysFromPackage(packageOption);
 
                 return (
@@ -1653,7 +1690,7 @@ export function BookingFormPage() {
                         alt={packageOption.name ?? packageOption.label ?? packageOption.code}
                         loading="lazy"
                         onError={(event) => {
-                          event.currentTarget.src = '/marketing/images/hero/noon2.jpg';
+                          event.currentTarget.src = DEFAULT_BOOKING_IMAGE;
                         }}
                       />
                       <span className="booking-package-image-shade" />
@@ -1675,11 +1712,12 @@ export function BookingFormPage() {
             </div>
           </div>
         ) : (
-          <div className="booking-manual-area-panel">
+          <div className="booking-manual-area-panel booking-manual-area-panel-cinematic">
             <div className="booking-manual-area-intro">
               <div>
                 <p className="booking-mini-heading">Manual area selection</p>
-                <h3>Select the exact areas needed for the event.</h3>
+                <h3>Select exact areas through the image wall.</h3>
+                <span>Each panel has its own built-in image. Selected panels stay expanded and divide the background by area.</span>
               </div>
               {featuredPackages.length > 0 ? (
                 <button type="button" onClick={() => setPackageSelectionMode('packages')} className="booking-secondary-action">
@@ -1688,18 +1726,41 @@ export function BookingFormPage() {
               ) : null}
             </div>
 
-            <div ref={packageCarouselRef} className="booking-package-choice-grid mt-3">
-              {venueItems.map((item) => {
+            <div ref={packageCarouselRef} className="booking-area-split-stage" aria-label="Manual BCCC area image selector">
+              {venueItems.map((item, index) => {
                 const selected = selectedVenueKeys.includes(item.key);
+                const previewing = previewVenueKey === item.key;
                 return (
-                  <button type="button" key={item.key} data-venue-key={item.key} disabled={!item.configured} onClick={() => selectVenue(item)} className={cx('booking-package-choice-card booking-area-image-card', selected && 'is-selected', !item.configured && 'is-disabled')}>
-                    <img src={item.image} alt={item.displayLabel} />
-                    <span>{item.category === 'package' ? 'Area base' : 'Add-on / area'}</span>
-                    <strong>{item.displayLabel}</strong>
-                    <small>{item.configured ? item.subtitle : 'Missing backend rental option'}</small>
+                  <button
+                    type="button"
+                    key={item.key}
+                    data-venue-key={item.key}
+                    disabled={!item.configured}
+                    onClick={() => selectVenue(item)}
+                    onMouseEnter={() => setPreviewVenueKey(item.key)}
+                    onFocus={() => setPreviewVenueKey(item.key)}
+                    className={cx('booking-area-split-card', selected && 'is-selected', previewing && 'is-previewing', !item.configured && 'is-disabled')}
+                    aria-pressed={selected}
+                  >
+                    <span className="booking-area-split-image">
+                      <img src={item.image || DEFAULT_BOOKING_IMAGE} alt={item.displayLabel} onError={(event) => { event.currentTarget.src = DEFAULT_BOOKING_IMAGE; }} />
+                    </span>
+                    <span className="booking-area-split-shade" />
+                    <span className="booking-area-split-number">{String(index + 1).padStart(2, '0')}</span>
+                    <span className="booking-area-split-copy">
+                      <em>{item.category === 'package' ? 'Area base' : 'Individual area'}</em>
+                      <strong>{item.displayLabel}</strong>
+                      <small>{item.configured ? item.subtitle : 'Missing backend rental option'}</small>
+                    </span>
+                    {selected ? <span className="booking-area-split-check"><Check className="h-4 w-4" /> Selected</span> : null}
                   </button>
                 );
               })}
+            </div>
+
+            <div className="booking-area-selected-strip">
+              <span>Selected</span>
+              <strong>{selectedChargedItems.length > 0 ? selectedChargedItems.map((item) => item.displayLabel).join(' + ') : 'Choose at least one area'}</strong>
             </div>
           </div>
         )}
@@ -1802,8 +1863,8 @@ export function BookingFormPage() {
               {FALLBACK_ORGANIZATION_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </Field>
-          <Field label="Name of Organization of the Organizer" required error={fieldError('company_name')}>
-            <input value={data.company_name} onChange={(event) => setData('company_name', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('company_name')))} placeholder="Organization name" />
+          <Field label={data.organization_type === 'Private' ? "Name of Organization of the Organizer (optional)" : "Name of Organization of the Organizer"} required={data.organization_type !== 'Private'} error={fieldError('company_name')}>
+            <input value={data.company_name} onChange={(event) => setData('company_name', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('company_name')))} placeholder={data.organization_type === 'Private' ? "Optional for private organizers" : "Organization name"} />
           </Field>
           <Field label="Head of Organization">
             <input value={data.head_of_organization} onChange={(event) => setData('head_of_organization', event.target.value)} className="backend-booking-input" placeholder="Optional" />

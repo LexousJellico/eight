@@ -1029,6 +1029,16 @@ class BookingController extends Controller
         $date = trim((string) $request->query('date', ''));
         $start = trim((string) $request->query('start', ''));
         $end = trim((string) $request->query('end', ''));
+        $block = strtoupper(trim((string) $request->query('block', '')));
+
+        if ($date !== '' && $block !== '' && ($start === '' || $end === '')) {
+            [$start, $end] = match ($block) {
+                'AM' => ['06:00', '12:00'],
+                'PM' => ['12:00', '18:00'],
+                'EVE', 'EVENING' => ['18:00', '23:59'],
+                default => [$start, $end],
+            };
+        }
 
         $dateFrom = trim((string) $request->query('date_from', ''));
         $dateTo = trim((string) $request->query('date_to', ''));

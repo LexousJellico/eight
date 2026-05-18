@@ -41,7 +41,7 @@ export default function LocationAssistance() {
     const mapEmbedUrl = settings.mapEmbedUrl || settings.map_embed_url || '';
 
     return (
-        <section className="relative overflow-hidden bg-[#f8f5ef] px-4 py-14 dark:bg-[#0d0f12] sm:px-6 lg:px-8">
+        <section className="bccc-location-assistance relative overflow-hidden bg-[#eef4f2] px-4 py-14 dark:bg-[#08110f] sm:px-6 lg:px-8">
             <div className="pointer-events-none absolute left-[-12rem] top-[-12rem] h-[30rem] w-[30rem] rounded-full bg-[#d8b56d]/14 blur-3xl dark:bg-[#d8b56d]/7" />
 
             <div className="relative mx-auto grid max-w-[1920px] gap-5 xl:grid-cols-[0.92fr_1.08fr]">
@@ -197,7 +197,7 @@ export default function LocationAssistance() {
                     ) : (
                         <>
                             <SafeImage
-                                src="/marketing/images/facilities/darkvip.jpg"
+                                src="/marketing/images/facilities/darkvip.JPG"
                                 fallbackSrc="/marketing/images/hero/noon2.jpg"
                                 alt="Baguio Convention and Cultural Center"
                                 className="absolute inset-0 h-full w-full object-cover"

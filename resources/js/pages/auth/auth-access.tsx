@@ -48,7 +48,7 @@ type PasswordCheck = {
 };
 
 const LOGIN_IMAGE = '/marketing/images/hero/noon2.jpg';
-const REGISTER_IMAGE = '/marketing/images/facilities/darkvip.jpg';
+const REGISTER_IMAGE = '/marketing/images/facilities/darkvip.JPG';
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');

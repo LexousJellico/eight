@@ -199,6 +199,26 @@ function eventLabel(event: CalendarEvent) {
     return event.title || 'Calendar item';
 }
 
+function blockTimes(block: 'AM' | 'PM' | 'EVE') {
+    if (block === 'AM') return { start: '06:00', end: '12:00', label: 'AM Block', helper: '6:00 AM - 12:00 PM' };
+    if (block === 'PM') return { start: '12:00', end: '18:00', label: 'PM Block', helper: '12:00 PM - 6:00 PM' };
+    return { start: '18:00', end: '23:59', label: 'Evening Block', helper: '6:00 PM - 11:59 PM' };
+}
+
+function blockBookingHref(date: string, block: 'AM' | 'PM' | 'EVE') {
+    const times = blockTimes(block);
+    const bookingBlock = block === 'EVE' ? 'PM' : block;
+    const params = new URLSearchParams({
+        date,
+        start: block === 'EVE' ? '12:00' : times.start,
+        end: times.end,
+        block: bookingBlock,
+        preferred_block: block,
+    });
+
+    return `/book?${params.toString()}`;
+}
+
 function eventStatusTone(status?: string | null) {
     const normalized = String(status || '').toLowerCase();
 
@@ -398,17 +418,34 @@ export default function UserCalendarIndex() {
                             <div className="mt-5 grid gap-2">
                                 {(['AM', 'PM', 'EVE'] as const).map((block) => {
                                     const available = blockAvailable(selectedAvailability, block);
-
-                                    return (
-                                        <div key={block} className="flex items-center justify-between gap-3 border border-border bg-background/70 px-3 py-3">
-                                            <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
-                                                <Clock3 className="h-4 w-4 text-primary" />
-                                                {block === 'AM' ? 'AM Block' : block === 'PM' ? 'PM Block' : 'Evening'}
+                                    const times = blockTimes(block);
+                                    const content = (
+                                        <>
+                                            <span className="inline-flex min-w-0 items-start gap-2 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground">
+                                                <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                                <span className="min-w-0">
+                                                    <span className="block">{times.label}</span>
+                                                    <small className="mt-1 block text-[0.66rem] font-semibold normal-case tracking-normal text-muted-foreground/75">{times.helper}</small>
+                                                </span>
                                             </span>
 
-                                            <strong className={cx('text-xs font-black uppercase tracking-[0.13em]', available ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200')}>
-                                                {available ? 'Available' : 'Not Available'}
+                                            <strong className={cx('shrink-0 text-xs font-black uppercase tracking-[0.13em]', available ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200')}>
+                                                {available ? 'Book This' : 'Not Available'}
                                             </strong>
+                                        </>
+                                    );
+
+                                    return available ? (
+                                        <Link
+                                            key={block}
+                                            href={blockBookingHref(selectedDate, block)}
+                                            className="user-calendar-block-row flex items-center justify-between gap-3 border border-emerald-500/20 bg-emerald-500/8 px-3 py-3 transition hover:-translate-y-0.5 hover:border-primary/45 hover:bg-primary/10 hover:shadow-[0_14px_32px_rgba(0,0,0,0.10)]"
+                                        >
+                                            {content}
+                                        </Link>
+                                    ) : (
+                                        <div key={block} className="user-calendar-block-row flex items-center justify-between gap-3 border border-border bg-background/70 px-3 py-3 opacity-70">
+                                            {content}
                                         </div>
                                     );
                                 })}

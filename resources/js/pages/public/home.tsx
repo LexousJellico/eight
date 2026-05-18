@@ -1,11 +1,8 @@
-import AmenitiesRow from '@/components/public/amenities-row';
 import EventsCinemaShowcase from '@/components/public/events-cinema-showcase';
 import FacilitiesLayeredShowcase from '@/components/public/facilities-layered-showcase';
 import HeroAvailabilityBar from '@/components/public/hero-availability-bar';
 import HeroBanner from '@/components/public/hero-banner';
 import LocationAssistance from '@/components/public/location-assistance';
-import SpecialOffers from '@/components/public/special-offers';
-import StatsBanner from '@/components/public/stats-banner';
 import VenuePackageShowcase from '@/components/public/venue-package-showcase';
 import WelcomeSection from '@/components/public/welcome-section';
 import PublicLayout from '@/layouts/public-layout';
@@ -41,9 +38,7 @@ export default function Home({
     spaces = [],
     venueSpaces = [],
     facilities = [],
-    stats = [],
     siteMetric = null,
-    offers = [],
     packages = [],
 }: Props) {
     const mergedEvents = events.length > 0 ? events : [...bcccEvents, ...cityEvents];
@@ -54,26 +49,13 @@ export default function Home({
             <Head title="Baguio Convention and Cultural Center" />
 
             <HeroBanner siteMetric={siteMetric} />
-
             <HeroAvailabilityBar venueOptions={venueOptions} />
 
+            <FacilitiesLayeredShowcase items={mergedSpaces} />
             <WelcomeSection />
-
-            <StatsBanner items={stats} siteMetric={siteMetric} />
-
             <VenuePackageShowcase items={packages} />
 
-            <AmenitiesRow />
-
-            <FacilitiesLayeredShowcase items={mergedSpaces} />
-
-            <EventsCinemaShowcase
-                items={mergedEvents}
-                bcccEvents={bcccEvents}
-                cityEvents={cityEvents}
-            />
-
-            <SpecialOffers items={offers} />
+            <EventsCinemaShowcase items={mergedEvents} bcccEvents={bcccEvents} cityEvents={cityEvents} />
 
             <LocationAssistance />
         </PublicLayout>

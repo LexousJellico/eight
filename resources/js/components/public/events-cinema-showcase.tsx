@@ -294,9 +294,8 @@ export default function EventsCinemaShowcase({ items = [], bcccEvents = [], city
         <section className="event-cinema-fullbleed public-display-page overflow-hidden py-20">
             <div className="event-cinema-intro-wrap">
                 <SectionIntro
-                    kicker="Event Highlights"
-                    title="Cinematic event carousel"
-                    description="Browse BCCC and Baguio City highlights through a full-width dark film stage with curved depth, center focus, and smooth rotation."
+                    kicker=""
+                    title="Event Highlights"
                     align="center"
                 />
 

@@ -26,27 +26,25 @@ export default function WelcomeSection() {
     const reduceMotion = useReducedMotion();
 
     return (
-        <section className="relative overflow-hidden bg-[#f8f5ef] px-4 py-14 dark:bg-[#0d0f12] sm:px-6 lg:px-8">
-            <div className="pointer-events-none absolute left-[-12rem] top-[-12rem] h-[28rem] w-[28rem] rounded-full bg-[#d8b56d]/18 blur-3xl dark:bg-[#d8b56d]/8" />
-            <div className="pointer-events-none absolute bottom-[-14rem] right-[-12rem] h-[30rem] w-[30rem] rounded-full bg-[#7a5a24]/10 blur-3xl dark:bg-white/5" />
+        <section className="relative overflow-hidden dark:bg-[#0d0f12] sm:px-6 lg:px-8">
 
-            <div className="relative mx-auto grid max-w-[1920px] gap-8 lg:grid-cols-[0.92fr_1fr] lg:items-center">
+            <div className="relative mx-auto grid max-w-[1920px] gap-6 lg:grid-cols-[0.80fr_0.85fr] lg:items-center">
                 <motion.div
                     initial={reduceMotion ? false : { opacity: 0, x: -18, filter: 'blur(8px)' }}
                     whileInView={reduceMotion ? undefined : { opacity: 1, x: 0, filter: 'blur(0px)' }}
                     viewport={{ once: true, amount: 0.25 }}
                     transition={{ duration: 0.55, ease }}
-                    className="relative min-h-[34rem] overflow-hidden rounded-[2rem] border border-[#d9c7a6]/70 bg-white shadow-[0_28px_80px_rgba(47,37,23,0.12)] dark:border-white/10 dark:bg-white/[0.055]"
+                    className="relative min-h-[28rem]"
                 >
                     <SafeImage
-                        src="/marketing/images/facilities/darkvip.jpg"
+                        src="/marketing/images/hero/welcome.png"
                         fallbackSrc="/marketing/images/hero/noon2.jpg"
                         alt="Baguio Convention and Cultural Center interior"
-                        className="h-full min-h-[34rem] w-full object-cover"
-                        wrapperClassName="h-full min-h-[34rem] w-full rounded-none border-0"
+                        className="h-full min-h-[28rem] w-full object-cover"
+                        wrapperClassName="h-full min-h-[24rem] w-full"
                     />
 
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#100b05]/82 via-[#100b05]/20 to-transparent" />
+                    
                 </motion.div>
 
                 <motion.div

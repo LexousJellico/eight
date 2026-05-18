@@ -87,7 +87,7 @@ export const BOOKING_VENUE_CATALOG: BookingVenueCatalogItem[] = [
     displayLabel: 'Full Hall Package',
     subtitle: 'Full Hall rental',
     category: 'package',
-    image: '/marketing/images/facilities/darkvip.jpg',
+    image: '/marketing/images/events/darkmain.JPG',
     description:
       'Full Hall rental for large programs, conventions, exhibits, ceremonies, and major public events. VIP Lounge, Board Room, and LED Wall are separate add-ons or package selections.',
     longDescription:
@@ -120,7 +120,7 @@ export const BOOKING_VENUE_CATALOG: BookingVenueCatalogItem[] = [
     displayLabel: 'Main Hall',
     subtitle: 'Primary event hall',
     category: 'individual',
-    image: '/marketing/images/hero/noon2.jpg',
+    image: '/marketing/images/events/lightmain.JPG',
     description: 'Main event space for conferences, ceremonies, seminars, and formal programs.',
     longDescription:
       'Main Hall is the primary venue space when the organizer needs the main program area without booking the complete Full Hall package.',
@@ -142,7 +142,7 @@ export const BOOKING_VENUE_CATALOG: BookingVenueCatalogItem[] = [
     displayLabel: 'LED Wall',
     subtitle: 'Premium display support',
     category: 'individual',
-    image: '/marketing/images/facilities/darkvip.jpg',
+    image: '/marketing/images/hero/noon2.jpg',
     description: 'Digital display support for presentations, program visuals, branding, and stage media.',
     longDescription:
       'LED Wall is selected when the event needs high-impact digital display support for presentations, branding, and visuals.',
@@ -164,7 +164,7 @@ export const BOOKING_VENUE_CATALOG: BookingVenueCatalogItem[] = [
     displayLabel: 'VIP Lounge',
     subtitle: 'Executive holding area',
     category: 'individual',
-    image: '/marketing/images/facilities/darkvip.jpg',
+    image: '/marketing/images/facilities/darkvip.JPG',
     description:
       'Executive support area for dignitaries, speakers, guests of honor, and protocol preparation.',
     longDescription:
@@ -187,7 +187,7 @@ export const BOOKING_VENUE_CATALOG: BookingVenueCatalogItem[] = [
     displayLabel: 'Board Room',
     subtitle: 'Private meeting space',
     category: 'individual',
-    image: '/marketing/images/facilities/darkvip.jpg',
+    image: '/marketing/images/events/4.jpg',
     description: 'Private room for briefings, planning sessions, committees, and focused meetings.',
     longDescription:
       'Board Room is intended for smaller formal meetings and planning sessions that require a private discussion space.',

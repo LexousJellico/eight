@@ -54,8 +54,8 @@ class PublicSiteContentSeeder extends Seeder
                 'short_description' => 'An elegant welcome area ideal for guest reception, registration, and networking.',
                 'summary' => 'A public-facing entry and gathering zone for reception, guest movement, and pre-event coordination.',
                 'details' => ['Reception area', 'Registration support', 'Networking flow'],
-                'light_image' => '/marketing/images/facilities/foyer-lobby.jpg',
-                'dark_image' => '/marketing/images/facilities/foyer-lobby.jpg',
+                'light_image' => '/marketing/images/facilities/lobby.png',
+                'dark_image' => '/marketing/images/facilities/lobby.png',
                 'homepage_visible' => true,
             ],
             [
@@ -65,8 +65,8 @@ class PublicSiteContentSeeder extends Seeder
                 'short_description' => 'A versatile hall suited for exhibits, cultural displays, and intimate gathering formats.',
                 'summary' => 'A flexible indoor venue for curated exhibits and community programs.',
                 'details' => ['Exhibits', 'Cultural displays', 'Community activities'],
-                'light_image' => '/marketing/images/facilities/gallery-2600.jpg',
-                'dark_image' => '/marketing/images/facilities/gallery-2600.jpg',
+                'light_image' => '/marketing/images/facilities/gallery.jpg',
+                'dark_image' => '/marketing/images/facilities/gallery.jpg',
                 'homepage_visible' => true,
             ],
             [
@@ -76,8 +76,8 @@ class PublicSiteContentSeeder extends Seeder
                 'short_description' => 'The center stage for conferences, large-scale civic gatherings, and public programs.',
                 'summary' => 'The largest public venue area inside the convention center.',
                 'details' => ['Large-scale events', 'Stage included', 'Backstage included', 'Dressing room included'],
-                'light_image' => '/marketing/images/facilities/darkmain.jpg',
-                'dark_image' => '/marketing/images/facilities/darkmain.jpg',
+                'light_image' => '/marketing/images/events/darkmain.JPG',
+                'dark_image' => '/marketing/images/events/darkmain.JPG',
                 'homepage_visible' => true,
             ],
             [
@@ -87,8 +87,8 @@ class PublicSiteContentSeeder extends Seeder
                 'short_description' => 'A support station for production control, AV operations, and event coordination.',
                 'summary' => 'Supports audio-visual and technical event operations.',
                 'details' => ['AV control', 'Production support', 'Event operations'],
-                'light_image' => '/marketing/images/facilities/tech-booth.jpg',
-                'dark_image' => '/marketing/images/facilities/tech-booth.jpg',
+                'light_image' => '/marketing/images/facilities/techbooth.jpg',
+                'dark_image' => '/marketing/images/facilities/techbooth.jpg',
                 'homepage_visible' => true,
             ],
             [
@@ -98,8 +98,8 @@ class PublicSiteContentSeeder extends Seeder
                 'short_description' => 'A public service point for tourism coordination, local information, and assistance.',
                 'summary' => 'A public-facing support and tourism coordination office.',
                 'details' => ['Visitor assistance', 'Public information', 'Local coordination'],
-                'light_image' => '/marketing/images/facilities/tourism-office.jpg',
-                'dark_image' => '/marketing/images/facilities/tourism-office.jpg',
+                'light_image' => '/marketing/images/branding/tourism.jpg',
+                'dark_image' => '/marketing/images/branding/tourism.jpg',
                 'homepage_visible' => true,
             ],
         ];
@@ -114,7 +114,7 @@ class PublicSiteContentSeeder extends Seeder
         $events = [
             [
                 'scope' => 'bccc',
-                'title' => 'Kailyanerye Creative Pop-Up',
+                'title' => 'LABOR',
                 'venue' => 'Main Hall',
                 'event_date' => '2026-03-22',
                 'event_time' => '10:00',
@@ -122,11 +122,11 @@ class PublicSiteContentSeeder extends Seeder
                 'note' => 'Highlighted public BCCC event.',
                 'is_highlighted' => true,
                 'is_public' => true,
-                'images' => ['/marketing/images/events/3.jpg'],
+                'images' => ['/marketing/images/events/labor.jpg'],
             ],
             [
                 'scope' => 'bccc',
-                'title' => 'Regional Convention Summit',
+                'title' => 'CHURCH',
                 'venue' => 'Baguio Convention and Cultural Center',
                 'event_date' => '2026-04-10',
                 'event_time' => '09:00',
@@ -134,11 +134,11 @@ class PublicSiteContentSeeder extends Seeder
                 'note' => 'Convention-center public program.',
                 'is_highlighted' => false,
                 'is_public' => true,
-                'images' => ['/marketing/images/events/1.jpg'],
+                'images' => ['/marketing/images/events/church.jpg'],
             ],
             [
                 'scope' => 'city',
-                'title' => 'Cultural Night and Performances',
+                'title' => 'WOFEX',
                 'venue' => 'Baguio City',
                 'event_date' => '2026-05-03',
                 'event_time' => '18:00',
@@ -146,7 +146,7 @@ class PublicSiteContentSeeder extends Seeder
                 'note' => 'Public city event.',
                 'is_highlighted' => false,
                 'is_public' => true,
-                'images' => ['/marketing/images/events/5.jpg'],
+                'images' => ['/marketing/images/events/wofex.jpg'],
             ],
         ];
 
@@ -161,12 +161,12 @@ class PublicSiteContentSeeder extends Seeder
             [
                 'title' => 'Convention Package',
                 'description' => 'For conferences, summits, and large formal gatherings.',
-                'images' => ['/marketing/images/offers/meeting-package.jpg'],
+                'images' => ['/marketing/images/events/darkmain.JPG'],
             ],
             [
                 'title' => 'Community Showcase Package',
                 'description' => 'Suitable for exhibits, pop-ups, cultural displays, and public-facing activations.',
-                'images' => ['/marketing/images/offers/community-package.jpg'],
+                'images' => ['/marketing/images/events/4.jpg'],
             ],
         ];
 

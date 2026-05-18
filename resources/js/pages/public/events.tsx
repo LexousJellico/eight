@@ -1,19 +1,12 @@
 import EventsCinemaShowcase from '@/components/public/events-cinema-showcase';
 import {
-    EmptyPublicPanel,
-    SectionIntro,
-    cx,
-    descriptionOf,
-    formatPublicDate,
-    imageOf,
-    titleOf,
     visibleRecords,
     type PublicImageRecord,
 } from '@/components/public/public-display-system';
 import PublicLayout from '@/layouts/public-layout';
 import { Head, usePage } from '@inertiajs/react';
-import { CalendarDays, Film, MapPin, Sparkles } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CalendarDays } from 'lucide-react';
+import { useMemo } from 'react';
 
 type EventsPageProps = {
     events?: PublicImageRecord[];
@@ -25,13 +18,8 @@ function categoryOf(event: PublicImageRecord) {
     return String(event.category || event.event_category || 'Event');
 }
 
-function dateOf(event: PublicImageRecord) {
-    return event.starts_at || event.startsAt || event.event_date || event.date || null;
-}
-
 export default function EventsPage() {
     const { props } = usePage<EventsPageProps>();
-    const [filter, setFilter] = useState<'all' | 'bccc' | 'city'>('all');
 
     const allEvents = useMemo(
         () =>
@@ -63,143 +51,17 @@ export default function EventsPage() {
         [allEvents],
     );
 
-    const visibleEvents =
-        filter === 'bccc'
-            ? bcccEvents
-            : filter === 'city'
-              ? cityEvents
-              : allEvents;
-
     return (
         <PublicLayout>
             <Head title="Events" />
 
             <main id="highlights" className="public-display-page min-h-screen">
-                <section className="public-section-shell py-16 lg:py-20">
-                    <SectionIntro
-                        kicker="Event Highlights"
-                        title="Cinematic public event browsing"
-                        description="Events are displayed through a dark curved film carousel with smooth transitions and center-focused details."
-                    />
-
-                    <div className="mt-8 grid gap-3 md:grid-cols-3">
-                        <MiniStat icon={CalendarDays} label="All Events" value={allEvents.length.toString()} />
-                        <MiniStat icon={Film} label="BCCC" value={bcccEvents.length.toString()} />
-                        <MiniStat icon={Sparkles} label="Baguio City" value={cityEvents.length.toString()} />
-                    </div>
-                </section>
-
                 <EventsCinemaShowcase
                     items={allEvents}
                     bcccEvents={bcccEvents}
                     cityEvents={cityEvents}
                 />
-
-                <section className="public-section-shell py-16">
-                    <SectionIntro
-                        kicker="Event Directory"
-                        title="Browse event highlights"
-                        description="Use the cards below for quick scanning after the cinematic carousel."
-                    />
-
-                    <div className="mt-6 flex flex-wrap gap-2">
-                        {[
-                            ['all', 'All Events'],
-                            ['bccc', 'BCCC Events'],
-                            ['city', 'Baguio City Events'],
-                        ].map(([key, label]) => (
-                            <button
-                                key={key}
-                                type="button"
-                                onClick={() => setFilter(key as 'all' | 'bccc' | 'city')}
-                                className={cx(
-                                    'rounded-full px-5 py-2 text-sm font-bold transition',
-                                    filter === key
-                                        ? 'bg-[#2f2517] text-white dark:bg-white dark:text-[#17120b]'
-                                        : 'border border-[#d9c7a6]/70 bg-white/70 text-[#2f2517] hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12',
-                                )}
-                            >
-                                {label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {visibleEvents.length > 0 ? (
-                        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                            {visibleEvents.map((event, index) => (
-                                <article
-                                    key={event.id ?? index}
-                                    className="public-smooth-card overflow-hidden rounded-[1.5rem] border border-[#d9c7a6]/70 bg-white/78 shadow-[0_20px_60px_rgba(47,37,23,0.08)] dark:border-white/10 dark:bg-white/[0.05]"
-                                >
-                                    {imageOf(event) ? (
-                                        <img
-                                            src={imageOf(event)}
-                                            alt={titleOf(event, 'Event')}
-                                            className="h-64 w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="grid h-64 place-items-center bg-[#f4ead8] text-[#8b672d] dark:bg-white/10 dark:text-[#f1d89b]">
-                                            <CalendarDays className="h-12 w-12" />
-                                        </div>
-                                    )}
-
-                                    <div className="p-5">
-                                        <div className="flex flex-wrap gap-2">
-                                            <span className="inline-flex items-center gap-2 rounded-full bg-[#f4ead8] px-3 py-1.5 text-xs font-bold text-[#7a5a24] dark:bg-white/10 dark:text-[#f1d89b]">
-                                                <CalendarDays className="h-3.5 w-3.5" />
-                                                {formatPublicDate(dateOf(event)) || 'Event'}
-                                            </span>
-
-                                            <span className="inline-flex items-center gap-2 rounded-full bg-[#f4ead8] px-3 py-1.5 text-xs font-bold text-[#7a5a24] dark:bg-white/10 dark:text-[#f1d89b]">
-                                                <MapPin className="h-3.5 w-3.5" />
-                                                {categoryOf(event)}
-                                            </span>
-                                        </div>
-
-                                        <h3 className="mt-4 text-2xl font-semibold tracking-[-0.055em] text-[#21180d] dark:text-white">
-                                            {titleOf(event, 'Event')}
-                                        </h3>
-
-                                        <p className="public-readable mt-3 line-clamp-4 text-sm text-[#6e604c] dark:text-white/56">
-                                            {descriptionOf(event, 'A public event highlight connected to BCCC or the City of Baguio.')}
-                                        </p>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="mt-8">
-                            <EmptyPublicPanel
-                                icon={CalendarDays}
-                                title="No events found"
-                                description="Event highlights created in the Content Manager will appear on this page."
-                            />
-                        </div>
-                    )}
-                </section>
             </main>
         </PublicLayout>
-    );
-}
-
-function MiniStat({
-    icon: Icon,
-    label,
-    value,
-}: {
-    icon: typeof CalendarDays;
-    label: string;
-    value: string;
-}) {
-    return (
-        <article className="rounded-[1.15rem] border border-[#eadcc2]/80 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.035]">
-            <Icon className="h-5 w-5 text-[#9d7b3d] dark:text-[#f1d89b]" />
-            <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">
-                {label}
-            </p>
-            <p className="mt-1 text-xl font-semibold tracking-[-0.045em] text-[#21180d] dark:text-white">
-                {value}
-            </p>
-        </article>
     );
 }

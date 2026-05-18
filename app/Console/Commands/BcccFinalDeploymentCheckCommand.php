@@ -364,11 +364,11 @@ class BcccFinalDeploymentCheckCommand extends Command
                 : count($report['missing']).' missing reference(s). Upload real images or keep the included placeholders until replacement.',
         );
 
-        $drone = public_path('marketing/images/hero/bccc-drone-transparent.png');
+        $drone = public_path('marketing/images/hero/bccc.png');
         $this->add(
             File::exists($drone) ? 'ok' : 'warning',
-            'Transparent drone hero',
-            File::exists($drone) ? 'Transparent drone hero image exists.' : 'Upload public/marketing/images/hero/bccc-drone-transparent.png for the final cinematic hero.',
+            'Cinematic hero image',
+            File::exists($drone) ? 'Cinematic hero image image exists.' : 'Upload public/marketing/images/hero/bccc.png for the final cinematic hero.',
         );
     }
 

@@ -104,7 +104,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
             <PublicScrollProgress />
             <PublicHeaderPortal />
 
-            <main className="bccc-public-main bccc-public-page-stage relative overflow-x-clip overflow-y-visible pt-[68px]">
+            <main className="bccc-public-main bccc-public-page-stage relative overflow-x-clip overflow-y-visible pt-[78px]">
                 {children}
             </main>
 

@@ -22,28 +22,28 @@ const fallbackItems: StoryItem[] = [
     {
         title: 'Full Hall',
         caption: 'A formal event canvas for ceremonies, conferences, and government-scale gatherings.',
-        image: '/marketing/images/facilities/darkmain.jpg',
+        image: '/marketing/images/events/darkmain.JPG',
         meta: 'Signature venue',
         href: '/facilities',
     },
     {
         title: 'Main Hall + VIP Lounge',
         caption: 'A premium package for programs that need a main floor and a private reception space.',
-        image: '/marketing/images/facilities/darkvip.jpg',
+        image: '/marketing/images/facilities/darkvip.JPG',
         meta: 'Package ready',
         href: '/book?package=MAIN_VIP',
     },
     {
         title: 'Main Hall + Board Room',
         caption: 'Balanced for plenary sessions, technical panels, and smaller executive meetings.',
-        image: '/marketing/images/facilities/darkboard.jpg',
+        image: '/marketing/images/events/4.jpg',
         meta: 'Meeting flow',
         href: '/book?package=MAIN_BOARD',
     },
     {
         title: 'LED Wall Add-on',
         caption: 'Designed for high-visibility presentations, launches, and public-facing programs.',
-        image: '/marketing/images/events/darkmain.jpg',
+        image: '/marketing/images/events/darkmain.JPG',
         meta: 'Visual add-on',
         href: '/book?package=MAIN_LED',
     },
@@ -88,7 +88,7 @@ export default function PresentationScrollStory({ spaces = [], packages = [] }: 
         const packageStories = packages.slice(0, 3).map((item, index) => ({
             title: packageTitle(item),
             caption: packageCaption(item),
-            image: resolveImage(item, fallbackItems[index]?.image ?? '/marketing/images/facilities/darkmain.jpg'),
+            image: resolveImage(item, fallbackItems[index]?.image ?? '/marketing/images/events/darkmain.JPG'),
             meta: item.priceLabel ?? item.price_label ?? item.rateLabel ?? item.rate_label ?? 'Suggested package',
             href: packageHref(item),
         }));
@@ -96,7 +96,7 @@ export default function PresentationScrollStory({ spaces = [], packages = [] }: 
         const spaceStories = spaces.slice(0, 4 - packageStories.length).map((item, index) => ({
             title: spaceTitle(item),
             caption: spaceCaption(item),
-            image: resolveImage(item, fallbackItems[index + packageStories.length]?.image ?? '/marketing/images/facilities/darkvip.jpg'),
+            image: resolveImage(item, fallbackItems[index + packageStories.length]?.image ?? '/marketing/images/facilities/darkvip.JPG'),
             meta: item.capacity ? `${item.capacity} capacity` : item.category || 'Venue space',
             href: spaceHref(item),
         }));
@@ -143,7 +143,7 @@ export default function PresentationScrollStory({ spaces = [], packages = [] }: 
                     </div>
 
                     <motion.div style={reduceMotion ? undefined : { rotate: imageRotate }} className="bccc-presentation-floating-card">
-                        <SafeImage src={featured.image} fallbackSrc="/marketing/images/facilities/darkvip.jpg" alt={featured.title} className="h-full w-full object-cover" />
+                        <SafeImage src={featured.image} fallbackSrc="/marketing/images/facilities/darkvip.JPG" alt={featured.title} className="h-full w-full object-cover" />
                         <div className="bccc-presentation-floating-shade" />
                         <div className="bccc-presentation-floating-copy">
                             <span><MapPin className="h-3.5 w-3.5" /> Baguio Convention and Cultural Center</span>

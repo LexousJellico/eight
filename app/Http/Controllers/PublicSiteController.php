@@ -126,8 +126,8 @@ class PublicSiteController extends Controller
         $openMapUrl = $this->safeExternalUrl($settings?->open_map_url)
             ?: 'https://www.google.com/maps/search/?api=1&query=CH3X%2BRRW%2C%20Baguio%2C%20Benguet%2C%20Philippines';
 
-        $visitaUrl = $this->safeExternalUrl($settings?->visita_url) ?: '';
-        $creativeBaguioUrl = $this->safeExternalUrl($settings?->creative_baguio_url) ?: '';
+        $visitaUrl = $this->safeExternalUrl($settings?->visita_url) ?: 'https://visita.baguio.gov.ph/';
+        $creativeBaguioUrl = $this->safeExternalUrl($settings?->creative_baguio_url) ?: 'https://creativecity.baguio.gov.ph/';
         $mapEmbedUrl = $this->safeMapEmbedUrl($settings?->map_embed_url);
 
         return [
@@ -135,9 +135,19 @@ class PublicSiteController extends Controller
             'openMapUrl' => $openMapUrl,
             'address' => $settings?->address ?: 'CH3X+RRW, Baguio, Benguet, Philippines',
             'phone' => $settings?->phone ?: '(074) 446 2009',
-            'email' => $settings?->email ?: 'info@bccc-ease.com',
+            'email' => $settings?->email ?: 'pacd@baguio.gov.ph',
             'visitaUrl' => $visitaUrl,
+            'visita_url' => $visitaUrl,
             'creativeBaguioUrl' => $creativeBaguioUrl,
+            'creative_baguio_url' => $creativeBaguioUrl,
+            'arts_url' => $creativeBaguioUrl,
+            'cityGovernmentUrl' => 'https://main.baguio.gov.ph/',
+            'city_government_url' => 'https://main.baguio.gov.ph/',
+            'announcementsUrl' => 'https://main.baguio.gov.ph/news-and-announcements',
+            'announcements_url' => 'https://main.baguio.gov.ph/news-and-announcements',
+            'faqsUrl' => 'https://main.baguio.gov.ph/more/frequently-asked-questions',
+            'faqs_url' => 'https://main.baguio.gov.ph/more/frequently-asked-questions',
+            'defaultImage' => '/marketing/images/events/default.png',
             'footerDescription' => $settings?->footer_description ?: 'A public-facing venue platform for space discovery, event highlights, schedule visibility, and booking guidance for the Baguio Convention and Cultural Center.',
             'footerCopyright' => $settings?->footer_copyright ?: '© 2026 BCCC EASE • City Government of Baguio • All Rights Reserved',
         ];
@@ -154,8 +164,8 @@ class PublicSiteController extends Controller
             ->orderBy('sort_order')
             ->get()
             ->map(function (VenueSpace $space) {
-                $fallbackLight = '/marketing/images/branding/noon.jpg';
-                $fallbackDark = '/marketing/images/hero/night.png';
+                $fallbackLight = '/marketing/images/events/default.png';
+                $fallbackDark = '/marketing/images/events/default.png';
 
                 $light = $space->light_image ?: $fallbackLight;
                 $dark = $space->dark_image ?: ($space->light_image ?: $fallbackDark);
@@ -204,7 +214,7 @@ class PublicSiteController extends Controller
             ->map(function (PublicEvent $event) {
                 $images = is_array($event->images) && count($event->images) > 0
                     ? array_values($event->images)
-                    : ['/marketing/images/events/1.JPG'];
+                    : ['/marketing/images/events/default.png'];
 
                 $image = $images[0];
                 $scope = $event->scope === 'city' ? 'city' : 'bccc';
@@ -265,7 +275,7 @@ class PublicSiteController extends Controller
             if ($packages->isNotEmpty()) {
                 return $packages->map(function (VenuePackageTemplate $package) {
                     $areaKeys = VenueAreaCatalog::canonicalKeys($package->area_keys ?? []);
-                    $image = $package->image_path ?: '/marketing/images/facilities/darkvip.JPG';
+                    $image = $package->image_path ?: '/marketing/images/events/default.png';
 
                     return [
                         'id' => $package->id,
@@ -296,7 +306,7 @@ class PublicSiteController extends Controller
         return collect(VenuePackageCatalog::options())
             ->filter(fn (array $package) => (bool) ($package['is_public'] ?? true))
             ->map(function (array $package, int $index) {
-                $image = $package['image_path'] ?? '/marketing/images/facilities/darkvip.JPG';
+                $image = $package['image_path'] ?? '/marketing/images/events/default.png';
 
                 return [
                     'id' => 'catalog-' . ($package['code'] ?? $index),
@@ -330,7 +340,7 @@ class PublicSiteController extends Controller
             ->map(function (FeaturePackage $package) {
                 $images = is_array($package->images) && count($package->images) > 0
                     ? array_values($package->images)
-                    : ['/marketing/images/events/4.jpg'];
+                    : ['/marketing/images/events/default.png'];
                 $image = $images[0];
 
                 return [
@@ -424,7 +434,7 @@ class PublicSiteController extends Controller
                     'phone' => $member->phone,
                     'shortBio' => $member->short_bio,
                     'details' => $details,
-                    'photo' => $member->photo_path ?: '/marketing/images/branding/breathe-dark.png',
+                    'photo' => $member->photo_path ?: '/marketing/images/events/default.png',
                     'featured' => (bool) $member->is_featured,
                     'officeSection' => $member->getAttribute('office_section'),
                     'teamName' => $member->getAttribute('team_name'),

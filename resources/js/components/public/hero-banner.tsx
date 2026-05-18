@@ -85,7 +85,7 @@ export default function HeroBanner({ siteMetric }: HeroBannerProps) {
             >
                 <div className="absolute bottom-[3svh] left-1/2 h-[32svh] w-[94vw] -translate-x-1/2 rounded-[50%] bg-[#6f572b]/12 blur-3xl dark:bg-black/35" />
                 <SafeImage
-                    src="/marketing/images/hero/bccc-drone-transparent.png"
+                    src="/marketing/images/hero/bccc.png"
                     fallbackSrc="/marketing/images/hero/bccc.png"
                     alt="Baguio Convention and Cultural Center aerial view"
                     className="bccc-hero-building relative z-10 h-full w-full object-contain object-bottom drop-shadow-[0_48px_90px_rgba(61,47,25,0.32)]"

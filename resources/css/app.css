@@ -9642,3 +9642,674 @@ header.backend-topbar {
     font-size: clamp(1.85rem, 13vw, 3rem) !important;
   }
 }
+
+/* BCCC EASE 2026 responsive hardening: backend scroll containment + premium booking image cards */
+.backend-app-content > .mx-auto {
+    min-width: 0;
+}
+
+.backend-app-content .overflow-x-auto,
+.backend-app-content .backend-scroll-zone,
+.backend-app-content .booking-scroll-zone,
+.backend-app-content .analytics-scroll-zone,
+.backend-app-content .dashboard-scroll-zone {
+    scrollbar-width: none;
+}
+
+.backend-app-content .overflow-x-auto::-webkit-scrollbar,
+.backend-app-content .backend-scroll-zone::-webkit-scrollbar,
+.backend-app-content .booking-scroll-zone::-webkit-scrollbar,
+.backend-app-content .analytics-scroll-zone::-webkit-scrollbar,
+.backend-app-content .dashboard-scroll-zone::-webkit-scrollbar {
+    display: none;
+}
+
+.backend-app-content table {
+    min-width: max-content;
+}
+
+.booking-public-package-carousel-shell {
+    overflow: hidden;
+    border-radius: 1.35rem;
+}
+
+.booking-public-package-carousel {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(18rem, 31rem);
+    gap: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding: 0.35rem 0.35rem 0.9rem;
+}
+
+.booking-public-package-carousel::-webkit-scrollbar {
+    display: none;
+}
+
+.booking-public-package-card.booking-public-package-slide {
+    min-height: 29rem;
+    border-radius: 1.35rem;
+    overflow: hidden;
+    scroll-snap-align: start;
+    box-shadow: 0 24px 68px rgba(15, 23, 42, 0.12);
+}
+
+.booking-public-package-slide .booking-package-image-wrap {
+    min-height: 16.25rem;
+}
+
+.booking-public-package-slide .booking-package-image-wrap img,
+.booking-area-image-card img {
+    background: #e7f2f0;
+}
+
+.booking-area-image-card {
+    overflow: hidden;
+}
+
+.booking-area-image-card img {
+    min-height: 10.5rem;
+    width: 100%;
+    object-fit: cover;
+}
+
+@media (max-width: 1024px) {
+    .booking-public-package-carousel {
+        grid-auto-columns: minmax(17rem, 80vw);
+    }
+}
+
+@media (max-width: 640px) {
+    .backend-app-content {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+
+    .booking-public-package-carousel {
+        grid-auto-columns: minmax(16rem, 88vw);
+        gap: 0.85rem;
+    }
+
+    .booking-public-package-card.booking-public-package-slide {
+        min-height: 27rem;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   BCCC EASE final responsive design + booking repair polish
+   -------------------------------------------------------------------------- */
+:root {
+    --ease-civic-green: #165f54;
+    --ease-civic-green-deep: #113f45;
+    --ease-civic-green-dark: #092f2b;
+    --ease-civic-mint: #e8f2ef;
+    --ease-civic-cream: #f7f3ea;
+    --ease-civic-line: rgba(15, 73, 65, 0.14);
+}
+
+.bccc-public-shell {
+    background: #e9eef0 !important;
+}
+
+.bccc-public-main {
+    padding-top: 78px !important;
+    background: #e9eef0 !important;
+}
+
+.bccc-public-header-portal,
+.bccc-public-header-portal > *,
+.bccc-public-header-portal .bccc-public-header,
+header.bccc-public-header {
+    position: fixed !important;
+    inset: 0 0 auto 0 !important;
+    z-index: 99990 !important;
+    width: 100% !important;
+    min-height: 78px !important;
+    background: linear-gradient(90deg, #165f54 0%, #1f7465 58%, #165f54 100%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 16px 38px rgba(2, 26, 22, 0.18) !important;
+    isolation: isolate;
+}
+
+.bccc-public-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 55%);
+}
+
+.bccc-public-header-inner {
+    min-height: 78px !important;
+    max-width: 1760px !important;
+    padding-inline: clamp(0.75rem, 3vw, 2.25rem) !important;
+}
+
+.bccc-public-header a,
+.bccc-public-header button {
+    border-radius: 0.3rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.015em !important;
+}
+
+.bccc-public-header nav a,
+.bccc-public-header nav button {
+    min-height: 2.7rem !important;
+    padding-inline: 0.72rem !important;
+}
+
+.bccc-public-header nav a:hover,
+.bccc-public-header nav button:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.bccc-public-header img[alt*='Breathe'],
+.bccc-public-header img[alt*='Baguio'] {
+    max-height: 3.8rem !important;
+    object-fit: contain !important;
+}
+
+.bccc-public-footer {
+    padding-top: 0 !important;
+    background: #e9eef0 !important;
+}
+
+.bccc-public-footer > div,
+footer .bccc-public-footer-card {
+    border-radius: 0.35rem !important;
+}
+
+.bccc-floating-quick-links-portal a,
+.bccc-floating-quick-links-portal button {
+    touch-action: manipulation;
+}
+
+/* Public homepage composition: remove accidental huge gaps between reference-style sections. */
+#facilities,
+#venue-packages,
+.bccc-public-main section {
+    scroll-margin-top: 90px;
+}
+
+#facilities + section,
+#venue-packages + section {
+    margin-top: 0 !important;
+}
+
+/* Manual booking area selector: divided background image panels like the original design. */
+.booking-manual-area-panel-cinematic {
+    overflow: hidden;
+    border: 1px solid var(--ease-civic-line) !important;
+    border-radius: 1.35rem !important;
+    background:
+        radial-gradient(circle at 18% 8%, rgba(31, 116, 101, 0.12), transparent 32%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(232, 242, 239, 0.78)) !important;
+    box-shadow: 0 28px 84px rgba(15, 23, 42, 0.08) !important;
+}
+
+.booking-manual-area-intro {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1rem 0.9rem;
+}
+
+.booking-manual-area-intro h3 {
+    margin: 0.15rem 0 0;
+    color: var(--ease-civic-green-dark);
+    font-size: clamp(1.35rem, 2vw, 2.1rem);
+    font-weight: 750;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+}
+
+.booking-manual-area-intro span {
+    display: block;
+    max-width: 42rem;
+    margin-top: 0.55rem;
+    color: rgba(8, 47, 42, 0.64);
+    font-size: 0.86rem;
+    line-height: 1.6;
+}
+
+.booking-area-split-stage {
+    display: flex;
+    min-height: clamp(25rem, 44vw, 40rem);
+    gap: 0;
+    overflow: hidden;
+    border-top: 1px solid rgba(15, 73, 65, 0.1);
+    background: #0b1514;
+}
+
+.booking-area-split-card {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    border: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.16);
+    background: #111;
+    color: #fff;
+    text-align: left;
+    transition:
+        flex-basis 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+        flex-grow 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.35s ease,
+        opacity 0.35s ease,
+        transform 0.35s ease;
+}
+
+.booking-area-split-card:first-child {
+    border-left: 0;
+}
+
+.booking-area-split-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 0 rgba(159, 232, 220, 0);
+    transition: box-shadow 0.35s ease;
+}
+
+.booking-area-split-card:not(.is-selected):not(.is-previewing) {
+    filter: saturate(0.82) brightness(0.78);
+}
+
+.booking-area-split-card.is-previewing,
+.booking-area-split-card:hover {
+    flex-grow: 1.5;
+    filter: saturate(1.08) brightness(0.96);
+}
+
+.booking-area-split-card.is-selected {
+    flex-grow: 1.85;
+    filter: saturate(1.14) brightness(1);
+}
+
+.booking-area-split-card.is-selected::after {
+    box-shadow: inset 0 0 0 4px rgba(159, 232, 220, 0.92), inset 0 0 0 999px rgba(31, 116, 101, 0.05);
+}
+
+.booking-area-split-card.is-disabled {
+    cursor: not-allowed;
+    opacity: 0.42;
+    filter: grayscale(1) brightness(0.64);
+}
+
+.booking-area-split-image,
+.booking-area-split-image img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.booking-area-split-image img {
+    object-fit: cover;
+    transform: scale(1.04);
+    transition: transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.booking-area-split-card:hover .booking-area-split-image img,
+.booking-area-split-card.is-selected .booking-area-split-image img,
+.booking-area-split-card.is-previewing .booking-area-split-image img {
+    transform: scale(1.1);
+}
+
+.booking-area-split-shade {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.1) 38%, rgba(0, 0, 0, 0.84) 100%),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.5), transparent 48%);
+}
+
+.booking-area-split-number {
+    position: absolute;
+    left: 1rem;
+    top: 1rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: rgba(255, 255, 255, 0.54);
+}
+
+.booking-area-split-copy {
+    position: absolute;
+    inset-inline: 1rem;
+    bottom: 1.1rem;
+    z-index: 2;
+    display: grid;
+    gap: 0.45rem;
+    min-width: 13rem;
+}
+
+.booking-area-split-copy em {
+    font-size: 0.68rem;
+    font-weight: 800;
+    font-style: normal;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #9fe8dc;
+}
+
+.booking-area-split-copy strong {
+    max-width: 16rem;
+    font-size: clamp(1.45rem, 3vw, 2.75rem);
+    font-weight: 780;
+    letter-spacing: -0.075em;
+    line-height: 0.9;
+    text-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+}
+
+.booking-area-split-copy small {
+    display: block;
+    max-width: 18rem;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.45;
+}
+
+.booking-area-split-check {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    background: rgba(159, 232, 220, 0.94);
+    padding: 0.42rem 0.72rem;
+    color: #07342f;
+    font-size: 0.72rem;
+    font-weight: 850;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+}
+
+.booking-area-selected-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.95rem 1.1rem;
+    border-top: 1px solid rgba(15, 73, 65, 0.12);
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.booking-area-selected-strip span {
+    font-size: 0.68rem;
+    font-weight: 850;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(15, 73, 65, 0.54);
+}
+
+.booking-area-selected-strip strong {
+    color: var(--ease-civic-green-dark);
+    font-size: 0.92rem;
+    font-weight: 800;
+    text-align: right;
+}
+
+/* Public package cards inside the booking wizard. */
+.booking-public-package-carousel-shell {
+    border-radius: 1.35rem !important;
+    border: 1px solid var(--ease-civic-line);
+    background: linear-gradient(135deg, #ffffff, #edf5f2) !important;
+    padding: 0.75rem;
+}
+
+.booking-public-package-card.booking-public-package-slide {
+    border: 1px solid rgba(15, 73, 65, 0.12) !important;
+    background: #fff !important;
+    box-shadow: 0 26px 74px rgba(15, 23, 42, 0.1) !important;
+}
+
+.booking-public-package-card.booking-public-package-slide.is-selected {
+    border-color: rgba(31, 116, 101, 0.58) !important;
+    box-shadow: 0 30px 88px rgba(31, 116, 101, 0.2) !important;
+}
+
+/* Client calendar: available time blocks look directly actionable. */
+a.user-calendar-block-row,
+.user-calendar-block-row[href] {
+    cursor: pointer;
+}
+
+.user-calendar-block-row[href]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 36px rgba(31, 116, 101, 0.13);
+}
+
+/* Backend layout must keep content clear of sticky chrome and stop oversized dashboards/tables from stretching the page. */
+.backend-app-content {
+    min-width: 0 !important;
+    overflow-x: clip !important;
+    padding-top: clamp(4.6rem, 7vw, 5.6rem) !important;
+    padding-bottom: clamp(4.2rem, 7vw, 5.75rem) !important;
+}
+
+.backend-app-content > .mx-auto,
+.backend-app-content > div,
+.backend-app-content section,
+.backend-app-content article {
+    min-width: 0;
+}
+
+.backend-app-content .overflow-x-auto,
+.backend-app-content .backend-scroll-zone,
+.backend-app-content .booking-scroll-zone,
+.backend-app-content .analytics-scroll-zone,
+.backend-app-content .dashboard-scroll-zone,
+.backend-app-content [data-scroll-zone='true'] {
+    max-width: 100%;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+.backend-app-content .booking-wizard-stage,
+.backend-app-content .backend-scroll-zone,
+.backend-app-content .analytics-scroll-zone,
+.backend-app-content .dashboard-scroll-zone {
+    max-height: min(74dvh, 58rem);
+}
+
+.backend-app-content table {
+    min-width: max(980px, 100%) !important;
+}
+
+.backend-app-content img,
+.backend-app-content iframe,
+.backend-app-content embed,
+.backend-app-content object {
+    max-width: 100%;
+}
+
+/* Document preview / export/download modal direction from the supplied Baguio reference. */
+.bccc-document-modal,
+.document-viewer-modal,
+.pdf-viewer-modal {
+    overflow: hidden !important;
+    border-radius: 0.55rem !important;
+    border: 1px solid rgba(15, 73, 65, 0.14) !important;
+    background: rgba(255, 255, 255, 0.96) !important;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.18) !important;
+}
+
+.bccc-document-toolbar,
+.document-viewer-toolbar,
+.pdf-viewer-toolbar,
+.export-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid rgba(15, 73, 65, 0.1);
+    background: #fff;
+    padding: 1rem;
+}
+
+.bccc-document-toolbar a,
+.bccc-document-toolbar button,
+.document-viewer-toolbar a,
+.document-viewer-toolbar button,
+.pdf-viewer-toolbar a,
+.pdf-viewer-toolbar button,
+.export-action-bar a,
+.export-action-bar button {
+    border-radius: 0.35rem !important;
+    background: var(--ease-civic-green) !important;
+    color: #fff !important;
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+}
+
+@media (max-width: 1280px) {
+    .bccc-public-header-inner {
+        padding-inline: 0.95rem !important;
+    }
+
+    .booking-area-split-stage {
+        min-height: 31rem;
+    }
+
+    .booking-area-split-copy strong {
+        font-size: clamp(1.25rem, 2.2vw, 2.2rem);
+    }
+}
+
+@media (max-width: 1024px) {
+    .bccc-public-main {
+        padding-top: 74px !important;
+    }
+
+    .bccc-public-header-portal,
+    .bccc-public-header-portal .bccc-public-header,
+    header.bccc-public-header,
+    .bccc-public-header-inner {
+        min-height: 74px !important;
+    }
+
+    .booking-manual-area-intro {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .booking-area-split-stage {
+        min-height: auto;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(16rem, 72vw);
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+    }
+
+    .booking-area-split-stage::-webkit-scrollbar {
+        display: none;
+    }
+
+    .booking-area-split-card,
+    .booking-area-split-card.is-selected,
+    .booking-area-split-card.is-previewing,
+    .booking-area-split-card:hover {
+        flex: none;
+        min-height: 25rem;
+        scroll-snap-align: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .bccc-public-main {
+        padding-top: 68px !important;
+    }
+
+    .bccc-public-header-portal,
+    .bccc-public-header-portal .bccc-public-header,
+    header.bccc-public-header,
+    .bccc-public-header-inner {
+        min-height: 68px !important;
+    }
+
+    .bccc-public-header img[alt*='Breathe'],
+    .bccc-public-header img[alt*='Baguio'] {
+        max-height: 2.75rem !important;
+    }
+
+    .booking-area-split-stage {
+        grid-auto-columns: minmax(14.5rem, 84vw);
+    }
+
+    .booking-area-split-card,
+    .booking-area-split-card.is-selected,
+    .booking-area-split-card.is-previewing,
+    .booking-area-split-card:hover {
+        min-height: 22rem;
+    }
+
+    .booking-area-selected-strip {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .booking-area-selected-strip strong {
+        text-align: left;
+    }
+
+    .backend-app-content {
+        padding-top: 4.45rem !important;
+        padding-bottom: 5rem !important;
+    }
+
+    .backend-app-content .booking-wizard-stage,
+    .backend-app-content .backend-scroll-zone,
+    .backend-app-content .analytics-scroll-zone,
+    .backend-app-content .dashboard-scroll-zone {
+        max-height: none;
+    }
+}
+
+.bccc-location-assistance {
+    background: #eef4f2 !important;
+}
+
+.bccc-location-assistance > div:first-child {
+    background: rgba(31, 116, 101, 0.14) !important;
+}
+
+.bccc-location-assistance section,
+.bccc-location-assistance a,
+.bccc-location-assistance div[class*='border'] {
+    border-color: rgba(31, 116, 101, 0.16) !important;
+}
+
+.bccc-location-assistance section {
+    background-color: rgba(255, 255, 255, 0.86) !important;
+}
+
+.bccc-location-assistance [class*='text-[#9d7b3d]'],
+.bccc-location-assistance [class*='text-[#21180d]'],
+.bccc-location-assistance [class*='text-[#2f2517]'] {
+    color: #082f2a !important;
+}
+
+.bccc-location-assistance [class*='bg-[#f7f0e3]'],
+.bccc-location-assistance [class*='bg-white'] {
+    background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.bccc-location-assistance a[href='/contact'],
+.bccc-location-assistance a[href='/contact'] * {
+    background-color: #176456 !important;
+    color: #fff !important;
+}

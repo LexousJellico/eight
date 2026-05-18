@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { DEFAULT_PUBLIC_IMAGE, normalizeImageSrc } from '@/components/system/safe-image';
 
 type Props = {
   src?: string | null;
@@ -14,13 +15,14 @@ type Props = {
 export default function SafeImage({
   src,
   alt,
-  fallbackSrc = '/marketing/images/branding/noon.jpg',
+  fallbackSrc = DEFAULT_PUBLIC_IMAGE,
   className,
   skeletonClassName,
   imgClassName,
   onClick,
 }: Props) {
-  const normalizedSrc = typeof src === 'string' && src.trim() !== '' ? src : fallbackSrc;
+  const normalizedSrc = useMemo(() => normalizeImageSrc(src, fallbackSrc), [src, fallbackSrc]);
+  const normalizedFallback = useMemo(() => normalizeImageSrc(fallbackSrc, DEFAULT_PUBLIC_IMAGE), [fallbackSrc]);
   const [currentSrc, setCurrentSrc] = useState(normalizedSrc);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -41,15 +43,15 @@ export default function SafeImage({
       ) : null}
 
       <img
-        src={failed ? fallbackSrc : currentSrc}
+        src={failed ? normalizedFallback : currentSrc}
         alt={alt}
         className={cn('h-full w-full object-cover transition duration-500', imgClassName, !loaded && 'opacity-0')}
         loading="lazy"
         decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => {
-          if (!failed && fallbackSrc && currentSrc !== fallbackSrc) {
-            setCurrentSrc(fallbackSrc);
+          if (!failed && currentSrc !== normalizedFallback) {
+            setCurrentSrc(normalizedFallback);
             setFailed(true);
             setLoaded(false);
             return;

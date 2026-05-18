@@ -18,7 +18,7 @@ class BcccVenuePackageSeeder extends Seeder
             'description' => 'Full Hall rental for large programs. VIP Lounge, Board Room, and LED Wall are separate add-ons/packages and are not automatically included. Foyer & Lobby and Backstage remain support spaces for approved movement and preparation.',
             'capacity' => 'Full convention capacity',
             'sort_order' => 10,
-            'image' => '/marketing/images/facilities/darkmain.JPG',
+            'image' => '/marketing/images/events/darkmain.JPG',
             'support_notes' => [
                 'Foyer & Lobby access is included as support space for guest flow and registration.',
                 'Backstage access is included as support space for preparation and production movement.',
@@ -95,7 +95,7 @@ class BcccVenuePackageSeeder extends Seeder
             'description' => 'Premium digital display support for presentations, branding, program visuals, and stage media.',
             'capacity' => 'Display support',
             'sort_order' => 30,
-            'image' => '/marketing/images/facilities/darkvip.jpg',
+            'image' => '/marketing/images/facilities/darkvip.JPG',
             'support_notes' => [],
             'rates' => [
                 'Whole Day' => [
@@ -132,7 +132,7 @@ class BcccVenuePackageSeeder extends Seeder
             'description' => 'Executive support area for dignitaries, speakers, guests of honor, and protocol preparation.',
             'capacity' => 'Executive guest area',
             'sort_order' => 40,
-            'image' => '/marketing/images/facilities/darkvip.jpg',
+            'image' => '/marketing/images/facilities/darkvip.JPG',
             'support_notes' => [],
             'rates' => [
                 'Whole Day' => [
@@ -169,7 +169,7 @@ class BcccVenuePackageSeeder extends Seeder
             'description' => 'Private room for briefings, planning sessions, committees, and focused meetings.',
             'capacity' => 'Small meeting setup',
             'sort_order' => 50,
-            'image' => '/marketing/images/facilities/darkvip.jpg',
+            'image' => '/marketing/images/facilities/darkvip.JPG',
             'support_notes' => [],
             'rates' => [
                 'Whole Day' => [

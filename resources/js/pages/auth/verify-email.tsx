@@ -123,7 +123,7 @@ export default function VerifyEmail({ status }: Props) {
                         >
                             <aside className="relative hidden min-h-[36rem] overflow-hidden bg-[#17120b] lg:block">
                                 <img
-                                    src="/marketing/images/facilities/darkvip.jpg"
+                                    src="/marketing/images/facilities/darkvip.JPG"
                                     alt=""
                                     aria-hidden="true"
                                     className="h-full w-full object-cover"

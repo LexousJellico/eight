@@ -31,7 +31,7 @@ function SpaceCard({ item, index }: { item: PublicSpaceItem; index: number }) {
             <div className="absolute inset-0">
                 <SafeImage
                     src={lightImage}
-                    fallbackSrc="/marketing/images/facilities/darkvip.jpg"
+                    fallbackSrc="/marketing/images/facilities/darkvip.JPG"
                     alt={item.title}
                     className="h-full w-full object-cover transition duration-700 group-hover:scale-105 dark:hidden"
                     wrapperClassName="h-full w-full rounded-none border-0"
@@ -39,7 +39,7 @@ function SpaceCard({ item, index }: { item: PublicSpaceItem; index: number }) {
 
                 <SafeImage
                     src={darkImage}
-                    fallbackSrc="/marketing/images/facilities/darkvip.jpg"
+                    fallbackSrc="/marketing/images/facilities/darkvip.JPG"
                     alt={item.title}
                     className="hidden h-full w-full object-cover transition duration-700 group-hover:scale-105 dark:block"
                     wrapperClassName="hidden h-full w-full rounded-none border-0 dark:grid"
