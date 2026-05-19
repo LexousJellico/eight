@@ -94,6 +94,10 @@ class BookingFinancialSummaryService
             'balance_label' => $this->peso($balance),
             'minimum_required_label' => $this->peso($minimumRequired),
             'minimum_due_now_label' => $this->peso($minimumDueNow),
+            'bond_amount' => $this->paymentMetaNumber($booking, 'bond_amount'),
+            'bond_amount_label' => $this->peso($this->paymentMetaNumber($booking, 'bond_amount')),
+            'discounts_visible' => (bool) $this->paymentMetaValue($booking, 'discounts_visible', false),
+            'discount_note' => (string) $this->paymentMetaValue($booking, 'discount_note', ''),
             'payment_count' => $payments->count(),
             'confirmed_payment_count' => $payments->filter(fn ($payment) => $this->isConfirmedStatus($payment->status ?? null))->count(),
             'pending_payment_count' => $payments->filter(fn ($payment) => $this->isPendingStatus($payment->status ?? null))->count(),
@@ -244,18 +248,49 @@ class BookingFinancialSummaryService
     private function chargeBreakdown(Booking $booking): array
     {
         $charges = [];
+        $meta = $this->paymentMetaArray($booking);
 
-        if ($this->modelHasColumn($booking, 'dressing_room_charge')) {
-            $amount = $this->money($booking->getAttribute('dressing_room_charge'));
-            $selection = (string) ($booking->getAttribute('dressing_room_selection') ?? '');
+        foreach ((array) ($meta['line_items'] ?? []) as $line) {
+            if (! is_array($line)) {
+                continue;
+            }
 
-            if ($amount > 0) {
+            $amount = $this->money($line['amount'] ?? 0);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $charges[] = [
+                'key' => (string) ($line['type'] ?? 'venue'),
+                'label' => (string) ($line['label'] ?? 'Venue charge'),
+                'amount' => $this->roundMoney($amount),
+                'amount_label' => $this->peso($amount),
+                'source' => 'active_bccc_catalog',
+                'date' => $line['date'] ?? null,
+                'duration_label' => $line['duration_label'] ?? null,
+                'quantity' => $line['quantity'] ?? 1,
+            ];
+        }
+
+        if ((bool) ($meta['discounts_visible'] ?? false)) {
+            foreach ((array) ($meta['discount_lines'] ?? []) as $line) {
+                if (! is_array($line)) {
+                    continue;
+                }
+
+                $amount = $this->money($line['amount'] ?? 0);
+
+                if ($amount <= 0) {
+                    continue;
+                }
+
                 $charges[] = [
-                    'key' => 'dressing_room',
-                    'label' => $selection !== '' ? str_replace('_', ' ', ucwords($selection, '_')) : 'Dressing Room',
-                    'amount' => $this->roundMoney($amount),
-                    'amount_label' => $this->peso($amount),
-                    'source' => 'system_computed',
+                    'key' => (string) ($line['key'] ?? 'discount'),
+                    'label' => (string) ($line['label'] ?? 'Discount'),
+                    'amount' => -1 * $this->roundMoney($amount),
+                    'amount_label' => '-' . $this->peso($amount),
+                    'source' => 'final_computation_discount',
                 ];
             }
         }
@@ -429,6 +464,31 @@ class BookingFinancialSummaryService
     private function modelHasColumn(Model $model, string $column): bool
     {
         return Schema::hasColumn($model->getTable(), $column);
+    }
+
+
+    private function paymentMetaArray(Booking $booking): array
+    {
+        $meta = $booking->payment_meta;
+
+        if (is_string($meta)) {
+            $decoded = json_decode($meta, true);
+            $meta = is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($meta) ? $meta : [];
+    }
+
+    private function paymentMetaValue(Booking $booking, string $key, mixed $default = null): mixed
+    {
+        $meta = $this->paymentMetaArray($booking);
+
+        return array_key_exists($key, $meta) ? $meta[$key] : $default;
+    }
+
+    private function paymentMetaNumber(Booking $booking, string $key): float
+    {
+        return $this->money($this->paymentMetaValue($booking, $key, 0));
     }
 
     private function money(mixed $value): float

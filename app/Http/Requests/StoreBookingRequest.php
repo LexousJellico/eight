@@ -2,9 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Service;
+use App\Support\ActiveVenueCatalog;
 use App\Support\BookingStatusCatalog;
 use App\Support\DressingRoomCatalog;
 use App\Support\MiceReportCatalog;
+use App\Support\VenuePackageCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -38,11 +41,18 @@ class StoreBookingRequest extends FormRequest
             $payload['dressing_room_charge'] = DressingRoomCatalog::charge($payload['dressing_room_selection']);
         }
 
-        if ($this->has('private_event_type') || $this->has('type_of_event')) {
+        if ($this->has('private_event_type') || $this->has('type_of_event') || $this->has('event_scope')) {
+            $eventScope = $this->input('event_scope') ? (string) $this->input('event_scope') : null;
+
             $payload['mice_required'] = MiceReportCatalog::requiresMiceReport(
                 (string) $this->input('type_of_event'),
                 $this->input('private_event_type') ? (string) $this->input('private_event_type') : null,
+                $eventScope,
             );
+
+            if (MiceReportCatalog::normalizeEventScope($eventScope) === MiceReportCatalog::EVENT_SCOPE_PRIVATE) {
+                $payload['private_event_type'] = $this->input('private_event_type') ?: 'PERSONAL_EVENT';
+            }
         }
 
         if ($payload !== []) {
@@ -69,6 +79,7 @@ class StoreBookingRequest extends FormRequest
             'dressing_room_charge' => ['nullable', 'numeric', 'min:0'],
             'mice_required' => ['nullable', 'boolean'],
             'mice_exemption_reason' => ['nullable', 'string', 'max:255'],
+            'event_scope' => ['nullable', 'string', 'max:40'],
             'private_event_type' => ['nullable', 'string', 'max:120'],
             'schedule_version' => ['nullable', 'string', 'max:40'],
             'schedule_meta' => ['nullable', 'array'],
@@ -77,7 +88,7 @@ class StoreBookingRequest extends FormRequest
             'schedule_segments.*.segment_role' => ['nullable', 'string', 'max:40'],
             'schedule_segments.*.role' => ['nullable', 'string', 'max:40'],
             'schedule_segments.*.base_block' => ['required_with:schedule_segments', 'string', 'max:40'],
-            'schedule_segments.*.additional_hours' => ['nullable', 'integer', 'min:0', 'max:5'],
+            'schedule_segments.*.additional_hours' => ['nullable', 'integer', 'min:0', 'max:6'],
             'schedule_segments.*.area_keys' => ['nullable', 'array'],
             'schedule_segments.*.area_keys.*' => ['string', 'max:80'],
 
@@ -121,4 +132,75 @@ class StoreBookingRequest extends FormRequest
             'accuracy_acknowledged' => ['nullable', 'boolean'],
         ];
     }
+
+
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator): void {
+            $packageCode = VenuePackageCatalog::normalizeCode(
+                $this->input('selected_package_code') ?: $this->input('package_code')
+            );
+
+            if ($packageCode && ! VenuePackageCatalog::exists($packageCode)) {
+                $validator->errors()->add('selected_package_code', 'The selected package is not part of the active BCCC booking catalog.');
+            }
+
+            foreach (['selected_area_keys', 'area_keys'] as $field) {
+                $values = $this->input($field, []);
+                $unavailable = ActiveVenueCatalog::unavailableKeys($values);
+
+                if ($unavailable !== []) {
+                    $validator->errors()->add(
+                        $field,
+                        'Only Full Hall, Main Hall, LED Wall, Lounge, and Boardroom are available for booking charges.'
+                    );
+                }
+            }
+
+            $segments = $this->input('schedule_segments', []);
+
+            if (is_array($segments)) {
+                foreach ($segments as $index => $segment) {
+                    if (! is_array($segment)) {
+                        continue;
+                    }
+
+                    $unavailable = ActiveVenueCatalog::unavailableKeys($segment['area_keys'] ?? []);
+
+                    if ($unavailable !== []) {
+                        $validator->errors()->add(
+                            "schedule_segments.$index.area_keys",
+                            'Schedule rows may use only the active BCCC booking areas.'
+                        );
+                    }
+                }
+            }
+
+            $serviceIds = collect($this->input('items', []))
+                ->pluck('service_id')
+                ->push($this->input('service_id'))
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values();
+
+            if ($serviceIds->isEmpty()) {
+                return;
+            }
+
+            Service::query()
+                ->with('serviceType')
+                ->whereIn('id', $serviceIds->all())
+                ->get()
+                ->each(function (Service $service) use ($validator): void {
+                    if (! ActiveVenueCatalog::serviceMatchesActiveChoice($service->name, $service->serviceType?->name)) {
+                        $validator->errors()->add(
+                            'service_id',
+                            'One selected service is unavailable for booking charges. Use only Full Hall, Main Hall, LED Wall, Lounge, or Boardroom.'
+                        );
+                    }
+                });
+        });
+    }
+
 }

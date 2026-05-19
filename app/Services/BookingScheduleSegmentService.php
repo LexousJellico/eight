@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\BookingScheduleSegment;
 use App\Models\CalendarBlock;
+use App\Support\ActiveVenueCatalog;
 use App\Support\BookingScheduleCatalog;
 use App\Support\VenueAreaCatalog;
 use Carbon\Carbon;
@@ -24,10 +25,10 @@ class BookingScheduleSegmentService
      */
     public function normalizeFromPayload(array $payload, array $fallbackAreaLabelsOrKeys = []): array
     {
-        $areaKeys = VenueAreaCatalog::canonicalKeys($payload['selected_area_keys'] ?? $payload['area_keys'] ?? $fallbackAreaLabelsOrKeys);
+        $areaKeys = ActiveVenueCatalog::sanitizeKeys($payload['selected_area_keys'] ?? $payload['area_keys'] ?? $fallbackAreaLabelsOrKeys);
 
         if (empty($areaKeys)) {
-            $areaKeys = VenueAreaCatalog::canonicalKeys($fallbackAreaLabelsOrKeys);
+            $areaKeys = ActiveVenueCatalog::sanitizeKeys($fallbackAreaLabelsOrKeys);
         }
 
         $rawSegments = $payload['schedule_segments'] ?? null;
@@ -62,7 +63,7 @@ class BookingScheduleSegmentService
                 $role = BookingScheduleCatalog::normalizeRole((string) ($segment['segment_role'] ?? $segment['role'] ?? 'event'));
                 $baseBlock = BookingScheduleCatalog::normalizeBaseBlock((string) ($segment['base_block'] ?? 'whole_day'));
                 $additionalHours = (int) ($segment['additional_hours'] ?? 0);
-                $areaKeys = VenueAreaCatalog::canonicalKeys($segment['area_keys'] ?? $fallbackAreaKeys);
+                $areaKeys = ActiveVenueCatalog::sanitizeKeys($segment['area_keys'] ?? $fallbackAreaKeys);
 
                 return $this->makeSegment($date, $role, $baseBlock, $additionalHours, $areaKeys ?: $fallbackAreaKeys, $index);
             })
@@ -81,7 +82,7 @@ class BookingScheduleSegmentService
                 $role = BookingScheduleCatalog::normalizeRole((string) ($row['role'] ?? $row['segment_role'] ?? 'event'));
                 $baseBlock = BookingScheduleCatalog::normalizeBaseBlock((string) ($row['base_block'] ?? $defaultBaseBlock));
                 $additionalHours = (int) ($row['additional_hours'] ?? $defaultAdditionalHours);
-                $areaKeys = VenueAreaCatalog::canonicalKeys($row['area_keys'] ?? $fallbackAreaKeys);
+                $areaKeys = ActiveVenueCatalog::sanitizeKeys($row['area_keys'] ?? $fallbackAreaKeys);
 
                 return $this->makeSegment($date, $role, $baseBlock, $additionalHours, $areaKeys ?: $fallbackAreaKeys, $index);
             })
@@ -127,7 +128,7 @@ class BookingScheduleSegmentService
 
         $baseBlock = BookingScheduleCatalog::normalizeBaseBlock($baseBlock);
         $role = BookingScheduleCatalog::normalizeRole($role);
-        $additionalHours = max(0, min(5, $additionalHours));
+        $additionalHours = max(0, min(6, $additionalHours));
 
         if ($baseBlock === BookingScheduleCatalog::BLOCK_AM && $additionalHours > 0) {
             throw ValidationException::withMessages([
@@ -153,7 +154,7 @@ class BookingScheduleSegmentService
             'additional_hours' => $additionalHours,
             'additional_starts_at' => $additionalStartsAt,
             'additional_ends_at' => $additionalEndsAt,
-            'area_keys' => array_values(array_unique(VenueAreaCatalog::canonicalKeys($areaKeys))),
+            'area_keys' => array_values(array_unique(ActiveVenueCatalog::sanitizeKeys($areaKeys))),
             'sort_order' => $index + 1,
         ];
     }
@@ -166,12 +167,12 @@ class BookingScheduleSegmentService
             ]);
         }
 
-        $requestedKeys = VenueAreaCatalog::canonicalKeys($requestedAreaLabelsOrKeys);
+        $requestedKeys = ActiveVenueCatalog::sanitizeKeys($requestedAreaLabelsOrKeys);
 
         if (empty($requestedKeys)) {
             $requestedKeys = collect($segments)
                 ->flatMap(fn (array $segment) => $segment['area_keys'] ?? [])
-                ->pipe(fn ($items) => VenueAreaCatalog::canonicalKeys($items->all()))
+                ->pipe(fn ($items) => ActiveVenueCatalog::sanitizeKeys($items->all()))
                 ->all();
         }
 
@@ -192,7 +193,7 @@ class BookingScheduleSegmentService
         $startsAt = $segment['starts_at'];
         /** @var Carbon $endsAt */
         $endsAt = $segment['ends_at'];
-        $segmentKeys = VenueAreaCatalog::canonicalKeys($segment['area_keys'] ?? $requestedKeys);
+        $segmentKeys = ActiveVenueCatalog::sanitizeKeys($segment['area_keys'] ?? $requestedKeys);
         $keysForCheck = $segmentKeys ?: $requestedKeys;
 
         if (Schema::hasTable('booking_schedule_segments')) {
@@ -312,7 +313,7 @@ class BookingScheduleSegmentService
 
     protected function segmentOverlapsAreaKeys(BookingScheduleSegment $segment, array $requestedKeys): bool
     {
-        $existingKeys = VenueAreaCatalog::canonicalKeys($segment->area_keys ?? []);
+        $existingKeys = ActiveVenueCatalog::sanitizeKeys($segment->area_keys ?? []);
 
         if (empty($existingKeys) && $segment->booking) {
             return $this->bookingOverlapsAreaKeys($segment->booking, $requestedKeys);
@@ -333,7 +334,7 @@ class BookingScheduleSegmentService
     {
         $booking->loadMissing(['bookingServices.service.serviceType', 'service.serviceType']);
 
-        $existingKeys = VenueAreaCatalog::canonicalKeys($booking->selected_area_keys ?? []);
+        $existingKeys = ActiveVenueCatalog::sanitizeKeys($booking->selected_area_keys ?? []);
 
         if (empty($existingKeys)) {
             foreach ($booking->bookingServices ?? [] as $item) {
@@ -343,7 +344,7 @@ class BookingScheduleSegmentService
                     continue;
                 }
 
-                $existingKeys = array_merge($existingKeys, VenueAreaCatalog::canonicalKeys([
+                $existingKeys = array_merge($existingKeys, ActiveVenueCatalog::sanitizeKeys([
                     $service->name ?? '',
                     $service->serviceType?->name ?? '',
                 ]));

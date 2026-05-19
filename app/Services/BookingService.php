@@ -5,9 +5,11 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\BookingLifecycleEvent;
 use App\Models\CalendarBlock;
+use App\Models\MiceRecord;
 use App\Models\PublicEvent;
 use App\Models\Service;
 use App\Services\Contracts\BookingServiceInterface;
+use App\Support\ActiveVenueCatalog;
 use App\Support\BookingStatusCatalog;
 use App\Support\DressingRoomCatalog;
 use App\Support\VenuePackageCatalog;
@@ -317,7 +319,17 @@ class BookingService implements BookingServiceInterface
                 ]);
             }
 
-            if (! empty($bookingData['booking_date_from']) && ! empty($bookingData['booking_date_to'])) {
+            $scheduleSegments = $this->normalizedScheduleSegmentsForBooking($data, $bookingData, $requestedAreas);
+
+            if (! empty($scheduleSegments)) {
+                $this->scheduleSegmentService()->assertSegmentsAvailable($scheduleSegments, $bookingData['selected_area_keys'] ?? $requestedAreas, null);
+                [$from, $to] = $this->scheduleSegmentService()->summaryRange($scheduleSegments);
+
+                if ($from && $to) {
+                    $bookingData['booking_date_from'] = $from;
+                    $bookingData['booking_date_to'] = $to;
+                }
+            } elseif (! empty($bookingData['booking_date_from']) && ! empty($bookingData['booking_date_to'])) {
                 [$from, $to] = $this->normalizeRangeToPreferred(
                     (string) $bookingData['booking_date_from'],
                     (string) $bookingData['booking_date_to']
@@ -331,10 +343,16 @@ class BookingService implements BookingServiceInterface
 
             $this->assertGuestCapacityForItems((int) ($bookingData['number_of_guests'] ?? 0), $items);
 
+            $this->applyPricingMeta($bookingData, $data, $items, $scheduleSegments ?? []);
+
             $booking = Booking::query()->create($bookingData);
 
             $this->syncItems($booking, $items);
+            if (! empty($scheduleSegments)) {
+                $this->scheduleSegmentService()->syncBookingSegments($booking, $scheduleSegments);
+            }
             $this->recalculatePaymentStatus($booking);
+            $this->syncMiceRecordLifecycle($booking->refresh());
 
             if (! empty($extraSchedules)) {
                 $this->createExtraSchedules($booking->refresh(), $extraSchedules);
@@ -421,7 +439,17 @@ class BookingService implements BookingServiceInterface
                 ]);
             }
 
-            if (! empty($bookingData['booking_date_from']) && ! empty($bookingData['booking_date_to'])) {
+            $scheduleSegments = $this->normalizedScheduleSegmentsForBooking($data, $bookingData, $requestedAreas);
+
+            if (! empty($scheduleSegments)) {
+                $this->scheduleSegmentService()->assertSegmentsAvailable($scheduleSegments, $bookingData['selected_area_keys'] ?? $requestedAreas, $booking->id);
+                [$from, $to] = $this->scheduleSegmentService()->summaryRange($scheduleSegments);
+
+                if ($from && $to) {
+                    $bookingData['booking_date_from'] = $from;
+                    $bookingData['booking_date_to'] = $to;
+                }
+            } elseif (! empty($bookingData['booking_date_from']) && ! empty($bookingData['booking_date_to'])) {
                 [$from, $to] = $this->normalizeRangeToPreferred(
                     (string) $bookingData['booking_date_from'],
                     (string) $bookingData['booking_date_to']
@@ -443,6 +471,8 @@ class BookingService implements BookingServiceInterface
                 $bookingData['service_id'] = (int) $items[0]['service_id'];
             }
 
+            $this->applyPricingMeta($bookingData, $data, $itemsForChecks, $scheduleSegments ?? []);
+
             unset($bookingData['created_by_user_id']);
 
             $originalStatus = (string) ($booking->booking_status ?? '');
@@ -456,9 +486,15 @@ class BookingService implements BookingServiceInterface
                 $this->syncItems($booking, $items);
             }
 
+            if (! empty($scheduleSegments)) {
+                $this->scheduleSegmentService()->syncBookingSegments($booking, $scheduleSegments);
+                $changedFields[] = 'schedule_segments';
+            }
+
             $this->recalculatePaymentStatus($booking);
 
             $booking = $booking->refresh();
+            $this->syncMiceRecordLifecycle($booking);
 
             if (! empty($extraSchedules)) {
                 $this->createExtraSchedules($booking, $extraSchedules);
@@ -491,7 +527,7 @@ class BookingService implements BookingServiceInterface
     public function delete(Booking $booking): void
     {
         DB::transaction(function () use ($booking) {
-            $booking->loadMissing(['payments', 'bookingServices', 'views', 'lifecycleEvents']);
+            $booking->loadMissing(['payments', 'bookingServices', 'views', 'lifecycleEvents', 'miceRecord']);
 
             $this->recordLifecycleEvent(
                 $booking,
@@ -505,6 +541,10 @@ class BookingService implements BookingServiceInterface
             );
 
             $this->deleteBookingStoredFiles($booking);
+
+            if ($booking->miceRecord && strtolower((string) $booking->miceRecord->status) === 'draft') {
+                $booking->miceRecord->delete();
+            }
 
             $booking->payments()->delete();
             $booking->bookingServices()->delete();
@@ -604,6 +644,12 @@ class BookingService implements BookingServiceInterface
         );
 
         if ($packageCode) {
+            if (! VenuePackageCatalog::exists($packageCode)) {
+                throw ValidationException::withMessages([
+                    'selected_package_code' => 'The selected package is not part of the active BCCC booking catalog.',
+                ]);
+            }
+
             $data['selected_package_code'] = $packageCode;
         }
 
@@ -613,8 +659,17 @@ class BookingService implements BookingServiceInterface
             $areaKeys = array_merge($areaKeys, VenuePackageCatalog::areaKeys($packageCode));
         }
 
-        $areaKeys = array_merge($areaKeys, VenueAreaCatalog::canonicalKeys($data['selected_area_keys'] ?? []));
-        $areaKeys = array_merge($areaKeys, $this->canonicalAreaKeysFromItems($items));
+        $postedAreaKeys = $data['selected_area_keys'] ?? $data['area_keys'] ?? [];
+        $unavailableKeys = ActiveVenueCatalog::unavailableKeys($postedAreaKeys);
+
+        if ($unavailableKeys !== []) {
+            throw ValidationException::withMessages([
+                'selected_area_keys' => 'Only Full Hall, Main Hall, LED Wall, Lounge, and Boardroom are available for booking charges.',
+            ]);
+        }
+
+        $areaKeys = array_merge($areaKeys, ActiveVenueCatalog::sanitizeKeys($postedAreaKeys));
+        $areaKeys = array_merge($areaKeys, $this->activeAreaKeysFromItems($items));
 
         $areaKeys = collect($areaKeys)
             ->filter()
@@ -626,14 +681,10 @@ class BookingService implements BookingServiceInterface
             $data['selected_area_keys'] = $areaKeys;
         }
 
+        // Not part of the active charge scope anymore.
         if (array_key_exists('dressing_room_selection', $data)) {
-            $selection = DressingRoomCatalog::normalize((string) $data['dressing_room_selection']);
-            $data['dressing_room_selection'] = $selection;
-            $data['dressing_room_charge'] = DressingRoomCatalog::charge($selection);
-
-            if ($data['dressing_room_charge'] > 0) {
-                $data['estimated_other_rentals'] = DressingRoomCatalog::label($selection);
-            }
+            $data['dressing_room_selection'] = null;
+            $data['dressing_room_charge'] = 0;
         }
 
         unset($data['package_code'], $data['area_keys']);
@@ -920,12 +971,15 @@ class BookingService implements BookingServiceInterface
                 }
             });
 
+        $expiredMiceDrafts = $this->cleanupExpiredMiceDrafts();
         $deleted = $this->cleanupAutoDeletedBookings();
 
         return [
             'synced' => array_values($synced),
+            'expired_mice_drafts' => array_values($expiredMiceDrafts),
             'deleted' => array_values($deleted),
             'changed_count' => count($synced),
+            'expired_mice_draft_count' => count($expiredMiceDrafts),
             'deleted_count' => count($deleted),
         ];
     }
@@ -965,6 +1019,8 @@ class BookingService implements BookingServiceInterface
             ],
         );
 
+        $this->syncMiceRecordLifecycle($booking->refresh());
+
         return [
             'booking_id' => $booking->id,
             'title' => (string) ($booking->type_of_event ?: $booking->company_name ?: 'Booking'),
@@ -978,7 +1034,7 @@ class BookingService implements BookingServiceInterface
 
     protected function automatedDeletionWindowHours(): int
     {
-        return 24;
+        return 240;
     }
 
     protected function cleanupAutoDeletedBookings(): array
@@ -986,7 +1042,7 @@ class BookingService implements BookingServiceInterface
         $cutoff = now()->subHours($this->automatedDeletionWindowHours());
 
         $targets = Booking::query()
-            ->with(['payments', 'bookingServices', 'views', 'lifecycleEvents'])
+            ->with(['payments', 'bookingServices', 'views', 'lifecycleEvents', 'miceRecord'])
             ->whereIn('booking_status', ['declined', 'cancelled'])
             ->where('updated_at', '<=', $cutoff)
             ->orderBy('id')
@@ -1018,6 +1074,10 @@ class BookingService implements BookingServiceInterface
 
             $this->deleteBookingStoredFiles($booking);
 
+            if ($booking->miceRecord && strtolower((string) $booking->miceRecord->status) === 'draft') {
+                $booking->miceRecord->delete();
+            }
+
             $booking->payments()->delete();
             $booking->bookingServices()->delete();
 
@@ -1033,6 +1093,109 @@ class BookingService implements BookingServiceInterface
         }
 
         return $deleted;
+    }
+
+    protected function cleanupExpiredMiceDrafts(): array
+    {
+        if (! Schema::hasTable('mice_records') || ! Schema::hasColumn('mice_records', 'draft_expires_at')) {
+            return [];
+        }
+
+        $expired = [];
+
+        MiceRecord::query()
+            ->with('booking')
+            ->where('status', 'draft')
+            ->whereNotNull('draft_expires_at')
+            ->where('draft_expires_at', '<=', now())
+            ->orderBy('id')
+            ->chunkById(100, function ($records) use (&$expired): void {
+                foreach ($records as $record) {
+                    $booking = $record->booking;
+
+                    if ($booking && in_array(strtolower((string) $booking->booking_status), $this->miceDraftExpiredDeclinableStatuses(), true)) {
+                        $previousStatus = (string) ($booking->booking_status ?? '');
+
+                        $booking->forceFill([
+                            'booking_status' => 'declined',
+                        ])->saveQuietly();
+
+                        $this->recordLifecycleEvent(
+                            $booking,
+                            'mice_draft_expired',
+                            'MICE draft expired',
+                            reason: 'The booking MICE draft remained pending beyond 15 working days.',
+                            fromStatus: $previousStatus,
+                            toStatus: 'declined',
+                            toPaymentStatus: (string) ($booking->payment_status ?? ''),
+                            meta: [
+                                'mice_record_id' => $record->id,
+                                'draft_expires_at' => optional($record->draft_expires_at)?->toIso8601String(),
+                                'source' => 'booking_service.cleanup_expired_mice_drafts',
+                            ],
+                        );
+                    }
+
+                    $expired[] = [
+                        'mice_record_id' => $record->id,
+                        'booking_id' => $booking?->id,
+                        'booking_status' => $booking?->booking_status,
+                        'draft_expires_at' => optional($record->draft_expires_at)?->toIso8601String(),
+                    ];
+
+                    $record->delete();
+                }
+            });
+
+        return $expired;
+    }
+
+    protected function syncMiceRecordLifecycle(Booking $booking): void
+    {
+        if (! Schema::hasTable('mice_records')) {
+            return;
+        }
+
+        $record = MiceRecord::query()
+            ->where('booking_id', $booking->id)
+            ->first();
+
+        if (! $record) {
+            return;
+        }
+
+        $status = strtolower((string) ($booking->booking_status ?? ''));
+
+        if ($this->bookingFinalizesMice($booking)) {
+            $record->forceFill([
+                'status' => 'submitted',
+                'draft_expires_at' => null,
+                'finalized_at' => $record->finalized_at ?: now(),
+                'submitted_at' => $record->submitted_at ?: now(),
+            ])->saveQuietly();
+
+            return;
+        }
+
+        if (in_array($status, ['declined', 'cancelled', 'expired'], true) && strtolower((string) $record->status) === 'draft') {
+            $record->delete();
+        }
+    }
+
+    protected function bookingFinalizesMice(Booking $booking): bool
+    {
+        return in_array(strtolower((string) $booking->booking_status), [
+            'accepted',
+            'approved',
+            'confirmed',
+            'active',
+            'completed',
+        ], true);
+    }
+
+    protected function miceDraftExpiredDeclinableStatuses(): array
+    {
+        return ['pending', 'pencil_booked'];
     }
 
     protected function determineAutomaticBookingDecision(Booking $booking): array
@@ -1396,6 +1559,58 @@ class BookingService implements BookingServiceInterface
                 ],
             );
         }
+    }
+
+
+    protected function scheduleSegmentService(): BookingScheduleSegmentService
+    {
+        return app(BookingScheduleSegmentService::class);
+    }
+
+    protected function pricingService(): BookingPricingService
+    {
+        return app(BookingPricingService::class);
+    }
+
+    protected function normalizedScheduleSegmentsForBooking(array $payload, array $bookingData, array $requestedAreas): array
+    {
+        $segmentPayload = array_merge($payload, $bookingData);
+
+        if (empty($segmentPayload['selected_area_keys'])) {
+            $segmentPayload['selected_area_keys'] = ActiveVenueCatalog::sanitizeKeys($requestedAreas);
+        }
+
+        if (empty($segmentPayload['selected_area_keys'])) {
+            return [];
+        }
+
+        return $this->scheduleSegmentService()->normalizeFromPayload($segmentPayload, $segmentPayload['selected_area_keys']);
+    }
+
+    protected function applyPricingMeta(array &$bookingData, array $payload, array $items, array $scheduleSegments): void
+    {
+        if (! Schema::hasColumn('bookings', 'payment_meta')) {
+            return;
+        }
+
+        $existing = $bookingData['payment_meta'] ?? [];
+
+        if (is_string($existing)) {
+            $decoded = json_decode($existing, true);
+            $existing = is_array($decoded) ? $decoded : [];
+        }
+
+        if (! is_array($existing)) {
+            $existing = [];
+        }
+
+        $pricing = $this->pricingService()->fromPayload(array_merge($payload, $bookingData), $items, $scheduleSegments);
+        $bookingData['payment_meta'] = array_replace_recursive($existing, $pricing);
+    }
+
+    protected function activeAreaKeysFromItems(array $items): array
+    {
+        return ActiveVenueCatalog::sanitizeKeys($this->canonicalAreaKeysFromItems($items));
     }
 
     protected function normalizeRangeToPreferred(string $fromRaw, string $toRaw): array
@@ -2409,7 +2624,7 @@ class BookingService implements BookingServiceInterface
     protected function requestedAreaLabelsFromItems(array $items, mixed $selectedAreaKeys = []): array
     {
         $keys = array_merge(
-            VenueAreaCatalog::canonicalKeys($selectedAreaKeys),
+            ActiveVenueCatalog::sanitizeKeys($selectedAreaKeys),
             $this->canonicalAreaKeysFromItems($items),
         );
 

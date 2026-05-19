@@ -1,26 +1,6 @@
 import { BookingRolePageShell } from '@/components/bookings/booking-role-page-shell';
-import {
-  BCCC_BOOKING_GENERAL_GUIDELINES,
-  BOOKING_USAGE_LABELS,
-  BOOKING_VENUE_CATALOG,
-  catalogItemMatchesService,
-  estimateSelectedVenueCharge,
-  type BookingUsageKey,
-  type BookingVenueCatalogItem,
-  type BookingVenueKey,
-} from '@/lib/booking-venue-catalog';
 import { bookingBasePath, bookingShowPath, normalizeWorkspaceRole } from '@/lib/booking-role-ui';
 import type { RoleThemeKey } from '@/lib/role-theme';
-import {
-  OTHER_ADDRESS_VALUE,
-  PHILIPPINES_ADDRESS_OPTIONS,
-  cityByName,
-  provinceByName,
-  regionByCode,
-  type CityOption,
-  type ProvinceOption,
-  type RegionOption,
-} from '@/data/philippines-addresses';
 import { Link, useForm, usePage } from '@inertiajs/react';
 import {
   AlertTriangle,
@@ -33,19 +13,17 @@ import {
   ChevronRight,
   ClipboardList,
   Eye,
-  EyeOff,
   LoaderCircle,
-  MapPin,
+  Minus,
   PackageCheck,
-  Pencil,
   ReceiptText,
-  Save,
+  ScrollText,
   ShieldCheck,
   Sparkles,
   UserRound,
   X,
 } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 
 type ServiceOption = {
   id: number | string;
@@ -68,56 +46,6 @@ type ServiceTypeOption = {
 
 type PaginatedLike<T> = {
   data?: T[];
-};
-
-type InitialSchedule = {
-  date?: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
-  date_from?: string | null;
-  date_to?: string | null;
-  booking_date_from?: string | null;
-  booking_date_to?: string | null;
-  from?: string | null;
-  to?: string | null;
-};
-
-type BookingRecord = {
-  id?: number | string | null;
-  service_id?: number | string | null;
-  service?: { id?: number | string | null } | null;
-  booking_date_from?: string | null;
-  booking_date_to?: string | null;
-  selected_package_code?: string | null;
-  selected_area_keys?: string[] | null;
-  dressing_room_selection?: string | null;
-  dressing_room_charge?: number | string | null;
-  mice_required?: boolean | number | null;
-  mice_exemption_reason?: string | null;
-  private_event_type?: string | null;
-  organization_type?: string | null;
-  company_name?: string | null;
-  client_name?: string | null;
-  client_contact_number?: string | null;
-  client_email?: string | null;
-  client_address?: string | null;
-  client_region?: string | null;
-  client_province?: string | null;
-  client_city_municipality?: string | null;
-  client_barangay?: string | null;
-  client_zip_code?: string | null;
-  client_street_address?: string | null;
-  head_of_organization?: string | null;
-  type_of_event?: string | null;
-  number_of_guests?: number | string | null;
-  survey_email?: string | null;
-  booking_status?: string | null;
-  payment_status?: string | null;
-  is_public_calendar_visible?: boolean | number | null;
-  public_calendar_title?: string | null;
-  payment_meta?: Record<string, unknown> | null;
-  schedule_meta?: Record<string, unknown> | null;
-  [key: string]: unknown;
 };
 
 type SelectOption = {
@@ -143,19 +71,57 @@ type VenuePackageOption = {
 
 type BookingFormOptions = {
   venuePackages?: VenuePackageOption[];
-  dressingRooms?: SelectOption[];
-  schedule?: {
-    baseBlocks?: Record<string, unknown> | SelectOption[];
-    segmentRoles?: Record<string, unknown> | SelectOption[];
-    additionalHourOptions?: SelectOption[] | number[];
-  };
   mice?: {
     classificationOptions?: SelectOption[];
     typeOptions?: SelectOption[];
-    coveredMonthOptions?: SelectOption[];
-    eventCenterOptions?: SelectOption[];
     privateEventOptions?: SelectOption[];
   };
+};
+
+type InitialSchedule = {
+  date?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  date_from?: string | null;
+  date_to?: string | null;
+  booking_date_from?: string | null;
+  booking_date_to?: string | null;
+  from?: string | null;
+  to?: string | null;
+};
+
+type BookingRecord = {
+  id?: number | string | null;
+  service_id?: number | string | null;
+  service?: { id?: number | string | null; name?: string | null } | null;
+  booking_date_from?: string | null;
+  booking_date_to?: string | null;
+  selected_package_code?: string | null;
+  selected_area_keys?: string[] | null;
+  mice_required?: boolean | number | null;
+  private_event_type?: string | null;
+  organization_type?: string | null;
+  company_name?: string | null;
+  client_name?: string | null;
+  client_contact_number?: string | null;
+  client_email?: string | null;
+  client_address?: string | null;
+  client_region?: string | null;
+  client_province?: string | null;
+  client_city_municipality?: string | null;
+  client_barangay?: string | null;
+  client_zip_code?: string | null;
+  client_street_address?: string | null;
+  head_of_organization?: string | null;
+  type_of_event?: string | null;
+  number_of_guests?: number | string | null;
+  booking_status?: string | null;
+  payment_status?: string | null;
+  is_public_calendar_visible?: boolean | number | null;
+  public_calendar_title?: string | null;
+  payment_meta?: Record<string, unknown> | null;
+  schedule_meta?: Record<string, unknown> | null;
+  [key: string]: unknown;
 };
 
 type BookingFormPageProps = {
@@ -177,40 +143,89 @@ type BookingFormItem = {
   quantity: number;
 };
 
-type BookingMetaScalar = string | number | boolean | null | undefined;
-type BookingMetaRow = Record<string, BookingMetaScalar>;
-type BookingPaymentMeta = Record<string, BookingMetaScalar | BookingMetaScalar[] | BookingMetaRow[]>;
+type BookingPaymentMeta = Record<string, unknown>;
 
-type BookingScheduleSegmentPayload = {
+type ActiveVenueKey = 'FULL_HALL' | 'MAIN_HALL' | 'LED_WALL' | 'LOUNGE' | 'BOARDROOM';
+type ScheduleBlock = 'am' | 'pm' | 'whole_day';
+type EventScope = 'public' | 'private';
+type PackageMode = 'packages' | 'manual';
+
+type ActiveVenue = {
+  key: ActiveVenueKey;
+  number: string;
+  label: string;
+  officialLabel: string;
+  shortLabel: string;
+  description: string;
+  image: string;
+  inclusions: string[];
+  rates: {
+    wholeDay: number;
+    halfDay: number;
+    extraHour: number;
+  };
+  matchers: string[];
+};
+
+type ActivePackage = {
+  code: string;
+  label: string;
+  subtitle: string;
+  areaKeys: ActiveVenueKey[];
+  image: string;
+  featured?: boolean;
+};
+
+type ScheduleSelection = {
   date: string;
-  segment_role: 'event' | 'ingress' | 'egress';
-  base_block: 'am' | 'pm' | 'whole_day';
-  additional_hours: number;
-  area_keys: string[];
+  block: ScheduleBlock;
+  additionalHours: number;
+};
+
+
+type ReviewLineItem = {
+  key: string;
+  date: string;
+  label: string;
+  detail: string;
+  quantity: number;
+  unitAmount: number;
+  amount: number;
+  type: 'venue' | 'additional_hour';
+};
+
+type DiscountLine = {
+  key: string;
+  label: string;
+  basis: number;
+  rate: number;
+  amount: number;
+  note: string;
 };
 
 type BookingFormData = {
   service_id: string;
   items: BookingFormItem[];
   payment_meta: BookingPaymentMeta;
-
   selected_package_code: string;
-  selected_area_keys: string[];
-  dressing_room_selection: string;
-  dressing_room_charge: string;
+  selected_area_keys: ActiveVenueKey[];
+  schedule_version: string;
+  schedule_meta: BookingPaymentMeta;
+  schedule_segments: Array<{
+    date: string;
+    segment_role: 'event' | 'ingress' | 'egress';
+    base_block: ScheduleBlock;
+    additional_hours: number;
+    area_keys: ActiveVenueKey[];
+  }>;
   mice_required: boolean;
   mice_exemption_reason: string;
   private_event_type: string;
-  schedule_version: string;
-  schedule_meta: BookingPaymentMeta;
-  schedule_segments: BookingScheduleSegmentPayload[];
-
   organization_type: string;
   company_name: string;
   client_name: string;
   client_contact_number: string;
   client_email: string;
-
   client_address: string;
   client_region: string;
   client_province: string;
@@ -218,35 +233,24 @@ type BookingFormData = {
   client_barangay: string;
   client_zip_code: string;
   client_street_address: string;
-
   head_of_organization: string;
   type_of_event: string;
-
   booking_date_from: string;
   booking_date_to: string;
   number_of_guests: string;
-
-  survey_email: string;
-  survey_proof_image: File | null;
-
   booking_status: string;
   payment_status: string;
   is_public_calendar_visible: boolean;
   public_calendar_title: string;
-
-  package_acknowledged: boolean;
   policy_acknowledged: boolean;
   accuracy_acknowledged: boolean;
-
-  estimated_usage: BookingUsageKey;
+  estimated_usage: string;
   estimated_duration_hours: string;
   estimated_other_rentals: string;
   estimated_additional_charges: string;
   reservation_notes: string;
-
-  event_nature: 'mice' | 'private' | '';
+  event_nature: EventScope;
   event_center_name: string;
-  event_center_other: string;
   covered_month: string;
   classification_of_event: string;
   classification_other: string;
@@ -265,125 +269,194 @@ type BookingFormData = {
   comments_feedback: string;
 };
 
-type MatchedVenueItem = BookingVenueCatalogItem & {
-  service?: ServiceOption;
-  configured: boolean;
-};
-
 type StepDefinition = {
-  title: string;
-  subtitle: string;
-  icon: typeof PackageCheck;
+  key: 'schedule' | 'services' | 'contact' | 'review' | 'submitted';
+  label: string;
+  helper: string;
+  icon: typeof CalendarDays;
 };
 
 type FieldName = keyof BookingFormData;
 
-type ScheduleBaseBlock = 'AM' | 'PM' | 'WHOLE_DAY';
-
-type BookingDateRange = {
-  from: string;
-  to: string;
-};
-
-const BOOKING_STEPS: StepDefinition[] = [
-  { title: 'Package', subtitle: 'Venue package', icon: PackageCheck },
-  { title: 'Event', subtitle: 'MICE or private', icon: ClipboardList },
-  { title: 'Organizer', subtitle: 'Contact details', icon: UserRound },
-  { title: 'Address', subtitle: 'PH dropdowns', icon: MapPin },
-  { title: 'Schedule', subtitle: 'Date and time', icon: CalendarDays },
-  { title: 'MICE', subtitle: 'Report fields', icon: Sparkles },
-  { title: 'Guidelines', subtitle: 'Terms', icon: ShieldCheck },
-  { title: 'Review', subtitle: 'Final check', icon: CheckCircle2 },
+const ACTIVE_VENUES: ActiveVenue[] = [
+  {
+    key: 'FULL_HALL',
+    number: '01',
+    label: 'FULL HALL',
+    officialLabel: 'Full Hall',
+    shortLabel: 'Full Hall',
+    description: 'Primary full venue reservation. The lobby is included and is not charged as a separate booking item.',
+    image: '/marketing/images/facilities/darkmain.JPG',
+    inclusions: ['Includes lobby access', 'Whole hall event setup', 'Best for major public and institutional events'],
+    rates: { wholeDay: 80000, halfDay: 45000, extraHour: 5000 },
+    matchers: ['full hall', 'whole hall'],
+  },
+  {
+    key: 'MAIN_HALL',
+    number: '02',
+    label: 'MAIN HALL',
+    officialLabel: 'Ground Hall',
+    shortLabel: 'Main Hall',
+    description: 'Main event hall for conferences, ceremonies, exhibits, and public gatherings.',
+    image: '/marketing/images/facilities/darkmain.JPG',
+    inclusions: ['Main event floor', 'Public event-ready layout', 'Manual combination ready'],
+    rates: { wholeDay: 60000, halfDay: 35000, extraHour: 5000 },
+    matchers: ['main hall', 'ground hall'],
+  },
+  {
+    key: 'LED_WALL',
+    number: '03',
+    label: 'LED WALL',
+    officialLabel: 'LED Video Wall',
+    shortLabel: 'LED Wall',
+    description: 'Visual display add-on for programs, ceremonies, presentations, and production-led events.',
+    image: '/marketing/images/facilities/ledwall.jpg',
+    inclusions: ['Standalone active choice', 'Can be combined with venue areas', 'Charged by booking duration'],
+    rates: { wholeDay: 30000, halfDay: 15000, extraHour: 3500 },
+    matchers: ['led wall', 'video wall', 'led video wall'],
+  },
+  {
+    key: 'LOUNGE',
+    number: '04',
+    label: 'LOUNGE',
+    officialLabel: 'Executive Lounge',
+    shortLabel: 'Lounge',
+    description: 'Compact executive space for holding, coordination, small meetings, or VIP support.',
+    image: '/marketing/images/facilities/darkvip.JPG',
+    inclusions: ['VIP support room', 'Small meeting format', 'Can combine with hall selections'],
+    rates: { wholeDay: 6000, halfDay: 3500, extraHour: 500 },
+    matchers: ['lounge', 'vip lounge', 'executive lounge'],
+  },
+  {
+    key: 'BOARDROOM',
+    number: '05',
+    label: 'BOARDROOM',
+    officialLabel: 'Executive Boardroom',
+    shortLabel: 'Boardroom',
+    description: 'Boardroom setup for executive meetings, planning sessions, and organizer coordination.',
+    image: '/marketing/images/facilities/boardroom.jpg',
+    inclusions: ['Boardroom setup', 'Meeting support space', 'Can combine with Main Hall'],
+    rates: { wholeDay: 6000, halfDay: 3500, extraHour: 500 },
+    matchers: ['boardroom', 'board room', 'executive boardroom'],
+  },
 ];
 
-const FALLBACK_ORGANIZATION_TYPES = ['Private', 'Government', 'NGO', 'Academe', 'Religious', 'Corporate', 'Association', 'Other'];
+const FALLBACK_PACKAGES: ActivePackage[] = [
+  {
+    code: 'FULL_HALL',
+    label: 'Full Hall',
+    subtitle: 'Full Hall with lobby included',
+    areaKeys: ['FULL_HALL'],
+    image: '/marketing/images/facilities/darkmain.JPG',
+    featured: true,
+  },
+  {
+    code: 'MAIN_HALL_BOARDROOM',
+    label: 'Main Hall + Boardroom',
+    subtitle: '₱66,000 whole day active combination',
+    areaKeys: ['MAIN_HALL', 'BOARDROOM'],
+    image: '/marketing/images/facilities/darkmain.JPG',
+    featured: true,
+  },
+  {
+    code: 'MAIN_HALL_LOUNGE',
+    label: 'Main Hall + Lounge',
+    subtitle: 'Main hall with VIP support space',
+    areaKeys: ['MAIN_HALL', 'LOUNGE'],
+    image: '/marketing/images/facilities/darkvip.JPG',
+  },
+  {
+    code: 'MAIN_HALL_LED_WALL',
+    label: 'Main Hall + LED Wall',
+    subtitle: 'Program-ready hall with visual display',
+    areaKeys: ['MAIN_HALL', 'LED_WALL'],
+    image: '/marketing/images/facilities/ledwall.jpg',
+  },
+  {
+    code: 'LOUNGE_BOARDROOM',
+    label: 'Lounge + Boardroom',
+    subtitle: 'Executive rooms only',
+    areaKeys: ['LOUNGE', 'BOARDROOM'],
+    image: '/marketing/images/facilities/boardroom.jpg',
+  },
+];
 
-const FALLBACK_MICE_CLASSIFICATIONS: SelectOption[] = [
+const STEPS: StepDefinition[] = [
+  { key: 'schedule', label: 'Schedule', helper: 'Select dates and time blocks', icon: CalendarDays },
+  { key: 'services', label: 'Package / Services', helper: 'Choose active BCCC areas', icon: PackageCheck },
+  { key: 'contact', label: 'Contact Details', helper: 'Organizer, event, and MICE data', icon: UserRound },
+  { key: 'review', label: 'Review', helper: 'Final computation and policy', icon: ClipboardList },
+  { key: 'submitted', label: 'Submitted', helper: 'Reservation request sent', icon: CheckCircle2 },
+];
+
+const CLASSIFICATION_OPTIONS: SelectOption[] = [
   { value: 'INTERNATIONAL', label: 'International' },
   { value: 'REGIONAL ASIA PACIFIC', label: 'Regional Asia Pacific' },
   { value: 'REGIONAL OFFSHORE', label: 'Regional Offshore' },
   { value: 'REGIONAL PHILIPPINES', label: 'Regional Philippines' },
   { value: 'NATIONAL', label: 'National' },
-  { value: 'OTHER', label: 'Other / for validation' },
 ];
 
-const FALLBACK_MICE_TYPES: SelectOption[] = [
+const MICE_TYPE_OPTIONS: SelectOption[] = [
   { value: 'MEETINGS', label: 'Meetings' },
   { value: 'INCENTIVE TRAVEL', label: 'Incentive Travel' },
   { value: 'CONVENTIONS', label: 'Conventions' },
   { value: 'EXHIBITS', label: 'Exhibits' },
-  { value: 'SEMINAR', label: 'Seminar' },
-  { value: 'WORKSHOP', label: 'Workshop' },
-  { value: 'SYMPOSIUM', label: 'Symposium' },
-  { value: 'OTHERS', label: 'Others' },
+  { value: 'SEMINAR/WORKSHOP/SYMPOSIUM/OTHERS', label: 'Seminar / Workshop / Symposium / Others' },
 ];
 
-const FALLBACK_PRIVATE_TYPES: SelectOption[] = [
+const PRIVATE_EVENT_OPTIONS: SelectOption[] = [
+  { value: 'PRIVATE/PERSONAL EVENT', label: 'Private / Personal Event' },
   { value: 'WEDDING', label: 'Wedding' },
   { value: 'BIRTHDAY', label: 'Birthday' },
-  { value: 'DEBUT', label: 'Debut' },
-  { value: 'FAMILY_EVENT', label: 'Family event' },
-  { value: 'PRIVATE_SOCIAL_EVENT', label: 'Private social event' },
-  { value: 'OTHER_PRIVATE_EVENT', label: 'Other private event' },
+  { value: 'FAMILY EVENT', label: 'Family Event' },
+  { value: 'OTHER PRIVATE EVENT', label: 'Other Private Event' },
 ];
 
-const FALLBACK_MONTHS: SelectOption[] = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-].map((month) => ({ value: month, label: month }));
-
-const FALLBACK_EVENT_CENTERS: SelectOption[] = [
-  'BAGUIO CONVENTION AND CULTURAL CENTER',
-  '456 HOTEL LE GRANDE',
-  'A HOTEL',
-  'BAGUIO COUNTRY CLUB',
-  'THE MANOR CAMP JOHN HAY',
-  'OTHER',
-].map((center) => ({ value: center, label: center }));
-
-const FALLBACK_DRESSING_ROOMS: SelectOption[] = [
-  { value: 'none', label: 'No dressing room', charge: 0, charge_label: '₱0.00' },
-  { value: 'dressing_room_1', label: 'Dressing Room 1', charge: 1000, charge_label: '₱1,000.00' },
-  { value: 'dressing_room_2', label: 'Dressing Room 2', charge: 1000, charge_label: '₱1,000.00' },
-  { value: 'dressing_room_1_and_2', label: 'Dressing Room 1 & 2', charge: 2000, charge_label: '₱2,000.00' },
-];
-
-const SCHEDULE_BASE_BLOCKS: Record<ScheduleBaseBlock, { label: string; start: string; baseEnd: string; helper: string }> = {
-  AM: {
-    label: 'Half Day AM',
-    start: '06:00',
-    baseEnd: '12:00',
-    helper: '6:00 AM - 12:00 PM',
-  },
-  PM: {
-    label: 'Half Day PM',
-    start: '12:00',
-    baseEnd: '18:00',
-    helper: '12:00 PM - 6:00 PM; additional hours may extend after 6:00 PM',
-  },
-  WHOLE_DAY: {
-    label: 'Whole Day',
-    start: '06:00',
-    baseEnd: '18:00',
-    helper: '6:00 AM - 6:00 PM; additional hours may extend after 6:00 PM',
-  },
-};
-
-const ADDITIONAL_HOUR_OPTIONS = [0, 1, 2, 3, 4, 5, 6];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const PUBLIC_EVENT_CENTER = 'BAGUIO CONVENTION AND CULTURAL CENTER';
-const DEFAULT_BOOKING_IMAGE = '/marketing/images/events/default.png';
+const MAX_ADDITIONAL_HOURS = 6;
+const REQUIRED_BOND = 10000;
 
-function cx(...classes: Array<string | false | null | undefined>) {
+const BCCC_POLICY_NOTICE = [
+  'Reservation requests remain subject to BCCC schedule verification, assessment, and approval.',
+  'The date becomes fully reserved only after the required down payment is reviewed and accepted by BCCC.',
+  'A refundable/event bond may be required before the event, except when waived for qualified official city activities.',
+  'Cancellation penalties, post-event charges, and house-rule violations may be assessed according to BCCC policy.',
+  'Only Full Hall, Main Hall, LED Wall, Lounge, and Boardroom are active charge choices in this booking system.',
+  'Lobby access is included with Full Hall and is not charged as a standalone rental item.',
+];
+
+const EXCLUDED_USER_CHARGES = [
+  'Lobby Receiving Room as standalone charge',
+  'Basement Function Room, Basement Hall - Half, and Whole Basement',
+  'Shop rentals',
+  'Catering maintenance fee',
+  'Air conditioning charge',
+  'Stationery kit',
+  'Ordinance special package rates',
+];
+
+const REVIEW_POLICY_SECTIONS = [
+  {
+    title: 'Reservation and payment',
+    body: 'This submission is a reservation request for review. The final reservation depends on BCCC assessment, availability confirmation, and payment compliance. The review computation separates the base venue estimate, hidden eligible discounts, required down payment, bond, and remaining balance.',
+  },
+  {
+    title: 'Active charge scope',
+    body: 'The only selectable charge choices are Full Hall, Main Hall, LED Wall, Lounge, and Boardroom. Lobby access is included with Full Hall. Basement spaces, shop rentals, catering maintenance, air conditioning, stationery kit, and ordinance special packages are not user-selectable charges in this flow.',
+  },
+  {
+    title: 'Discount visibility',
+    body: 'Discounts are intentionally hidden during schedule and service selection. They appear only on the final review computation and remain subject to BCCC assessment before billing is finalized.',
+  },
+  {
+    title: 'Responsibility and post-event assessment',
+    body: 'The organizer is responsible for accurate details, proper conduct, house-rule compliance, and possible post-event assessment for damages, violations, extra use, or unpaid balance.',
+  },
+];
+
+function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(' ');
 }
 
@@ -395,71 +468,263 @@ function collection<T>(value?: T[] | PaginatedLike<T>): T[] {
 
 function firstValue(...values: unknown[]): string {
   for (const value of values) {
-    if (value !== null && value !== undefined && String(value).trim() !== '') {
-      return String(value);
-    }
+    if (value !== null && value !== undefined && String(value).trim() !== '') return String(value);
   }
-
   return '';
 }
 
-function money(value: unknown): string {
-  const number = Number(value ?? 0);
-
-  if (!Number.isFinite(number)) return '₱0.00';
-
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-    minimumFractionDigits: 2,
-  }).format(number);
+function optionValue(value: string | number | boolean): string {
+  return String(value);
 }
 
-function normalizeSearch(value?: string | null): string {
+function money(value: number | string | null | undefined): string {
+  const number = Number(value ?? 0);
+  if (!Number.isFinite(number)) return '₱0.00';
+  return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 }).format(number);
+}
+
+function normalize(value: string | null | undefined): string {
   return String(value || '')
     .toLowerCase()
     .replace(/&/g, ' and ')
-    .replace(/gallery\s*2600/g, 'gallery2600')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 }
 
-function toInputDateTime(value?: string | null): string {
-  if (!value) return '';
-
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return value;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hour = String(date.getHours()).padStart(2, '0');
-  const minute = String(date.getMinutes()).padStart(2, '0');
-
-  return `${year}-${month}-${day}T${hour}:${minute}`;
+function upper(value: string): string {
+  return value.toUpperCase();
 }
 
-function buildInitialDateTime(schedule?: InitialSchedule, fallback?: string | null, part?: 'from' | 'to'): string {
-  if (fallback) return toInputDateTime(fallback);
-  if (!schedule) return '';
 
-  const exactFrom = firstValue(schedule.booking_date_from, schedule.date_from, schedule.from);
-  const exactTo = firstValue(schedule.booking_date_to, schedule.date_to, schedule.to);
+function dateObjectToInput(date: Date): string {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
 
-  if (part === 'from' && exactFrom) return toInputDateTime(exactFrom);
-  if (part === 'to' && exactTo) return toInputDateTime(exactTo);
+function toDateOnly(value?: string | null): string {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
 
-  if (schedule.date && schedule.start_time && part === 'from') return `${schedule.date}T${schedule.start_time}`;
-  if (schedule.date && schedule.end_time && part === 'to') return `${schedule.date}T${schedule.end_time}`;
+function toDateTime(value?: string | null): string {
+  if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${d}T${h}:${min}`;
+}
 
-  return '';
+function todayDate(): string {
+  return dateObjectToInput(new Date());
+}
+
+function addDays(date: string, days: number): string {
+  const current = new Date(`${date}T00:00:00`);
+  current.setDate(current.getDate() + days);
+  return dateObjectToInput(current);
+}
+
+function compareDate(a: string, b: string): number {
+  return a.localeCompare(b);
+}
+
+function dateRange(start: string, end: string): string[] {
+  const from = compareDate(start, end) <= 0 ? start : end;
+  const to = compareDate(start, end) <= 0 ? end : start;
+  const days: string[] = [];
+  let cursor = from;
+  while (compareDate(cursor, to) <= 0) {
+    days.push(cursor);
+    cursor = addDays(cursor, 1);
+  }
+  return days;
+}
+
+function monthStart(date: string): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function shiftMonth(date: string, offset: number): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  parsed.setMonth(parsed.getMonth() + offset);
+  return monthStart(dateObjectToInput(parsed));
+}
+
+function monthLabel(date: string): string {
+  const parsed = new Date(`${date}T00:00:00`);
+  return parsed.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+}
+
+function displayDate(date: string): string {
+  if (!date) return '—';
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function displayDateTime(date: string): string {
+  if (!date) return '—';
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function daysForMonth(cursor: string): Array<{ date: string; inMonth: boolean }> {
+  const first = new Date(`${monthStart(cursor)}T00:00:00`);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay());
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
+    const iso = dateObjectToInput(date);
+    return { date: iso, inMonth: date.getMonth() === first.getMonth() };
+  });
+}
+
+function initialDateFromSchedule(schedule?: InitialSchedule, booking?: BookingRecord): string {
+  const value = firstValue(booking?.booking_date_from, schedule?.booking_date_from, schedule?.date_from, schedule?.from, schedule?.date);
+  return toDateOnly(value) || todayDate();
+}
+
+function initialDateToSchedule(schedule?: InitialSchedule, booking?: BookingRecord): string {
+  const value = firstValue(booking?.booking_date_to, schedule?.booking_date_to, schedule?.date_to, schedule?.to, schedule?.date);
+  return toDateOnly(value) || initialDateFromSchedule(schedule, booking);
+}
+
+function blockLabel(block: ScheduleBlock): string {
+  if (block === 'am') return 'AM';
+  if (block === 'pm') return 'PM';
+  return 'Whole Day';
+}
+
+function blockBaseHours(block: ScheduleBlock): number {
+  if (block === 'whole_day') return 12;
+  return 6;
+}
+
+function startTime(block: ScheduleBlock): string {
+  if (block === 'pm') return '12:00';
+  return '06:00';
+}
+
+function endTime(block: ScheduleBlock, additionalHours: number): string {
+  const baseEnd = block === 'am' ? 12 : 18;
+  const hour = Math.min(23, baseEnd + Math.max(0, Math.min(MAX_ADDITIONAL_HOURS, additionalHours)));
+  return `${String(hour).padStart(2, '0')}:00`;
+}
+
+function totalHours(selections: ScheduleSelection[]): number {
+  return selections.reduce((sum, row) => sum + blockBaseHours(row.block) + Number(row.additionalHours || 0), 0);
+}
+
+function selectedVenueByKey(key: ActiveVenueKey): ActiveVenue {
+  return ACTIVE_VENUES.find((venue) => venue.key === key) ?? ACTIVE_VENUES[0];
+}
+
+function rateForBlock(venue: ActiveVenue, block: ScheduleBlock): number {
+  return block === 'whole_day' ? venue.rates.wholeDay : venue.rates.halfDay;
+}
+
+function dateVenueBaseTotal(selection: ScheduleSelection, areaKeys: ActiveVenueKey[]): number {
+  return areaKeys.reduce((sum, key) => {
+    const venue = selectedVenueByKey(key);
+    return sum + rateForBlock(venue, selection.block) + venue.rates.extraHour * Number(selection.additionalHours || 0);
+  }, 0);
+}
+
+function baseTotal(selections: ScheduleSelection[], areaKeys: ActiveVenueKey[]): number {
+  return selections.reduce((sum, selection) => sum + dateVenueBaseTotal(selection, areaKeys), 0);
+}
+
+
+function reviewLineItems(selections: ScheduleSelection[], areaKeys: ActiveVenueKey[]): ReviewLineItem[] {
+  return selections.flatMap((selection) => {
+    return areaKeys.flatMap((key) => {
+      const venue = selectedVenueByKey(key);
+      const baseAmount = rateForBlock(venue, selection.block);
+      const items: ReviewLineItem[] = [
+        {
+          key: `${selection.date}-${key}-base`,
+          date: selection.date,
+          label: venue.shortLabel,
+          detail: blockLabel(selection.block),
+          quantity: 1,
+          unitAmount: baseAmount,
+          amount: baseAmount,
+          type: 'venue',
+        },
+      ];
+
+      const hours = Number(selection.additionalHours || 0);
+      if (hours > 0) {
+        items.push({
+          key: `${selection.date}-${key}-additional`,
+          date: selection.date,
+          label: `${venue.shortLabel} additional hours`,
+          detail: `${hours} hour(s) × ${money(venue.rates.extraHour)}`,
+          quantity: hours,
+          unitAmount: venue.rates.extraHour,
+          amount: venue.rates.extraHour * hours,
+          type: 'additional_hour',
+        });
+      }
+
+      return items;
+    });
+  });
+}
+
+function finalDiscountLines(selections: ScheduleSelection[], areaKeys: ActiveVenueKey[], ingressPrep: boolean): DiscountLine[] {
+  const lines: DiscountLine[] = [];
+
+  if (selections.length > 1) {
+    const basis = selections.slice(1).reduce((sum, selection) => sum + dateVenueBaseTotal(selection, areaKeys), 0);
+    if (basis > 0) {
+      lines.push({
+        key: 'consecutive-day-5-percent',
+        label: 'Consecutive-day discount',
+        basis,
+        rate: 0.05,
+        amount: Math.round(basis * 0.05),
+        note: 'Shown only in final computation. Subject to BCCC assessment before billing.',
+      });
+    }
+  }
+
+  if (ingressPrep && areaKeys.includes('MAIN_HALL') && selections.length > 0) {
+    const first = selections[0];
+    const last = selections[selections.length - 1];
+    const basis = dateVenueBaseTotal(first, ['MAIN_HALL']) + (last.date !== first.date ? dateVenueBaseTotal(last, ['MAIN_HALL']) : 0);
+    if (basis > 0) {
+      lines.push({
+        key: 'setup-rehearsal-30-percent',
+        label: 'Setup / rehearsal / preparation discount',
+        basis,
+        rate: 0.3,
+        amount: Math.round(basis * 0.3),
+        note: 'Applied only to eligible Main Hall setup/rehearsal/preparation dates and subject to final BCCC approval.',
+      });
+    }
+  }
+
+  return lines;
+}
+
+function finalDiscountPreview(selections: ScheduleSelection[], areaKeys: ActiveVenueKey[], ingressPrep: boolean): number {
+  return finalDiscountLines(selections, areaKeys, ingressPrep).reduce((sum, line) => sum + line.amount, 0);
 }
 
 function flattenServices(serviceTypes?: ServiceTypeOption[] | PaginatedLike<ServiceTypeOption>, services?: ServiceOption[] | PaginatedLike<ServiceOption>): ServiceOption[] {
-  const directServices = collection(services);
-  const nestedServices = collection(serviceTypes).flatMap((type) =>
+  const direct = collection(services);
+  const nested = collection(serviceTypes).flatMap((type) =>
     Array.isArray(type.services)
       ? type.services.map((service) => ({
           ...service,
@@ -468,1696 +733,1073 @@ function flattenServices(serviceTypes?: ServiceTypeOption[] | PaginatedLike<Serv
         }))
       : [],
   );
-
-  const merged = [...directServices, ...nestedServices];
   const seen = new Set<string>();
-
-  return merged.filter((service) => {
-    const key = String(service.id);
-    if (seen.has(key)) return false;
-    seen.add(key);
+  return [...direct, ...nested].filter((service) => {
+    const id = String(service.id);
+    if (seen.has(id)) return false;
+    seen.add(id);
     return true;
   });
 }
 
-function serviceSearchName(service: ServiceOption): string {
-  return [service.name, service.service_type_name, service.service_type?.name].filter(Boolean).join(' ');
+function serviceSearchText(service: ServiceOption): string {
+  return normalize([service.name, service.service_type_name, service.service_type?.name].filter(Boolean).join(' '));
 }
 
-function matchCatalogWithServices(services: ServiceOption[]): MatchedVenueItem[] {
-  return BOOKING_VENUE_CATALOG.map((item) => {
-    const service = services.find((option) =>
-      catalogItemMatchesService(item, option.name) ||
-      catalogItemMatchesService(item, option.service_type_name) ||
-      catalogItemMatchesService(item, option.service_type?.name) ||
-      catalogItemMatchesService(item, serviceSearchName(option)),
-    );
+function serviceForVenue(services: ServiceOption[], venue: ActiveVenue): ServiceOption | null {
+  return services.find((service) => {
+    const text = serviceSearchText(service);
+    return venue.matchers.some((matcher) => text.includes(normalize(matcher)));
+  }) ?? null;
+}
 
-    return { ...item, service, configured: Boolean(service) };
+function serviceIdsForAreas(services: ServiceOption[], areaKeys: ActiveVenueKey[]): string[] {
+  return areaKeys
+    .map((key) => serviceForVenue(services, selectedVenueByKey(key)))
+    .filter((service): service is ServiceOption => Boolean(service))
+    .map((service) => String(service.id));
+}
+
+function activeKeyFromString(value?: string | null): ActiveVenueKey | null {
+  const normalized = String(value || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const aliases: Record<string, ActiveVenueKey> = {
+    FULL_HALL: 'FULL_HALL',
+    MAIN_HALL: 'MAIN_HALL',
+    GROUND_HALL: 'MAIN_HALL',
+    LED_WALL: 'LED_WALL',
+    LED_VIDEO_WALL: 'LED_WALL',
+    LOUNGE: 'LOUNGE',
+    VIP_LOUNGE: 'LOUNGE',
+    EXECUTIVE_LOUNGE: 'LOUNGE',
+    BOARDROOM: 'BOARDROOM',
+    BOARD_ROOM: 'BOARDROOM',
+    EXECUTIVE_BOARDROOM: 'BOARDROOM',
+  };
+  return aliases[normalized] ?? null;
+}
+
+function packageFromBackend(option: VenuePackageOption): ActivePackage | null {
+  const areaKeys = (option.area_keys ?? [])
+    .map((key) => activeKeyFromString(key))
+    .filter((key): key is ActiveVenueKey => Boolean(key));
+  if (areaKeys.length === 0) return null;
+  return {
+    code: option.code,
+    label: option.name ?? option.label ?? option.code,
+    subtitle: option.subtitle ?? option.description ?? areaKeys.map((key) => selectedVenueByKey(key).shortLabel).join(' + '),
+    areaKeys,
+    image: option.image_path || selectedVenueByKey(areaKeys[0]).image,
+    featured: Boolean(option.is_featured),
+  };
+}
+
+function uniquePackages(packages: ActivePackage[]): ActivePackage[] {
+  const seen = new Set<string>();
+  return packages.filter((item) => {
+    if (seen.has(item.code)) return false;
+    seen.add(item.code);
+    return true;
   });
 }
 
-function toVenueKey(value?: string | null): BookingVenueKey | null {
-  const normalized = String(value || '')
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-  const allowed: BookingVenueKey[] = ['FULL_HALL', 'MAIN_HALL', 'LED_WALL', 'VIP_LOUNGE', 'BOARD_ROOM'];
-  return allowed.includes(normalized as BookingVenueKey) ? (normalized as BookingVenueKey) : null;
+function packagePriceLabel(pkg: ActivePackage): string {
+  const whole = pkg.areaKeys.reduce((sum, key) => sum + selectedVenueByKey(key).rates.wholeDay, 0);
+  const half = pkg.areaKeys.reduce((sum, key) => sum + selectedVenueByKey(key).rates.halfDay, 0);
+  return `${money(whole)} whole day · ${money(half)} half day`;
 }
 
-function venueKeysFromPackage(packageOption?: VenuePackageOption | null): BookingVenueKey[] {
-  return (packageOption?.area_keys ?? []).map((key) => toVenueKey(key)).filter((key): key is BookingVenueKey => Boolean(key));
+function coveredMonthFromDate(date: string): string {
+  if (!date) return MONTHS[new Date().getMonth()];
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return MONTHS[new Date().getMonth()];
+  return MONTHS[parsed.getMonth()];
 }
 
-function matchInitialServiceId(booking: BookingRecord | undefined, initialVenue: string | null | undefined, services: ServiceOption[]): string {
-  const direct = firstValue(booking?.service_id, booking?.service?.id);
-  if (direct) return direct;
-
-  const needle = normalizeSearch(initialVenue);
-  if (!needle) return '';
-
-  const matched = services.find((service) => {
-    const haystack = normalizeSearch([service.name, service.service_type_name, service.service_type?.name].filter(Boolean).join(' '));
-    return haystack.includes(needle) || needle.includes(haystack);
-  });
-
-  return matched?.id ? String(matched.id) : '';
+function buildBookingDateFrom(selection: ScheduleSelection): string {
+  return `${selection.date}T${startTime(selection.block)}`;
 }
 
-function serviceIdOf(item?: MatchedVenueItem | null): string {
-  return item?.service?.id ? String(item.service.id) : '';
+function buildBookingDateTo(selection: ScheduleSelection): string {
+  return `${selection.date}T${endTime(selection.block, selection.additionalHours)}`;
 }
 
-function serviceItems(serviceIds?: Array<string | number | null | undefined>): BookingFormItem[] {
-  return (serviceIds ?? [])
-    .map((serviceId) => String(serviceId ?? '').trim())
-    .filter(Boolean)
-    .map((serviceId) => ({ service_id: serviceId, quantity: 1 }));
+function statusRole(role?: string | null): RoleThemeKey {
+  return normalizeWorkspaceRole(role) as RoleThemeKey;
 }
 
-function selectedServiceIds(items: MatchedVenueItem[]): string[] {
-  return items.map(serviceIdOf).filter(Boolean);
-}
-
-function chargedItems(items: MatchedVenueItem[], keys: BookingVenueKey[]): MatchedVenueItem[] {
-  return items.filter((item) => keys.includes(item.key));
-}
-
-function packageSelectionLabel(keys: BookingVenueKey[], packageName?: string | null): string {
-  if (packageName) return `${packageName} selected. Only the listed areas are included and blocked.`;
-  if (keys.includes('FULL_HALL')) return 'Full Hall selected. VIP Lounge, Board Room, and LED Wall are not automatically included.';
-  if (keys.length > 1) return 'Combined individual areas selected. Each area is charged and checked for availability.';
-  if (keys.length === 1) return 'Individual area selected.';
-  return 'No venue area selected yet.';
-}
-
-function combinedAddress(data: BookingFormData): string {
-  return [data.client_street_address, data.client_barangay, data.client_city_municipality, data.client_province, data.client_region, data.client_zip_code]
-    .filter(Boolean)
-    .join(', ');
+function pagePropsWithFallback<T extends Record<string, unknown>>(props: T, pageProps: Record<string, unknown>): T {
+  return { ...pageProps, ...props } as T;
 }
 
 function formTitle(role: RoleThemeKey, editing: boolean): string {
-  if (role === 'admin') return editing ? 'Edit Reservation' : 'Create Reservation';
-  if (role === 'manager') return 'Review Reservation';
-  if (role === 'staff') return editing ? 'Update Assisted Booking' : 'Assist Booking';
-  return editing ? 'Update Your Event Request' : 'Reserve Your Event Space';
+  if (editing) return 'Update Reservation';
+  if (role === 'user') return 'Reserve Your Event Space';
+  return 'Create Booking';
 }
 
 function formDescription(role: RoleThemeKey): string {
   if (role === 'user') {
-    return 'Complete the package, event, schedule, MICE, guidelines, and review steps before submitting your request.';
+    return 'Select your schedule, choose active BCCC services, complete organizer details, and submit the request for review.';
+  }
+  return 'Encode an official BCCC reservation using the active charge catalog and guided schedule workflow.';
+}
+
+function hiddenDiscountNote(): string {
+  return 'Discounts are intentionally hidden until final computation and remain subject to BCCC assessment.';
+}
+
+function buildInitialSelections(start: string, end: string): ScheduleSelection[] {
+  return dateRange(start, end).map((date) => ({ date, block: 'whole_day', additionalHours: 0 }));
+}
+
+function buildMiceDraft(data: BookingFormData, selections: ScheduleSelection[], eventScope: EventScope): BookingPaymentMeta {
+  if (eventScope === 'private') {
+    return {
+      event_scope: 'PRIVATE/PERSONAL EVENT',
+      event_center_name: PUBLIC_EVENT_CENTER,
+      covered_month: data.covered_month,
+      date_event_started: selections[0]?.date ?? '',
+      date_event_finished: selections[selections.length - 1]?.date ?? '',
+      event_name: upper(data.type_of_event || ''),
+      number_of_hours: String(totalHours(selections)),
+      function_halls_count: '-',
+      function_hall_capacity: '-',
+      classification_of_event: '-',
+      mice_type_of_event: '-',
+      foreign_attendees: '-',
+      domestic_attendees: '-',
+      total_number_of_countries: '-',
+      countries_breakdown_text: '-',
+      has_exhibitions: '-',
+      exhibitors_count: '-',
+      visitors_count: '-',
+      organization_name: upper(data.company_name || ''),
+      organizer_address: upper(data.client_address || ''),
+      organizer_contact_person: upper(data.client_name || ''),
+      organizer_contact_number: data.client_contact_number,
+      comments_feedback: data.comments_feedback.trim() || 'N/A',
+    };
   }
 
-  return 'Create or update a reservation using the official BCCC package, schedule, and MICE reporting fields.';
+  const hasExhibitions = data.has_exhibitions === 'Yes';
+  return {
+    event_scope: 'PUBLIC EVENT',
+    event_center_name: PUBLIC_EVENT_CENTER,
+    covered_month: data.covered_month,
+    date_event_started: selections[0]?.date ?? '',
+    date_event_finished: selections[selections.length - 1]?.date ?? '',
+    event_name: upper(data.type_of_event || ''),
+    number_of_hours: String(totalHours(selections)),
+    function_halls_count: '1',
+    function_hall_capacity: '4000',
+    classification_of_event: data.classification_of_event,
+    mice_type_of_event: data.mice_type_of_event,
+    foreign_attendees: data.foreign_attendees || '0',
+    domestic_attendees: data.domestic_attendees || '0',
+    total_number_of_countries: data.total_number_of_countries || '1',
+    countries_breakdown_text: upper(data.countries_breakdown_text || 'PHILIPPINES'),
+    has_exhibitions: data.has_exhibitions,
+    exhibitors_count: hasExhibitions ? data.exhibitors_count : '0',
+    visitors_count: hasExhibitions ? data.visitors_count : '0',
+    organization_name: upper(data.company_name || ''),
+    organizer_address: upper(data.client_address || ''),
+    organizer_contact_person: upper(data.client_name || ''),
+    organizer_contact_number: data.client_contact_number,
+    comments_feedback: data.comments_feedback.trim() || 'N/A',
+  };
 }
 
-function formatDateTime(value?: string | null): string {
-  if (!value) return 'Not set';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date);
-}
-
-function formatDateOnly(value?: string | null): string {
-  if (!value) return 'Not set';
-  const date = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
-}
-
-function rangeHours(from?: string | null, to?: string | null): number {
-  if (!from || !to) return 0;
-  const start = Date.parse(from);
-  const end = Date.parse(to);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
-  return Math.round((end - start) / 36_000) / 100;
-}
-
-function fieldStatusClass(error?: string): string {
-  return error
-    ? 'border-rose-300/70 bg-rose-50 text-rose-900 placeholder:text-rose-300 focus:border-rose-500 dark:border-rose-400/50 dark:bg-rose-500/10 dark:text-white'
-    : 'border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel-muted)] text-[var(--bccc-backend-text)] focus:border-[var(--bccc-backend-gold-line)]';
-}
-
-function todayInputDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function monthInputDate(value?: string | null): string {
-  const fallback = todayInputDate();
-  const date = value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : fallback;
-  return `${date.slice(0, 7)}-01`;
-}
-
-function dateInputOnly(value?: string | null): string {
-  return value && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '';
-}
-
-function dateTimestamp(value: string): number {
-  return new Date(`${value}T00:00:00`).getTime();
-}
-
-function minDateString(a: string, b: string): string {
-  return dateTimestamp(a) <= dateTimestamp(b) ? a : b;
-}
-
-function maxDateString(a: string, b: string): string {
-  return dateTimestamp(a) >= dateTimestamp(b) ? a : b;
-}
-
-function inclusiveDateCount(from?: string | null, to?: string | null): number {
-  if (!from || !to) return 1;
-  const start = dateTimestamp(from);
-  const end = dateTimestamp(to);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return 1;
-  return Math.max(Math.round((end - start) / 86_400_000) + 1, 1);
-}
-
-function calendarDaysForMonth(cursorDate: string): Array<{ date: string; day: number; inMonth: boolean }> {
-  const first = new Date(`${cursorDate.slice(0, 7)}-01T00:00:00`);
-  const year = first.getFullYear();
-  const month = first.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const gridStart = new Date(firstDay);
-  gridStart.setDate(firstDay.getDate() - firstDay.getDay());
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(gridStart);
-    date.setDate(gridStart.getDate() + index);
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    return { date: `${yyyy}-${mm}-${dd}`, day: date.getDate(), inMonth: date.getMonth() === month };
-  });
-}
-
-function addMonthsToInputDate(value: string, amount: number): string {
-  const date = new Date(`${value.slice(0, 7)}-01T00:00:00`);
-  date.setMonth(date.getMonth() + amount);
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  return `${yyyy}-${mm}-01`;
-}
-
-function calendarMonthTitle(value: string): string {
-  const date = new Date(`${value.slice(0, 7)}-01T00:00:00`);
-  return new Intl.DateTimeFormat('en-PH', { month: 'long', year: 'numeric' }).format(date);
-}
-
-function addHoursToClock(clock: string, hours: number): string {
-  const [hour, minute] = clock.split(':').map(Number);
-  const totalMinutes = Math.min(hour * 60 + minute + Math.max(hours, 0) * 60, 23 * 60 + 59);
-  return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`;
-}
-
-function buildDateTimeFromRange(range: BookingDateRange, block: ScheduleBaseBlock, additionalHours: number): { from: string; to: string } {
-  const base = SCHEDULE_BASE_BLOCKS[block];
-  const canExtend = block === 'PM' || block === 'WHOLE_DAY';
-  const end = canExtend && additionalHours > 0 ? addHoursToClock(base.baseEnd, additionalHours) : base.baseEnd;
-  return { from: `${range.from}T${base.start}`, to: `${range.to}T${end}` };
-}
-
-function clockMinutes(value?: string | null): number | null {
-  const time = String(value || '').match(/T?(\d{2}):(\d{2})/);
-  if (!time) return null;
-  const hour = Number(time[1]);
-  const minute = Number(time[2]);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-  return hour * 60 + minute;
-}
-
-function inferInitialScheduleBlock(from?: string | null, to?: string | null): { block: ScheduleBaseBlock; additionalHours: number } {
-  const start = clockMinutes(from);
-  const end = clockMinutes(to);
-
-  if (start === null || end === null) {
-    return { block: 'WHOLE_DAY', additionalHours: 0 };
-  }
-
-  const six = 6 * 60;
-  const noon = 12 * 60;
-  const sixPm = 18 * 60;
-
-  if (start === six && end <= noon) {
-    return { block: 'AM', additionalHours: 0 };
-  }
-
-  if (start === noon) {
-    return { block: 'PM', additionalHours: Math.max(0, Math.round((end - sixPm) / 60)) };
-  }
-
-  return { block: 'WHOLE_DAY', additionalHours: Math.max(0, Math.round((end - sixPm) / 60)) };
-}
-
-function optionsFromMaybe(value?: SelectOption[]): SelectOption[] {
-  return Array.isArray(value) ? value : [];
-}
-
-function optionValue(value: SelectOption['value']): string {
-  return String(value);
-}
-
-function boolString(value: boolean | number | string | null | undefined): boolean {
-  return value === true || value === 1 || value === '1' || value === 'true';
-}
-
-function defaultCoveredMonth(dateValue: string): string {
-  const date = new Date(`${dateValue}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
-  return new Intl.DateTimeFormat('en-US', { month: 'long' }).format(date);
-}
-
-function StepIcon({ icon: Icon, done, current }: { icon: typeof PackageCheck; done: boolean; current: boolean }) {
-  if (done) return <Check className="h-4 w-4" />;
-  return <Icon className={cx('h-4 w-4', current && 'text-[var(--bccc-backend-gold)]')} />;
-}
-
-function Field({ label, required, error, helper, children }: { label: string; required?: boolean; error?: string; helper?: ReactNode; children: ReactNode }) {
+function Field({ label, required, error, children, help }: { label: string; required?: boolean; error?: string; children: ReactNode; help?: string }) {
   return (
-    <label className="booking-lux-field">
-      <span className="booking-lux-field-label">
+    <label className="grid gap-2 text-sm font-medium text-slate-800">
+      <span className="flex items-center gap-1">
         {label}
-        {required ? <strong>*</strong> : null}
+        {required ? <strong className="text-red-600">*</strong> : null}
       </span>
       {children}
-      {helper && !error ? <span className="booking-lux-field-helper">{helper}</span> : null}
-      {error ? (
-        <span className="booking-lux-field-error">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          {error}
-        </span>
-      ) : null}
+      {help ? <small className="text-xs font-normal leading-5 text-slate-500">{help}</small> : null}
+      {error ? <small className="text-xs font-semibold text-red-600">{error}</small> : null}
     </label>
   );
 }
 
-function WizardNotice({ errors }: { errors: Record<string, string> }) {
-  const values = Object.values(errors).filter(Boolean);
-  if (values.length === 0) return null;
+function inputClass(hasError?: boolean): string {
+  return cx(
+    'min-h-11 w-full border bg-white px-3 py-2 text-sm text-slate-900 outline-none transition duration-200 placeholder:text-slate-400 focus:border-[#164734] focus:ring-2 focus:ring-[#164734]/10',
+    hasError ? 'border-red-400 bg-red-50/60' : 'border-slate-200',
+  );
+}
 
+function StepProgress({ activeStep, submitted, onStepClick }: { activeStep: number; submitted: boolean; onStepClick: (index: number) => void }) {
   return (
-    <div className="booking-step-warning">
-      <AlertTriangle className="h-5 w-5 shrink-0" />
-      <div>
-        <p className="font-semibold">Complete this page first.</p>
-        <ul className="mt-2 space-y-1 text-sm leading-6">
-          {values.map((error) => (
-            <li key={error}>• {error}</li>
-          ))}
-        </ul>
+    <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur-xl sm:px-5">
+      <div className="mx-auto flex max-w-[1600px] items-center gap-2 overflow-x-auto">
+        {STEPS.map((step, index) => {
+          const Icon = step.icon;
+          const done = submitted || index < activeStep;
+          const active = index === activeStep && !submitted;
+          return (
+            <button
+              key={step.key}
+              type="button"
+              onClick={() => !submitted && index < 4 && onStepClick(index)}
+              className={cx(
+                'group flex min-w-[170px] flex-1 items-center gap-3 border px-3 py-2 text-left transition duration-300',
+                active ? 'border-[#164734] bg-[#164734] text-white shadow-md' : done ? 'border-[#d6b56d]/50 bg-[#fff8e6] text-[#164734]' : 'border-slate-200 bg-white text-slate-500',
+              )}
+            >
+              <span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-full border transition', active ? 'border-white/40 bg-white/15' : done ? 'border-[#d6b56d] bg-white' : 'border-slate-200 bg-slate-50')}>
+                {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              </span>
+              <span className="min-w-0">
+                <strong className="block truncate text-[11px] uppercase tracking-[0.24em]">{step.label}</strong>
+                <small className={cx('block truncate text-xs', active ? 'text-white/75' : 'text-current/65')}>{step.helper}</small>
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function ServerErrorsBanner({ errors }: { errors: Record<string, string> }) {
-  const values = Object.values(errors).filter(Boolean);
-  if (values.length === 0) return null;
-
+function SectionShell({ kicker, title, description, icon, children }: { kicker: string; title: string; description: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="booking-lux-error-banner">
-      <AlertTriangle className="mt-1 h-5 w-5 shrink-0" />
-      <div>
-        <p className="font-semibold">Please review the highlighted fields.</p>
-        <ul className="mt-2 space-y-1 text-sm leading-6">
-          {values.slice(0, 6).map((error) => (
-            <li key={error}>• {error}</li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function Stepper({ activeStep, maxStep, onStepClick }: { activeStep: number; maxStep: number; onStepClick: (index: number) => void }) {
-  return (
-    <nav className="booking-stepper" aria-label="Booking form steps">
-      {BOOKING_STEPS.map((step, index) => {
-        const current = index === activeStep;
-        const done = index < activeStep;
-        const unlocked = index <= maxStep;
-        return (
-          <button key={step.title} type="button" disabled={!unlocked} onClick={() => onStepClick(index)} className={cx('booking-wizard-step-pill', current && 'is-current', done && 'is-done')}>
-            <span className="booking-step-icon">
-              <StepIcon icon={step.icon} done={done} current={current} />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate">{step.title}</span>
-              <small className="block truncate">{step.subtitle}</small>
-            </span>
-          </button>
-        );
-      })}
-    </nav>
-  );
-}
-
-function ReviewBlock({ title, icon: Icon, children, onEdit }: { title: string; icon: typeof UserRound; children: ReactNode; onEdit: () => void }) {
-  return (
-    <section className="booking-review-block">
-      <header className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="booking-review-icon">
-            <Icon className="h-4 w-4" />
-          </span>
-          <h3>{title}</h3>
+    <section className="border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#a88633]">{icon}{kicker}</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">{title}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">{description}</p>
         </div>
-        <button type="button" onClick={onEdit} className="booking-review-edit">
-          <Pencil className="h-3.5 w-3.5" />
-          Edit
-        </button>
-      </header>
-      <div className="mt-4">{children}</div>
+      </div>
+      {children}
     </section>
   );
 }
 
-function ReviewGrid({ items }: { items: Array<[string, ReactNode]> }) {
-  return (
-    <div className="booking-review-grid">
-      {items.map(([label, value]) => (
-        <div key={label}>
-          <p>{label}</p>
-          <strong>{value || '—'}</strong>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export function BookingFormPage() {
-  const { props } = usePage<BookingFormPageProps>();
-  const role = normalizeWorkspaceRole(props.workspaceRole) as RoleThemeKey;
+export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
+  const page = usePage();
+  const props = pagePropsWithFallback(rawProps, page.props as Record<string, unknown>);
+  const role = statusRole(props.workspaceRole ?? ((page.props.auth as { user?: { role?: string } } | undefined)?.user?.role ?? 'user'));
   const booking = props.booking;
   const editing = Boolean(booking?.id);
-  const isClient = role === 'user';
-  const isManager = role === 'manager';
-  const isStaffLike = role === 'admin' || role === 'manager' || role === 'staff';
-  const packageCarouselRef = useRef<HTMLDivElement | null>(null);
-
-  const bookingOptions = props.bookingFormOptions ?? {};
-  const packageOptions = props.venuePackages ?? bookingOptions.venuePackages ?? [];
-  const dressingRoomOptions = optionsFromMaybe(bookingOptions.dressingRooms).length > 0 ? optionsFromMaybe(bookingOptions.dressingRooms) : FALLBACK_DRESSING_ROOMS;
-  const miceOptions = bookingOptions.mice ?? {};
-  const classificationOptions = optionsFromMaybe(miceOptions.classificationOptions).length > 0 ? optionsFromMaybe(miceOptions.classificationOptions) : FALLBACK_MICE_CLASSIFICATIONS;
-  const miceTypeOptions = optionsFromMaybe(miceOptions.typeOptions).length > 0 ? optionsFromMaybe(miceOptions.typeOptions) : FALLBACK_MICE_TYPES;
-  const coveredMonthOptions = optionsFromMaybe(miceOptions.coveredMonthOptions).length > 0 ? optionsFromMaybe(miceOptions.coveredMonthOptions) : FALLBACK_MONTHS;
-  const eventCenterOptions = optionsFromMaybe(miceOptions.eventCenterOptions).length > 0 ? optionsFromMaybe(miceOptions.eventCenterOptions) : FALLBACK_EVENT_CENTERS;
-  const privateEventOptions = optionsFromMaybe(miceOptions.privateEventOptions).length > 0 ? optionsFromMaybe(miceOptions.privateEventOptions) : FALLBACK_PRIVATE_TYPES;
-
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-
-    html.classList.add('booking-wizard-screen-active');
-    body.classList.add('booking-wizard-screen-active');
-
-    return () => {
-      html.classList.remove('booking-wizard-screen-active');
-      body.classList.remove('booking-wizard-screen-active');
-    };
-  }, []);
-
   const services = useMemo(() => flattenServices(props.serviceTypes, props.services), [props.serviceTypes, props.services]);
-  const venueItems = useMemo(() => matchCatalogWithServices(services), [services]);
-  const initialServiceId = useMemo(() => matchInitialServiceId(booking, props.initialVenue, services), [booking, props.initialVenue, services]);
-  const matchedInitialVenue = venueItems.find((item) => String(item.service?.id ?? '') === String(initialServiceId)) ?? venueItems.find((item) => item.configured) ?? venueItems[0];
+  const backendPackages = useMemo(() => (props.venuePackages ?? props.bookingFormOptions?.venuePackages ?? []).map(packageFromBackend).filter((item): item is ActivePackage => Boolean(item)), [props.venuePackages, props.bookingFormOptions?.venuePackages]);
+  const packages = useMemo(() => uniquePackages([...backendPackages, ...FALLBACK_PACKAGES]), [backendPackages]);
+  const classificationOptions = props.bookingFormOptions?.mice?.classificationOptions?.length ? props.bookingFormOptions.mice.classificationOptions : CLASSIFICATION_OPTIONS;
+  const miceTypeOptions = props.bookingFormOptions?.mice?.typeOptions?.length ? props.bookingFormOptions.mice.typeOptions : MICE_TYPE_OPTIONS;
+  const privateTypeOptions = props.bookingFormOptions?.mice?.privateEventOptions?.length ? props.bookingFormOptions.mice.privateEventOptions : PRIVATE_EVENT_OPTIONS;
 
+  const initialFrom = initialDateFromSchedule(props.initialSchedule, booking);
+  const initialTo = initialDateToSchedule(props.initialSchedule, booking);
+  const initialSelections = buildInitialSelections(initialFrom, initialTo);
+  const initialMeta = (booking?.payment_meta && typeof booking.payment_meta === 'object' ? booking.payment_meta : {}) as BookingPaymentMeta;
+  const initialAreaKeys = Array.isArray(booking?.selected_area_keys)
+    ? booking.selected_area_keys.map((key) => activeKeyFromString(key)).filter((key): key is ActiveVenueKey => Boolean(key))
+    : [];
   const initialPackageCode = firstValue(booking?.selected_package_code, props.initialPackageCode);
-  const initialPackageOption = packageOptions.find((option) => option.code === initialPackageCode) ?? null;
-  const initialPackageKeys = venueKeysFromPackage(initialPackageOption);
-  const bookingAreaKeys = Array.isArray(booking?.selected_area_keys) ? booking.selected_area_keys.map((key) => toVenueKey(key)).filter((key): key is BookingVenueKey => Boolean(key)) : [];
-  const initialSelectedKeys = initialPackageKeys.length > 0 ? initialPackageKeys : bookingAreaKeys.length > 0 ? bookingAreaKeys : matchedInitialVenue?.key ? [matchedInitialVenue.key] : [];
-  const initialChargedItems = chargedItems(venueItems, initialSelectedKeys);
-  const initialServiceIds = selectedServiceIds(initialChargedItems);
+  const packageInitial = packages.find((item) => item.code === initialPackageCode) ?? null;
+  const defaultAreaKeys: ActiveVenueKey[] = packageInitial?.areaKeys ?? (initialAreaKeys.length ? initialAreaKeys : ['FULL_HALL']);
 
-  const backHref = editing && booking?.id ? bookingShowPath(role, booking.id) : bookingBasePath(role);
-  const initialFrom = buildInitialDateTime(props.initialSchedule, booking?.booking_date_from, 'from');
-  const initialTo = buildInitialDateTime(props.initialSchedule, booking?.booking_date_to, 'to');
-  const initialDateFrom = dateInputOnly(initialFrom) || todayInputDate();
-  const initialDateTo = dateInputOnly(initialTo) || initialDateFrom;
-  const initialRange: BookingDateRange = { from: minDateString(initialDateFrom, initialDateTo), to: maxDateString(initialDateFrom, initialDateTo) };
-  const hasPublicPrefill = Boolean(props.initialVenue || props.initialPackageCode || props.initialEventType || props.initialGuests || initialFrom || initialTo);
-  const inferredInitialSchedule = inferInitialScheduleBlock(initialFrom, initialTo);
-  const initialBlock: ScheduleBaseBlock = inferredInitialSchedule.block;
-  const initialAdditionalHours = inferredInitialSchedule.additionalHours;
-  const initialDateTimes = initialFrom && initialTo
-    ? { from: initialFrom, to: initialTo }
-    : buildDateTimeFromRange(initialRange, initialBlock, initialAdditionalHours);
-  const initialPaymentMeta = (booking?.payment_meta && typeof booking.payment_meta === 'object' ? booking.payment_meta : {}) as BookingPaymentMeta;
-
-  const [selectedVenueKeys, setSelectedVenueKeys] = useState<BookingVenueKey[]>(initialSelectedKeys);
-  const [selectedPackageCode, setSelectedPackageCode] = useState(initialPackageCode);
-  const [packageSelectionMode, setPackageSelectionMode] = useState<'packages' | 'manual'>(() => (packageOptions.length > 0 && initialPackageCode ? 'packages' : packageOptions.length > 0 ? 'packages' : 'manual'));
-  const [previewVenueKey, setPreviewVenueKey] = useState<BookingVenueKey>(initialSelectedKeys[0] ?? matchedInitialVenue?.key ?? 'FULL_HALL');
-  const [usage, setUsage] = useState<BookingUsageKey>(initialBlock === 'WHOLE_DAY' ? 'whole_day' : 'half_day');
-  const [baseBlock, setBaseBlock] = useState<ScheduleBaseBlock>(initialBlock);
-  const [additionalHours, setAdditionalHours] = useState(initialAdditionalHours);
-  const [rangeClickAnchor, setRangeClickAnchor] = useState<string | null>(null);
-  const [calendarCursor, setCalendarCursor] = useState<string>(() => monthInputDate(initialRange.from));
-  const [selectedDateRange, setSelectedDateRange] = useState<BookingDateRange>(initialRange);
-  const [hasIngress, setHasIngress] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
-  const [maxStep, setMaxStep] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [calendarCursor, setCalendarCursor] = useState(monthStart(initialFrom));
+  const [rangeAnchor, setRangeAnchor] = useState<string | null>(null);
+  const [scheduleSelections, setScheduleSelections] = useState<ScheduleSelection[]>(initialSelections);
+  const [packageMode, setPackageMode] = useState<PackageMode>(() => (packageInitial ? 'packages' : 'manual'));
+  const [selectedPackageCode, setSelectedPackageCode] = useState(packageInitial?.code ?? 'FULL_HALL');
+  const [selectedAreaKeys, setSelectedAreaKeys] = useState<ActiveVenueKey[]>(defaultAreaKeys);
+  const [ingressPrep, setIngressPrep] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [policyModalChecked, setPolicyModalChecked] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
-  const [showDigitalForm, setShowDigitalForm] = useState(false);
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [stepLoading, setStepLoading] = useState(false);
 
-  const selectedPackage = packageOptions.find((option) => option.code === selectedPackageCode) ?? null;
-  const selectedChargedItems = chargedItems(venueItems, selectedVenueKeys);
-  const selectedDateCount = inclusiveDateCount(selectedDateRange.from, selectedDateRange.to);
-  const durationHours = String(additionalHours || 1);
-  const estimatedBasePerDay = estimateSelectedVenueCharge(selectedChargedItems, usage, Number(durationHours || 1));
-  const estimatedBase = estimatedBasePerDay * selectedDateCount;
-  const selectedDressingRoom = dressingRoomOptions.find((option) => optionValue(option.value) === firstValue(booking?.dressing_room_selection, 'none')) ?? dressingRoomOptions[0];
-  const initialDressingCharge = Number(selectedDressingRoom?.charge ?? booking?.dressing_room_charge ?? 0);
+  const initialServiceIds = serviceIdsForAreas(services, defaultAreaKeys);
+  const firstSelection = scheduleSelections[0] ?? { date: todayDate(), block: 'whole_day', additionalHours: 0 };
+  const lastSelection = scheduleSelections[scheduleSelections.length - 1] ?? firstSelection;
 
   const { data, setData: rawSetData, post, put, processing, errors, transform } = useForm<BookingFormData>({
-    service_id: initialServiceIds[0] ?? serviceIdOf(matchedInitialVenue),
-    items: serviceItems(initialServiceIds),
-    payment_meta: initialPaymentMeta,
-
-    selected_package_code: selectedPackageCode,
-    selected_area_keys: initialSelectedKeys,
-    dressing_room_selection: optionValue(selectedDressingRoom?.value ?? 'none'),
-    dressing_room_charge: String(initialDressingCharge),
-    mice_required: booking?.mice_required === undefined || booking?.mice_required === null ? true : boolString(booking.mice_required),
-    mice_exemption_reason: firstValue(booking?.mice_exemption_reason),
-    private_event_type: firstValue(booking?.private_event_type),
+    service_id: firstValue(booking?.service_id, booking?.service?.id, initialServiceIds[0]),
+    items: initialServiceIds.map((service_id) => ({ service_id, quantity: 1 })),
+    payment_meta: initialMeta,
+    selected_package_code: packageInitial?.code ?? '',
+    selected_area_keys: defaultAreaKeys,
     schedule_version: 'segments_v1',
-    schedule_meta: (booking?.schedule_meta && typeof booking.schedule_meta === 'object' ? booking.schedule_meta : {}) as BookingPaymentMeta,
+    schedule_meta: {},
     schedule_segments: [],
-
+    mice_required: booking?.mice_required === undefined || booking?.mice_required === null ? true : Boolean(booking.mice_required),
+    mice_exemption_reason: firstValue(booking?.mice_exemption_reason, 'PRIVATE/PERSONAL EVENT'),
+    private_event_type: firstValue(booking?.private_event_type, 'PRIVATE/PERSONAL EVENT'),
     organization_type: firstValue(booking?.organization_type, 'Private'),
-    company_name: firstValue(booking?.company_name),
-    client_name: firstValue(booking?.client_name),
+    company_name: upper(firstValue(booking?.company_name)),
+    client_name: upper(firstValue(booking?.client_name)),
     client_contact_number: firstValue(booking?.client_contact_number),
     client_email: firstValue(booking?.client_email),
-
-    client_address: firstValue(booking?.client_address),
+    client_address: upper(firstValue(booking?.client_address, booking?.client_street_address)),
     client_region: firstValue(booking?.client_region, 'CAR'),
     client_province: firstValue(booking?.client_province, 'Benguet'),
     client_city_municipality: firstValue(booking?.client_city_municipality, 'Baguio City'),
     client_barangay: firstValue(booking?.client_barangay),
     client_zip_code: firstValue(booking?.client_zip_code, '2600'),
-    client_street_address: firstValue(booking?.client_street_address, booking?.client_address),
-
-    head_of_organization: firstValue(booking?.head_of_organization),
-    type_of_event: firstValue(booking?.type_of_event, props.initialEventType),
-
-    booking_date_from: initialDateTimes.from,
-    booking_date_to: initialDateTimes.to,
+    client_street_address: upper(firstValue(booking?.client_street_address, booking?.client_address)),
+    head_of_organization: upper(firstValue(booking?.head_of_organization)),
+    type_of_event: upper(firstValue(booking?.type_of_event, props.initialEventType)),
+    booking_date_from: buildBookingDateFrom(firstSelection),
+    booking_date_to: buildBookingDateTo(lastSelection),
     number_of_guests: firstValue(booking?.number_of_guests, props.initialGuests),
-
-    survey_email: firstValue(booking?.survey_email, booking?.client_email),
-    survey_proof_image: null,
-
     booking_status: firstValue(booking?.booking_status, 'pending'),
     payment_status: firstValue(booking?.payment_status, 'unpaid'),
     is_public_calendar_visible: Boolean(booking?.is_public_calendar_visible ?? false),
     public_calendar_title: firstValue(booking?.public_calendar_title),
-
-    package_acknowledged: Boolean(editing || hasPublicPrefill || initialSelectedKeys.length > 0),
     policy_acknowledged: Boolean(editing),
     accuracy_acknowledged: Boolean(editing),
-
-    estimated_usage: initialBlock === 'WHOLE_DAY' ? 'whole_day' : 'half_day',
-    estimated_duration_hours: String(initialAdditionalHours),
-    estimated_other_rentals: optionValue(selectedDressingRoom?.value ?? 'none'),
-    estimated_additional_charges: String(initialDressingCharge),
+    estimated_usage: 'whole_day',
+    estimated_duration_hours: '0',
+    estimated_other_rentals: '',
+    estimated_additional_charges: '0',
     reservation_notes: '',
-
-    event_nature: booking?.mice_required === false || booking?.mice_required === 0 ? 'private' : 'mice',
-    event_center_name: firstValue(initialPaymentMeta.event_center_name, PUBLIC_EVENT_CENTER),
-    event_center_other: firstValue(initialPaymentMeta.event_center_other),
-    covered_month: firstValue(initialPaymentMeta.covered_month, defaultCoveredMonth(initialDateFrom)),
-    classification_of_event: firstValue(initialPaymentMeta.classification_of_event, 'REGIONAL PHILIPPINES'),
-    classification_other: firstValue(initialPaymentMeta.classification_other),
-    mice_type_of_event: firstValue(initialPaymentMeta.mice_type_of_event, 'MEETINGS'),
-    mice_type_other: firstValue(initialPaymentMeta.mice_type_other),
-    function_halls_count: firstValue(initialPaymentMeta.function_halls_count, '1'),
-    function_hall_capacity: firstValue(initialPaymentMeta.function_hall_capacity, dataSafeNumber(props.initialGuests, '0')),
-    number_of_hours: firstValue(initialPaymentMeta.number_of_hours, '12'),
-    foreign_attendees: firstValue(initialPaymentMeta.foreign_attendees, '0'),
-    domestic_attendees: firstValue(initialPaymentMeta.domestic_attendees, props.initialGuests, '0'),
-    total_number_of_countries: firstValue(initialPaymentMeta.total_number_of_countries, '1'),
-    countries_breakdown_text: firstValue(initialPaymentMeta.countries_breakdown_text, 'PHILIPPINES'),
-    has_exhibitions: firstValue(initialPaymentMeta.has_exhibitions, 'No'),
-    exhibitors_count: firstValue(initialPaymentMeta.exhibitors_count, '0'),
-    visitors_count: firstValue(initialPaymentMeta.visitors_count, '0'),
-    comments_feedback: firstValue(initialPaymentMeta.comments_feedback),
+    event_nature: booking?.mice_required === false || booking?.mice_required === 0 ? 'private' : 'public',
+    event_center_name: PUBLIC_EVENT_CENTER,
+    covered_month: firstValue(initialMeta.covered_month, coveredMonthFromDate(initialFrom)),
+    classification_of_event: firstValue(initialMeta.classification_of_event, 'REGIONAL PHILIPPINES'),
+    classification_other: firstValue(initialMeta.classification_other),
+    mice_type_of_event: firstValue(initialMeta.mice_type_of_event, 'MEETINGS'),
+    mice_type_other: firstValue(initialMeta.mice_type_other),
+    function_halls_count: '1',
+    function_hall_capacity: '4000',
+    number_of_hours: String(totalHours(initialSelections)),
+    foreign_attendees: firstValue(initialMeta.foreign_attendees, '0'),
+    domestic_attendees: firstValue(initialMeta.domestic_attendees, props.initialGuests, '0'),
+    total_number_of_countries: firstValue(initialMeta.total_number_of_countries, '1'),
+    countries_breakdown_text: upper(firstValue(initialMeta.countries_breakdown_text, 'PHILIPPINES')),
+    has_exhibitions: firstValue(initialMeta.has_exhibitions, 'No'),
+    exhibitors_count: firstValue(initialMeta.exhibitors_count, '0'),
+    visitors_count: firstValue(initialMeta.visitors_count, '0'),
+    comments_feedback: firstValue(initialMeta.comments_feedback),
   });
 
   const setData = rawSetData as unknown as <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) => void;
-  const mergedErrors = { ...errors, ...stepErrors } as Record<string, string>;
-  const selectedDressingCharge = Number(data.dressing_room_charge || 0);
-  const estimatedTotal = estimatedBase + selectedDressingCharge;
-  const finalAddress = combinedAddress(data);
+  const mergedErrors = { ...(errors as Record<string, string>), ...stepErrors };
+  const selectedPackage = packages.find((item) => item.code === selectedPackageCode) ?? packages[0];
+  const selectedVenues = selectedAreaKeys.map(selectedVenueByKey);
+  const scheduleTotalHours = totalHours(scheduleSelections);
+  const scheduleTotalDays = scheduleSelections.length;
+  const estimatedBaseTotal = baseTotal(scheduleSelections, selectedAreaKeys);
+  const hiddenDiscount = finalDiscountPreview(scheduleSelections, selectedAreaKeys, ingressPrep);
+  const finalEstimatedTotal = Math.max(0, estimatedBaseTotal - hiddenDiscount);
+  const requiredDownPayment = Math.round(finalEstimatedTotal * 0.5);
+  const finalBalance = Math.max(0, finalEstimatedTotal - requiredDownPayment);
+  const backHref = editing && booking?.id ? bookingShowPath(role, booking.id) : bookingBasePath(role);
 
-  const selectedRegion: RegionOption = regionByCode(data.client_region);
-  const selectedProvince: ProvinceOption = provinceByName(selectedRegion, data.client_province);
-  const selectedCity: CityOption = cityByName(selectedProvince, data.client_city_municipality);
-  const isPrivateEvent = data.event_nature === 'private';
-  const isMiceRequired = data.event_nature === 'mice';
+  useEffect(() => {
+    const first = scheduleSelections[0] ?? firstSelection;
+    const last = scheduleSelections[scheduleSelections.length - 1] ?? first;
+    const month = coveredMonthFromDate(first.date);
+    setData('booking_date_from', buildBookingDateFrom(first));
+    setData('booking_date_to', buildBookingDateTo(last));
+    setData('covered_month', month);
+    setData('number_of_hours', String(scheduleTotalHours));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleSelections, scheduleTotalHours]);
 
-  function dataSafeNumber(value: unknown, fallback: string): string {
-    const number = Number(value ?? 0);
-    return Number.isFinite(number) && number > 0 ? String(number) : fallback;
+  useEffect(() => {
+    const ids = serviceIdsForAreas(services, selectedAreaKeys);
+    setData('service_id', ids[0] ?? '');
+    setData('items', ids.map((service_id) => ({ service_id, quantity: 1 })));
+    setData('selected_area_keys', selectedAreaKeys);
+    setData('selected_package_code', packageMode === 'packages' ? selectedPackageCode : '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAreaKeys, selectedPackageCode, packageMode, services]);
+
+  function patchSelection(date: string, patch: Partial<ScheduleSelection>) {
+    setScheduleSelections((current) => current.map((row) => (row.date === date ? { ...row, ...patch } : row)));
   }
 
-  function fieldError(name: FieldName | string): string | undefined {
-    return mergedErrors[name];
-  }
-
-  function focusVenueCard(key: BookingVenueKey) {
-    setPreviewVenueKey(key);
-    window.requestAnimationFrame(() => {
-      const carousel = packageCarouselRef.current;
-      const card = carousel?.querySelector<HTMLElement>(`[data-venue-key="${key}"]`);
-      if (!carousel || !card) return;
-      const carouselRect = carousel.getBoundingClientRect();
-      const cardRect = card.getBoundingClientRect();
-      carousel.scrollTo({ left: carousel.scrollLeft + (cardRect.left - carouselRect.left) - carouselRect.width / 2 + cardRect.width / 2, behavior: 'smooth' });
-    });
-  }
-
-  function syncSelection(next: BookingVenueKey[], packageCode = selectedPackageCode) {
-    const nextChargedItems = chargedItems(venueItems, next);
-    const nextServiceIds = selectedServiceIds(nextChargedItems);
-    const packageOption = packageOptions.find((option) => option.code === packageCode) ?? null;
-    const paymentMeta = {
-      ...data.payment_meta,
-      selected_package_code: packageCode,
-      selected_package_name: packageOption?.name ?? packageOption?.label ?? null,
-      selected_area_keys: next,
-      charged_area_keys: nextChargedItems.map((charged) => charged.key),
-      charged_area_labels: nextChargedItems.map((charged) => charged.displayLabel),
-      package_note: packageSelectionLabel(next, packageOption?.name ?? packageOption?.label),
-    };
-
-    setData('service_id', nextServiceIds[0] ?? '');
-    setData('items', serviceItems(nextServiceIds));
-    setData('selected_area_keys', next);
-    setData('selected_package_code', packageCode);
-    setData('package_acknowledged', next.length > 0);
-    setData('payment_meta', paymentMeta);
-  }
-
-  function selectPackage(packageOption: VenuePackageOption) {
-    const keys = venueKeysFromPackage(packageOption);
-    if (keys.length === 0) return;
-    setPackageSelectionMode('packages');
-    setSelectedPackageCode(packageOption.code);
-    setSelectedVenueKeys(keys);
-    syncSelection(keys, packageOption.code);
-    focusVenueCard(keys[0]);
-    setStepErrors({});
-  }
-
-  function switchToManualSelection() {
-    setPackageSelectionMode('manual');
-    setSelectedPackageCode('');
-    syncSelection(selectedVenueKeys, '');
-    setStepErrors({});
-  }
-
-  function scrollPackageCarousel(direction: -1 | 1) {
-    const carousel = packageCarouselRef.current;
-    if (!carousel) return;
-
-    carousel.scrollBy({
-      left: direction * Math.max(320, carousel.clientWidth * 0.82),
-      behavior: 'smooth',
-    });
-  }
-
-  function selectVenue(item: MatchedVenueItem) {
-    if (!item.configured) return;
-    setPackageSelectionMode('manual');
-    setSelectedPackageCode('');
-    setPreviewVenueKey(item.key);
-    setSelectedVenueKeys((current) => {
-      const next = current.includes(item.key) ? current.filter((key) => key !== item.key) : [...current, item.key];
-      syncSelection(next, '');
-      return next;
-    });
-    setStepErrors({});
-    focusVenueCard(item.key);
-  }
-
-  function syncScheduleRange(range: BookingDateRange, block: ScheduleBaseBlock = baseBlock, hours = additionalHours) {
-    const normalizedRange = { from: minDateString(range.from, range.to), to: maxDateString(range.from, range.to) };
-    const normalizedAdditional = block === 'AM' ? 0 : hours;
-    const computed = buildDateTimeFromRange(normalizedRange, block, normalizedAdditional);
-
-    setSelectedDateRange(normalizedRange);
-    setBaseBlock(block);
-    setAdditionalHours(normalizedAdditional);
-    setData('booking_date_from', computed.from);
-    setData('booking_date_to', computed.to);
-    setData('estimated_usage', block === 'WHOLE_DAY' ? 'whole_day' : 'half_day');
-    setData('estimated_duration_hours', String(normalizedAdditional));
-    setUsage(block === 'WHOLE_DAY' ? 'whole_day' : 'half_day');
-  }
-
-  function handleCalendarDateClick(date: string) {
-    if (!rangeClickAnchor) {
-      setRangeClickAnchor(date);
-      syncScheduleRange({ from: date, to: date });
-      return;
-    }
-
-    const nextRange = { from: minDateString(rangeClickAnchor, date), to: maxDateString(rangeClickAnchor, date) };
-    setRangeClickAnchor(null);
-    syncScheduleRange(nextRange);
-  }
-
-  function isCalendarDateSelected(date: string): boolean {
-    const current = dateTimestamp(date);
-    return current >= dateTimestamp(selectedDateRange.from) && current <= dateTimestamp(selectedDateRange.to);
-  }
-
-  function isCalendarDateEdge(date: string): boolean {
-    return date === selectedDateRange.from || date === selectedDateRange.to;
-  }
-
-  function handleBaseBlockChange(block: ScheduleBaseBlock) {
-    syncScheduleRange(selectedDateRange, block, block === 'AM' ? 0 : additionalHours);
-  }
-
-  function handleAdditionalHourChange(hours: number) {
-    syncScheduleRange(selectedDateRange, baseBlock, hours);
-  }
-
-  function handleDressingRoomChange(value: string) {
-    const option = dressingRoomOptions.find((item) => optionValue(item.value) === value) ?? dressingRoomOptions[0];
-    const charge = Number(option?.charge ?? 0);
-    setData('dressing_room_selection', value);
-    setData('dressing_room_charge', String(charge));
-    setData('estimated_other_rentals', value);
-    setData('estimated_additional_charges', String(charge));
-  }
-
-  function handleEventNatureChange(nature: 'mice' | 'private') {
-    setData('event_nature', nature);
-    setData('mice_required', nature === 'mice');
-    if (nature === 'private') {
-      setData('classification_of_event', 'NATIONAL');
-      setData('mice_type_of_event', 'OTHERS');
-      setData('mice_exemption_reason', 'Private event - full MICE report not required during booking intake.');
-    } else {
-      setData('private_event_type', '');
-      setData('mice_exemption_reason', '');
-    }
-  }
-
-  function handleAddressRegionChange(value: string) {
-    const region = regionByCode(value);
-    const provinceOption = region.provinces[0];
-    const cityOption = provinceOption.cities[0];
-    setData('client_region', region.code);
-    setData('client_province', provinceOption.name);
-    setData('client_city_municipality', cityOption.name);
-    setData('client_barangay', '');
-    setData('client_zip_code', cityOption.zip ?? '');
-  }
-
-  function handleAddressProvinceChange(value: string) {
-    const provinceOption = provinceByName(selectedRegion, value);
-    const cityOption = provinceOption.cities[0];
-    setData('client_province', provinceOption.name);
-    setData('client_city_municipality', cityOption.name);
-    setData('client_barangay', '');
-    setData('client_zip_code', cityOption.zip ?? '');
-  }
-
-  function handleAddressCityChange(value: string) {
-    const cityOption = cityByName(selectedProvince, value);
-    setData('client_city_municipality', cityOption.name);
-    setData('client_barangay', '');
-    setData('client_zip_code', cityOption.zip ?? '');
-  }
-
-  function validateStep(step: number): boolean {
-    const nextErrors: Record<string, string> = {};
-
-    if (step === 0) {
-      if (selectedVenueKeys.length === 0) nextErrors.package = 'Select at least one venue area or public package.';
-      if (selectedVenueKeys.length > 0 && selectedChargedItems.length === 0) nextErrors.service_id = 'The selected area is missing a matching backend Rental Option.';
-    }
-
-    if (step === 1) {
-      if (!data.event_nature) nextErrors.event_nature = 'Select whether this is a MICE/reportable event or a private event.';
-      if (!data.type_of_event.trim()) nextErrors.type_of_event = 'Event name/title is required.';
-      if (isMiceRequired) {
-        if (!data.classification_of_event) nextErrors.classification_of_event = 'Classification is required for MICE events.';
-        if (!data.mice_type_of_event) nextErrors.mice_type_of_event = 'Type of event is required for MICE events.';
-        if (data.mice_type_of_event === 'OTHERS' && !data.mice_type_other.trim()) nextErrors.mice_type_other = 'Specify the other event type.';
+  function selectCalendarDate(date: string) {
+    setRangeAnchor((anchor) => {
+      if (!anchor) {
+        setScheduleSelections([{ date, block: 'whole_day', additionalHours: 0 }]);
+        return date;
       }
-      if (isPrivateEvent && !data.private_event_type) nextErrors.private_event_type = 'Select the private event type.';
-    }
+      const range = dateRange(anchor, date).map((rowDate) => {
+        const existing = scheduleSelections.find((item) => item.date === rowDate);
+        return existing ?? { date: rowDate, block: 'whole_day' as ScheduleBlock, additionalHours: 0 };
+      });
+      setScheduleSelections(range);
+      return null;
+    });
+  }
 
+  function choosePackage(pkg: ActivePackage) {
+    setPackageMode('packages');
+    setSelectedPackageCode(pkg.code);
+    setSelectedAreaKeys(pkg.areaKeys);
+  }
+
+  function toggleArea(key: ActiveVenueKey) {
+    setPackageMode('manual');
+    setSelectedPackageCode('');
+    setSelectedAreaKeys((current) => {
+      if (current.includes(key)) {
+        const next = current.filter((item) => item !== key);
+        return next.length ? next : [key];
+      }
+      return [...current, key];
+    });
+  }
+
+  function validateStep(step = activeStep): boolean {
+    const nextErrors: Record<string, string> = {};
+    if (step === 0) {
+      if (scheduleSelections.length < 1) nextErrors.schedule = 'Select at least one reservation date.';
+      scheduleSelections.forEach((row) => {
+        if (row.additionalHours > MAX_ADDITIONAL_HOURS) nextErrors.schedule = 'Additional hours must not exceed 6 hours.';
+      });
+    }
+    if (step === 1) {
+      if (selectedAreaKeys.length < 1) nextErrors.selected_area_keys = 'Choose at least one active BCCC service.';
+    }
     if (step === 2) {
-      if (data.organization_type !== 'Private' && !data.company_name.trim()) nextErrors.company_name = 'Name of organization is required for non-private organizers.';
+      if (!data.type_of_event.trim()) nextErrors.type_of_event = 'Event name is required.';
+      if (!data.company_name.trim()) nextErrors.company_name = 'Organization name is required.';
       if (!data.client_name.trim()) nextErrors.client_name = 'Contact person is required.';
-      if (!/^09\d{9}$/.test(data.client_contact_number.replace(/\D+/g, ''))) nextErrors.client_contact_number = 'Use a valid Philippine mobile number, example: 09171234567.';
+      if (!data.client_contact_number.trim()) nextErrors.client_contact_number = 'Contact number is required.';
+      if (!/^\d{7,15}$/.test(data.client_contact_number.replace(/\D/g, ''))) nextErrors.client_contact_number = 'Use numbers only, 7 to 15 digits.';
       if (!data.client_email.trim()) nextErrors.client_email = 'Email address is required.';
+      if (!data.client_address.trim()) nextErrors.client_address = 'Organizer address is required.';
+      if (!data.number_of_guests.trim()) nextErrors.number_of_guests = 'Expected attendance is required.';
+      if (data.event_nature === 'public') {
+        if (!data.classification_of_event) nextErrors.classification_of_event = 'Classification is required for public events.';
+        if (!data.mice_type_of_event) nextErrors.mice_type_of_event = 'MICE event type is required for public events.';
+        if (!data.domestic_attendees.trim()) nextErrors.domestic_attendees = 'Domestic attendee count is required.';
+        if (!data.total_number_of_countries.trim()) nextErrors.total_number_of_countries = 'Total number of countries is required.';
+        if (!data.countries_breakdown_text.trim()) nextErrors.countries_breakdown_text = 'Country breakdown is required.';
+        if (data.has_exhibitions === 'Yes' && (!data.exhibitors_count.trim() || !data.visitors_count.trim())) {
+          nextErrors.exhibitors_count = 'Exhibitor and visitor counts are required when exhibitions is Yes.';
+        }
+      }
     }
-
     if (step === 3) {
-      if (!data.client_region.trim()) nextErrors.client_region = 'Region is required.';
-      if (!data.client_province.trim()) nextErrors.client_province = 'Province is required.';
-      if (!data.client_city_municipality.trim()) nextErrors.client_city_municipality = 'City / municipality is required.';
-      if (!data.client_street_address.trim()) nextErrors.client_street_address = 'Street address is required.';
+      if (!data.policy_acknowledged) nextErrors.policy_acknowledged = 'Please confirm the booking policy and house rules.';
+      if (!data.accuracy_acknowledged) nextErrors.accuracy_acknowledged = 'Please confirm the accuracy of the reservation details.';
     }
-
-    if (step === 4) {
-      if (!selectedDateRange.from) nextErrors.booking_date_from = 'Start date is required.';
-      if (!selectedDateRange.to) nextErrors.booking_date_to = 'End date is required.';
-      if (!data.number_of_guests.trim() || Number(data.number_of_guests || 0) < 1) nextErrors.number_of_guests = 'Number of guests must be at least 1.';
-      if (baseBlock === 'AM' && additionalHours > 0) nextErrors.additional_hours = 'Additional hours can only be added after PM or Whole Day.';
-    }
-
-    if (step === 5 && isMiceRequired) {
-      if (!data.event_center_name) nextErrors.event_center_name = 'Name of event center is required.';
-      if (data.event_center_name === 'OTHER' && !data.event_center_other.trim()) nextErrors.event_center_other = 'Specify the event center.';
-      if (!data.covered_month) nextErrors.covered_month = 'Covered month is required.';
-      if (!data.function_halls_count.trim()) nextErrors.function_halls_count = 'Number of function halls is required.';
-      if (!data.function_hall_capacity.trim()) nextErrors.function_hall_capacity = 'Function hall capacity is required.';
-      if (!data.number_of_hours.trim()) nextErrors.number_of_hours = 'Number of hours is required.';
-      if (!data.domestic_attendees.trim()) nextErrors.domestic_attendees = 'Domestic attendees is required.';
-      if (!data.total_number_of_countries.trim()) nextErrors.total_number_of_countries = 'Total number of countries is required.';
-      if (!data.countries_breakdown_text.trim()) nextErrors.countries_breakdown_text = 'Breakdown of countries is required.';
-      if (data.has_exhibitions === 'Yes' && !data.exhibitors_count.trim()) nextErrors.exhibitors_count = 'Number of exhibitors is required when exhibitions is Yes.';
-    }
-
-    if (step === 6) {
-      if (!data.policy_acknowledged) nextErrors.policy_acknowledged = 'Confirm that the BCCC guidelines were reviewed.';
-      if (!data.accuracy_acknowledged) nextErrors.accuracy_acknowledged = 'Confirm that all encoded information is accurate.';
-    }
-
     setStepErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   }
 
-  function validateAllBeforeSubmit(): boolean {
-    for (let step = 0; step <= 6; step += 1) {
-      if (!validateStep(step)) {
-        setActiveStep(step);
-        setMaxStep((current) => Math.max(current, step));
-        return false;
-      }
-    }
-    return true;
+  function goNext() {
+    if (!validateStep()) return;
+    setActiveStep((current) => Math.min(3, current + 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function runStepTransition(callback: () => void) {
-    setStepLoading(true);
-    window.setTimeout(() => {
-      callback();
-      window.setTimeout(() => setStepLoading(false), 160);
-    }, 160);
+  function goBack() {
+    setStepErrors({});
+    setActiveStep((current) => Math.max(0, current - 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  function scrollStageToStart() {
-    const root = document.querySelector<HTMLElement>('.booking-lux-form');
-    const stage = document.querySelector<HTMLElement>('.booking-wizard-stage');
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function submitReservation() {
+    if (!validateStep(3)) return;
 
-    if (stage) {
-      stage.scrollTo({ left: 0, top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
-    }
-
-    if (!root) {
-      return;
-    }
-
-    const stickyOffset = window.innerWidth < 768 ? 84 : 96;
-    const targetTop = Math.max(0, root.getBoundingClientRect().top + window.scrollY - stickyOffset);
-
-    window.scrollTo({
-      top: targetTop,
-      behavior: prefersReducedMotion ? 'auto' : 'smooth',
-    });
-  }
-
-  function goToStep(index: number) {
-    if (index > maxStep || index === activeStep) return;
-    runStepTransition(() => {
-      setActiveStep(index);
-      setStepErrors({});
-      scrollStageToStart();
-    });
-  }
-
-  function continueStep() {
-    if (!validateStep(activeStep)) return;
-    const nextStep = Math.min(activeStep + 1, BOOKING_STEPS.length - 1);
-    runStepTransition(() => {
-      setActiveStep(nextStep);
-      setMaxStep((current) => Math.max(current, nextStep));
-      setStepErrors({});
-      scrollStageToStart();
-    });
-  }
-
-  function previousStep() {
-    if (activeStep === 0) return;
-    runStepTransition(() => {
-      setActiveStep((current) => Math.max(current - 1, 0));
-      setStepErrors({});
-      scrollStageToStart();
-    });
-  }
-
-  function buildMiceDraft(): BookingPaymentMeta {
-    return {
-      event_center_name: data.event_center_name === 'OTHER' ? data.event_center_other : data.event_center_name,
-      covered_month: data.covered_month,
-      event_started_at: selectedDateRange.from,
-      event_finished_at: selectedDateRange.to,
-      event_name: data.type_of_event,
-      number_of_hours: data.number_of_hours,
-      classification_of_event: data.classification_of_event === 'OTHER' ? data.classification_other : data.classification_of_event,
-      mice_type_of_event: data.mice_type_of_event === 'OTHERS' && data.mice_type_other ? data.mice_type_other : data.mice_type_of_event,
-      function_halls_count: data.function_halls_count,
-      function_hall_capacity: data.function_hall_capacity,
-      foreign_attendees: data.foreign_attendees,
-      domestic_attendees: data.domestic_attendees,
-      total_number_of_countries: data.total_number_of_countries,
-      countries_breakdown_text: data.countries_breakdown_text,
-      has_exhibitions: data.has_exhibitions,
-      exhibitors_count: data.exhibitors_count,
-      visitors_count: data.visitors_count,
-      organizer_organization_name: data.company_name,
-      organizer_address: finalAddress,
-      organizer_contact_person: data.client_name,
-      organizer_contact_number: data.client_contact_number,
-      comments_feedback: data.comments_feedback,
+    const first = scheduleSelections[0];
+    const last = scheduleSelections[scheduleSelections.length - 1];
+    const serviceIds = serviceIdsForAreas(services, selectedAreaKeys);
+    const scheduleSegments = scheduleSelections.map((row, index) => ({
+      date: row.date,
+      segment_role: ingressPrep && index === 0 ? 'ingress' as const : ingressPrep && index === scheduleSelections.length - 1 ? 'egress' as const : 'event' as const,
+      base_block: row.block,
+      additional_hours: row.additionalHours,
+      area_keys: selectedAreaKeys,
+    }));
+    const scheduleMeta = {
+      selected_dates: scheduleSelections,
+      selected_date_count: scheduleTotalDays,
+      total_hours: scheduleTotalHours,
+      ingress_setup_preparation: ingressPrep,
+      discount_visibility: 'review_and_admin_only',
     };
-  }
-
-  function buildScheduleMeta(): BookingPaymentMeta {
-    const roleByDate: Array<Record<string, string | number | boolean>> = [];
-    const days = inclusiveDateCount(selectedDateRange.from, selectedDateRange.to);
-    for (let index = 0; index < days; index += 1) {
-      const date = new Date(`${selectedDateRange.from}T00:00:00`);
-      date.setDate(date.getDate() + index);
-      const value = date.toISOString().slice(0, 10);
-      let roleName = 'event';
-      if (hasIngress && index === 0) roleName = 'ingress';
-      if (hasIngress && index === days - 1 && days > 1) roleName = 'egress';
-      roleByDate.push({ date: value, role: roleName, base_block: baseBlock, additional_hours: additionalHours });
-    }
-
-    return {
-      version: 'segments_v1',
-      has_ingress: hasIngress,
-      has_egress: hasIngress,
-      base_block: baseBlock,
-      base_block_label: SCHEDULE_BASE_BLOCKS[baseBlock].label,
-      additional_hours: additionalHours,
-      additional_hours_note: additionalHours > 0 ? `Extends after 6:00 PM by ${additionalHours} hour(s).` : 'No evening extension.',
-      day_roles: roleByDate,
-    };
-  }
-
-  function buildScheduleSegmentsPayload(): BookingScheduleSegmentPayload[] {
-    const days = inclusiveDateCount(selectedDateRange.from, selectedDateRange.to);
-    const normalizedBaseBlock = baseBlock === 'AM' ? 'am' : baseBlock === 'PM' ? 'pm' : 'whole_day';
-
-    return Array.from({ length: days }, (_, index) => {
-      const date = new Date(`${selectedDateRange.from}T00:00:00`);
-      date.setDate(date.getDate() + index);
-      const value = date.toISOString().slice(0, 10);
-      let segmentRole: BookingScheduleSegmentPayload['segment_role'] = 'event';
-
-      if (hasIngress && index === 0) segmentRole = 'ingress';
-      if (hasIngress && index === days - 1 && days > 1) segmentRole = 'egress';
-
-      return {
-        date: value,
-        segment_role: segmentRole,
-        base_block: normalizedBaseBlock,
-        additional_hours: normalizedBaseBlock === 'am' ? 0 : additionalHours,
-        area_keys: selectedVenueKeys,
-      };
-    });
-  }
-
-  function finalSubmit() {
-    if (!validateAllBeforeSubmit()) return;
-
-    const finalChargedItems = chargedItems(venueItems, selectedVenueKeys);
-    const finalServiceIds = selectedServiceIds(finalChargedItems);
-    const selectedServiceId = finalServiceIds[0] ?? String(data.service_id || '').trim();
-    const packageName = selectedPackage?.name ?? selectedPackage?.label ?? '';
-    const scheduleMeta = buildScheduleMeta();
-    const scheduleSegmentsPayload = buildScheduleSegmentsPayload();
-    const miceDraft = buildMiceDraft();
+    const miceDraft = buildMiceDraft(data, scheduleSelections, data.event_nature);
+    const chosenPackageName = packageMode === 'packages' ? selectedPackage?.label : 'Manual active service selection';
 
     transform((current) => ({
       ...current,
-      service_id: selectedServiceId,
-      items: serviceItems(finalServiceIds.length ? finalServiceIds : [selectedServiceId]),
-      client_contact_number: current.client_contact_number.replace(/\D+/g, ''),
-      client_address: finalAddress,
-      public_calendar_title: current.public_calendar_title || current.type_of_event,
-      selected_package_code: selectedPackageCode,
-      selected_area_keys: selectedVenueKeys,
-      package_acknowledged: true,
-      dressing_room_selection: current.dressing_room_selection,
-      dressing_room_charge: current.dressing_room_charge,
-      mice_required: isMiceRequired,
-      mice_exemption_reason: isPrivateEvent ? current.mice_exemption_reason || 'Private event - MICE report not required during initial booking.' : '',
-      private_event_type: isPrivateEvent ? current.private_event_type : '',
+      service_id: serviceIds[0] ?? current.service_id,
+      items: serviceIds.map((service_id) => ({ service_id, quantity: 1 })),
+      selected_area_keys: selectedAreaKeys,
+      selected_package_code: packageMode === 'packages' ? selectedPackageCode : '',
+      booking_date_from: buildBookingDateFrom(first),
+      booking_date_to: buildBookingDateTo(last),
       schedule_version: 'segments_v1',
       schedule_meta: scheduleMeta,
-      schedule_segments: scheduleSegmentsPayload,
+      schedule_segments: scheduleSegments,
+      event_nature: current.event_nature,
+      mice_required: current.event_nature === 'public',
+      private_event_type: current.event_nature === 'private' ? current.private_event_type || 'PRIVATE/PERSONAL EVENT' : '',
+      mice_exemption_reason: current.event_nature === 'private' ? 'PRIVATE/PERSONAL EVENT' : '',
+      function_halls_count: current.event_nature === 'private' ? '-' : '1',
+      function_hall_capacity: current.event_nature === 'private' ? '-' : '4000',
+      number_of_hours: String(scheduleTotalHours),
+      company_name: upper(current.company_name),
+      client_name: upper(current.client_name),
+      client_address: upper(current.client_address),
+      client_street_address: upper(current.client_street_address || current.client_address),
+      head_of_organization: upper(current.head_of_organization),
+      type_of_event: upper(current.type_of_event),
+      client_contact_number: current.client_contact_number.replace(/\D/g, ''),
+      comments_feedback: current.comments_feedback.trim() || 'N/A',
+      has_exhibitions: current.event_nature === 'private' ? '-' : current.has_exhibitions,
+      exhibitors_count: current.event_nature === 'private' ? '-' : current.has_exhibitions === 'Yes' ? current.exhibitors_count : '0',
+      visitors_count: current.event_nature === 'private' ? '-' : current.has_exhibitions === 'Yes' ? current.visitors_count : '0',
+      foreign_attendees: current.event_nature === 'private' ? '-' : current.foreign_attendees || '0',
+      domestic_attendees: current.event_nature === 'private' ? '-' : current.domestic_attendees || '0',
+      total_number_of_countries: current.event_nature === 'private' ? '-' : current.total_number_of_countries || '1',
+      countries_breakdown_text: current.event_nature === 'private' ? '-' : upper(current.countries_breakdown_text || 'PHILIPPINES'),
       payment_meta: {
         ...(typeof current.payment_meta === 'object' && current.payment_meta !== null ? current.payment_meta : {}),
-        selected_package_code: selectedPackageCode,
-        selected_package_name: packageName,
-        selected_area_keys: selectedVenueKeys,
-        charged_area_keys: finalChargedItems.map((item) => item.key),
-        charged_area_labels: finalChargedItems.map((item) => item.displayLabel),
-        package_note: packageSelectionLabel(selectedVenueKeys, packageName),
-        selected_date_from: selectedDateRange.from,
-        selected_date_to: selectedDateRange.to,
-        selected_date_count: selectedDateCount,
+        active_charge_scope: 'FULL_HALL_MAIN_HALL_LED_WALL_LOUNGE_BOARDROOM_ONLY',
+        excluded_charge_items: ['LOBBY_STANDALONE', 'BASEMENT', 'SHOP_RENTALS', 'CATERING_MAINTENANCE', 'AIRCONDITIONING', 'STATIONERY_KIT', 'ORDINANCE_SPECIAL_PACKAGES'],
+        selected_package_code: packageMode === 'packages' ? selectedPackageCode : null,
+        selected_package_name: chosenPackageName,
+        selected_area_keys: selectedAreaKeys,
+        selected_area_labels: selectedVenues.map((venue) => venue.shortLabel),
         schedule: scheduleMeta,
-        schedule_segments: scheduleSegmentsPayload,
-        event_nature: current.event_nature,
-        mice_required: isMiceRequired,
+        schedule_segments: scheduleSegments,
+        event_scope: current.event_nature === 'public' ? 'PUBLIC EVENT' : 'PRIVATE/PERSONAL EVENT',
         mice_draft: miceDraft,
-        private_event_type: isPrivateEvent ? current.private_event_type : null,
-        dressing_room_selection: current.dressing_room_selection,
-        dressing_room_charge: current.dressing_room_charge,
-        estimated_base_per_day: estimatedBasePerDay,
-        estimated_base: estimatedBase,
-        estimated_total: estimatedTotal,
+        estimated_base_total: estimatedBaseTotal,
+        hidden_discount_preview: hiddenDiscount,
+        final_estimated_total: finalEstimatedTotal,
+        required_down_payment: requiredDownPayment,
+        required_bond: REQUIRED_BOND,
+        balance_after_down_payment: finalBalance,
+        discount_note: hiddenDiscountNote(),
         reservation_notes: current.reservation_notes,
       },
-      estimated_usage: usage,
-      estimated_duration_hours: String(additionalHours),
-      estimated_other_rentals: current.dressing_room_selection,
-      estimated_additional_charges: current.dressing_room_charge,
+      estimated_usage: scheduleSelections.some((row) => row.block === 'whole_day') ? 'whole_day' : 'half_day',
+      estimated_duration_hours: String(scheduleTotalHours),
+      estimated_other_rentals: '',
+      estimated_additional_charges: '0',
     }));
 
+    const options = {
+      forceFormData: true,
+      preserveScroll: true,
+      onSuccess: () => {
+        setSubmitted(true);
+        setActiveStep(4);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+    };
+
     if (editing && booking?.id) {
-      put(`${bookingBasePath(role)}/${booking.id}`, { forceFormData: true, preserveScroll: true });
+      put(`${bookingBasePath(role)}/${booking.id}`, options);
       return;
     }
 
     const createPath = role === 'admin' ? '/admin/bookings' : role === 'staff' ? '/staff/bookings' : '/book';
-    post(createPath, { forceFormData: true, preserveScroll: true });
+    post(createPath, options);
+  }
+
+  function openFinalPolicyModal() {
+    if (!validateStep(3)) return;
+    setPolicyModalChecked(false);
+    setShowPolicyModal(true);
+  }
+
+  function confirmFinalPolicyAndSubmit() {
+    if (!policyModalChecked) return;
+    setShowPolicyModal(false);
+    submitReservation();
   }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (activeStep < BOOKING_STEPS.length - 1) {
-      continueStep();
+    if (activeStep < 3) {
+      goNext();
       return;
     }
-    finalSubmit();
-  }
-
-  function StepFooter() {
-    const isReview = activeStep === BOOKING_STEPS.length - 1;
-    return (
-      <footer className="booking-step-footer booking-step-footer-sticky">
-        <div className="booking-step-footer-inner">
-          <button type="button" onClick={previousStep} disabled={activeStep === 0 || processing} className="booking-secondary-action booking-footer-previous">
-            <ArrowLeft className="h-4 w-4" />
-            Previous
-          </button>
-          <div className="booking-step-footer-status">
-            <span>Step {activeStep + 1} of {BOOKING_STEPS.length}</span>
-            <strong>{BOOKING_STEPS[activeStep]?.title}</strong>
-          </div>
-          <div className="booking-step-footer-actions">
-            <Link href={backHref} className="booking-ghost-action">Cancel</Link>
-            <button type="submit" disabled={processing || stepLoading} className="booking-primary-action">
-              {processing || stepLoading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : isReview ? <Save className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
-              {isReview ? (editing ? 'Save Booking' : 'Submit Booking') : 'Save & Continue'}
-            </button>
-          </div>
-        </div>
-      </footer>
-    );
-  }
-
-  function PrefillBanner() {
-    if (!hasPublicPrefill) return null;
-    return (
-      <section className="public-booking-prefill-banner p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[var(--bccc-backend-gold)]">Public Selection Applied</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[var(--bccc-backend-text)]">Your selected package/calendar details were pre-filled.</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--bccc-backend-muted)]">Review the selected venue, event details, guest count, and schedule before submitting. Final reservation still depends on BCCC assessment and payment compliance.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selectedPackage ? <span className="booking-prefill-chip is-active">{selectedPackage.name ?? selectedPackage.label}</span> : null}
-            {props.initialVenue ? <span className="booking-prefill-chip is-active">{props.initialVenue}</span> : null}
-            {data.booking_date_from ? <span className="booking-prefill-chip">{formatDateTime(data.booking_date_from)}</span> : null}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  function SummaryLine({ label, value, strong = false }: { label: string; value: ReactNode; strong?: boolean }) {
-    return (
-      <div className="booking-summary-line">
-        <span>{label}</span>
-        <strong className={strong ? 'text-[var(--bccc-backend-gold)]' : ''}>{value}</strong>
-      </div>
-    );
-  }
-
-  function SummaryDrawer() {
-    const summaryTitle = selectedPackage?.name ?? selectedPackage?.label ?? (selectedChargedItems.length > 0 ? selectedChargedItems.map((item) => item.displayLabel).join(' + ') : 'No area selected');
-    return (
-      <>
-        <button type="button" className="booking-summary-fab" onClick={() => setSummaryOpen(true)} aria-label="Open reservation summary">
-          <ReceiptText className="h-4 w-4" />
-          Summary
-        </button>
-        <div className={cx('booking-summary-overlay', summaryOpen && 'is-open')} onClick={() => setSummaryOpen(false)} />
-        <aside className={cx('booking-summary-drawer', summaryOpen && 'is-open')} aria-hidden={!summaryOpen}>
-          <header className="flex items-start justify-between gap-4 border-b border-[var(--bccc-backend-line)] p-5">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[var(--bccc-backend-gold)]">Live Reservation Summary</p>
-              <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[var(--bccc-backend-text)]">{summaryTitle}</h3>
-              <p className="mt-2 text-sm leading-7 text-[var(--bccc-backend-muted)]">{SCHEDULE_BASE_BLOCKS[baseBlock].label}{additionalHours > 0 ? ` + ${additionalHours} evening hour(s)` : ''}</p>
-            </div>
-            <button type="button" onClick={() => setSummaryOpen(false)} className="booking-icon-button"><X className="h-5 w-5" /></button>
-          </header>
-          <div className="grid gap-4 p-5">
-            <SummaryLine label="Venue charge" value={money(estimatedBase)} />
-            <SummaryLine label="Dressing Room" value={money(selectedDressingCharge)} />
-            <SummaryLine label="Estimated Total" value={money(estimatedTotal)} strong />
-            <SummaryLine label="Event" value={data.type_of_event || 'Not encoded yet'} />
-            <SummaryLine label="Organizer" value={data.company_name || data.client_name || 'Not encoded yet'} />
-            <SummaryLine label="Schedule" value={`${formatDateTime(data.booking_date_from)} → ${formatDateTime(data.booking_date_to)}`} />
-            <SummaryLine label="MICE" value={isMiceRequired ? 'Required' : 'Private event exemption'} />
-            <button type="button" onClick={() => { setShowDigitalForm((current) => !current); setSummaryOpen(false); }} className="booking-secondary-action justify-center">
-              {showDigitalForm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              {showDigitalForm ? 'Hide Digital Form' : 'View Digital Form'}
-            </button>
-          </div>
-        </aside>
-      </>
-    );
-  }
-
-  function DigitalFormPanel() {
-    if (!showDigitalForm) return null;
-    return (
-      <section className="booking-digital-form">
-        <header className="flex flex-col gap-3 border-b border-[var(--bccc-backend-line)] p-5 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[var(--bccc-backend-gold)]">Official Preview</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-[var(--bccc-backend-text)]">Digital Reservation and MICE Intake Form</h2>
-          </div>
-          <button type="button" onClick={() => setShowDigitalForm(false)} className="booking-ghost-action">Hide</button>
-        </header>
-        <div className="grid gap-5 p-5 lg:grid-cols-2">
-          <ReviewGrid items={[
-            ['Organization', data.company_name],
-            ['Event', data.type_of_event],
-            ['Event Nature', isMiceRequired ? 'MICE/reportable' : 'Private event'],
-            ['Classification', isMiceRequired ? data.classification_of_event : 'Private'],
-            ['MICE Type', isMiceRequired ? data.mice_type_of_event : data.private_event_type],
-            ['Contact Person', data.client_name],
-            ['Contact Number', data.client_contact_number],
-            ['Email', data.client_email],
-            ['Address', finalAddress],
-            ['Venue', selectedPackage?.name ?? selectedChargedItems.map((item) => item.displayLabel).join(' + ')],
-            ['Schedule', `${formatDateTime(data.booking_date_from)} → ${formatDateTime(data.booking_date_to)}`],
-            ['Guests', data.number_of_guests],
-            ['Estimated Total', money(estimatedTotal)],
-          ]} />
-          <div className="border border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel-muted)] p-5 text-sm leading-7 text-[var(--bccc-backend-muted)]">
-            <p className="font-semibold text-[var(--bccc-backend-text)]">This preview follows the new connected booking intake.</p>
-            <p className="mt-2">MICE details are carried inside the booking payload as a draft and can be finalized in the official registry/print flow after booking creation.</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  function renderPackageStep() {
-    const publicPackages = packageOptions.filter((packageOption) => packageOption.is_public !== false);
-    const featuredPackages = publicPackages.length > 0 ? publicPackages : packageOptions;
-    const showingManual = packageSelectionMode === 'manual' || featuredPackages.length === 0;
-
-    return (
-      <section className="booking-step-panel booking-package-screen-step booking-venue-package-stage">
-        <WizardNotice errors={stepErrors} />
-
-        <div className="booking-step-kicker"><PackageCheck className="h-4 w-4" /> Package and venue areas</div>
-        <div className="booking-step-heading booking-package-heading-row">
-          <div>
-            <h2>Choose a public package or build your own area set</h2>
-            <p>Public packages use visual cards. Manual selection hides packages and opens the exact venue areas. Full Hall does not automatically include VIP Lounge, Board Room, or LED Wall.</p>
-          </div>
-
-          <div className="booking-package-mode-switch" role="tablist" aria-label="Package selection mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={!showingManual}
-              onClick={() => setPackageSelectionMode('packages')}
-              className={cx(!showingManual && 'is-active')}
-              disabled={featuredPackages.length === 0}
-            >
-              <Sparkles className="h-4 w-4" />
-              Public Packages
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={showingManual}
-              onClick={switchToManualSelection}
-              className={cx(showingManual && 'is-active')}
-            >
-              <Pencil className="h-4 w-4" />
-              Manual Selection
-            </button>
-          </div>
-        </div>
-
-        {!showingManual ? (
-          <div className="booking-public-package-carousel-shell">
-            <div className="booking-package-carousel-header">
-              <div>
-                <p className="booking-mini-heading">Public venue combinations</p>
-                <h3>Swipe through curated BCCC packages.</h3>
-              </div>
-              <div className="booking-package-carousel-controls" aria-label="Package carousel controls">
-                <button type="button" onClick={() => scrollPackageCarousel(-1)} aria-label="Previous packages">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button type="button" onClick={() => scrollPackageCarousel(1)} aria-label="Next packages">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="booking-public-package-gallery booking-public-package-carousel" ref={packageCarouselRef}>
-              {featuredPackages.map((packageOption, index) => {
-                const active = selectedPackageCode === packageOption.code;
-                const imagePath = packageOption.image_path || DEFAULT_BOOKING_IMAGE;
-                const areas = packageOption.area_labels ?? venueKeysFromPackage(packageOption);
-
-                return (
-                  <button
-                    type="button"
-                    key={packageOption.code}
-                    onClick={() => selectPackage(packageOption)}
-                    className={cx('booking-public-package-card booking-public-package-slide group', active && 'is-selected')}
-                    aria-pressed={active}
-                  >
-                    <span className="booking-package-image-wrap">
-                      <img
-                        src={imagePath}
-                        alt={packageOption.name ?? packageOption.label ?? packageOption.code}
-                        loading="lazy"
-                        onError={(event) => {
-                          event.currentTarget.src = DEFAULT_BOOKING_IMAGE;
-                        }}
-                      />
-                      <span className="booking-package-image-shade" />
-                      <span className="booking-package-badge">{packageOption.is_featured ? 'Suggested package' : 'Public package'}</span>
-                      {active ? <span className="booking-package-selected-mark"><Check className="h-4 w-4" /> Selected</span> : null}
-                    </span>
-
-                    <span className="booking-public-package-content">
-                      <span className="booking-package-code">{String(packageOption.code).replace(/_/g, ' ')}</span>
-                      <strong>{packageOption.name ?? packageOption.label ?? packageOption.code}</strong>
-                      <small>{packageOption.subtitle ?? packageOption.description ?? 'Choose this prepared venue combination.'}</small>
-                      <span className="booking-package-area-list">
-                        {areas.map((label) => <em key={String(label)}>{String(label)}</em>)}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="booking-manual-area-panel booking-manual-area-panel-cinematic">
-            <div className="booking-manual-area-intro">
-              <div>
-                <p className="booking-mini-heading">Manual area selection</p>
-                <h3>Select exact areas through the image wall.</h3>
-                <span>Each panel has its own built-in image. Selected panels stay expanded and divide the background by area.</span>
-              </div>
-              {featuredPackages.length > 0 ? (
-                <button type="button" onClick={() => setPackageSelectionMode('packages')} className="booking-secondary-action">
-                  Back to packages
-                </button>
-              ) : null}
-            </div>
-
-            <div ref={packageCarouselRef} className="booking-area-split-stage" aria-label="Manual BCCC area image selector">
-              {venueItems.map((item, index) => {
-                const selected = selectedVenueKeys.includes(item.key);
-                const previewing = previewVenueKey === item.key;
-                return (
-                  <button
-                    type="button"
-                    key={item.key}
-                    data-venue-key={item.key}
-                    disabled={!item.configured}
-                    onClick={() => selectVenue(item)}
-                    onMouseEnter={() => setPreviewVenueKey(item.key)}
-                    onFocus={() => setPreviewVenueKey(item.key)}
-                    className={cx('booking-area-split-card', selected && 'is-selected', previewing && 'is-previewing', !item.configured && 'is-disabled')}
-                    aria-pressed={selected}
-                  >
-                    <span className="booking-area-split-image">
-                      <img src={item.image || DEFAULT_BOOKING_IMAGE} alt={item.displayLabel} onError={(event) => { event.currentTarget.src = DEFAULT_BOOKING_IMAGE; }} />
-                    </span>
-                    <span className="booking-area-split-shade" />
-                    <span className="booking-area-split-number">{String(index + 1).padStart(2, '0')}</span>
-                    <span className="booking-area-split-copy">
-                      <em>{item.category === 'package' ? 'Area base' : 'Individual area'}</em>
-                      <strong>{item.displayLabel}</strong>
-                      <small>{item.configured ? item.subtitle : 'Missing backend rental option'}</small>
-                    </span>
-                    {selected ? <span className="booking-area-split-check"><Check className="h-4 w-4" /> Selected</span> : null}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="booking-area-selected-strip">
-              <span>Selected</span>
-              <strong>{selectedChargedItems.length > 0 ? selectedChargedItems.map((item) => item.displayLabel).join(' + ') : 'Choose at least one area'}</strong>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
-          <Field label="Usage Preview">
-            <select value={usage} onChange={(event) => setUsage(event.target.value as BookingUsageKey)} className="backend-booking-input">
-              <option value="whole_day">Whole Day</option>
-              <option value="half_day">Half Day</option>
-              <option value="additional_hour">Additional Hour pricing preview</option>
-            </select>
-          </Field>
-          <div className="booking-charge-card lg:col-span-2">
-            <div><p>Per Day Estimate</p><strong>{money(estimatedBasePerDay)}</strong></div>
-            <div><p>Selected Days</p><strong>{selectedDateCount}</strong></div>
-            <div><p>Estimated Venue Charge</p><strong>{money(estimatedBase)}</strong></div>
-            <span>{packageSelectionLabel(selectedVenueKeys, selectedPackage?.name ?? selectedPackage?.label)}</span>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  function renderEventStep() {
-    return (
-      <section className="booking-step-panel">
-        <div className="booking-step-kicker"><ClipboardList className="h-4 w-4" /> Event identity</div>
-        <div className="booking-step-heading">
-          <h2>Identify the event first</h2>
-          <p>The rest of the form unlocks based on whether the event is MICE/reportable or a private event.</p>
-        </div>
-        <WizardNotice errors={stepErrors} />
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Event Nature" required error={fieldError('event_nature')}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <button type="button" onClick={() => handleEventNatureChange('mice')} className={cx('booking-checkbox-card text-left', data.event_nature === 'mice' && 'is-selected')}>
-                <span><strong>MICE / reportable event</strong><small>Meeting, seminar, convention, exhibit, workshop, government/corporate activity.</small></span>
-              </button>
-              <button type="button" onClick={() => handleEventNatureChange('private')} className={cx('booking-checkbox-card text-left', data.event_nature === 'private' && 'is-selected')}>
-                <span><strong>Private event</strong><small>Wedding, birthday, family event, or private social activity.</small></span>
-              </button>
-            </div>
-          </Field>
-
-          <Field label="Event's Name / Title" required error={fieldError('type_of_event')}>
-            <input value={data.type_of_event} onChange={(event) => { setData('type_of_event', event.target.value); if (!data.public_calendar_title) setData('public_calendar_title', event.target.value); }} className={cx('backend-booking-input', fieldStatusClass(fieldError('type_of_event')))} placeholder="Example: 2026 Regional Tourism Summit" />
-          </Field>
-
-          {isMiceRequired ? (
-            <>
-              <Field label="Classification of the Event" required error={fieldError('classification_of_event')}>
-                <select value={data.classification_of_event} onChange={(event) => setData('classification_of_event', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('classification_of_event')))}>
-                  {classificationOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}
-                </select>
-              </Field>
-              {data.classification_of_event === 'OTHER' ? (
-                <Field label="Other Classification" required error={fieldError('classification_other')}>
-                  <input value={data.classification_other} onChange={(event) => setData('classification_other', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('classification_other')))} />
-                </Field>
-              ) : null}
-              <Field label="Type of the Event" required error={fieldError('mice_type_of_event')}>
-                <select value={data.mice_type_of_event} onChange={(event) => setData('mice_type_of_event', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('mice_type_of_event')))}>
-                  {miceTypeOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}
-                </select>
-              </Field>
-              {data.mice_type_of_event === 'OTHERS' ? (
-                <Field label="Specify Other Event Type" required error={fieldError('mice_type_other')}>
-                  <input value={data.mice_type_other} onChange={(event) => setData('mice_type_other', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('mice_type_other')))} />
-                </Field>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <Field label="Private Event Type" required error={fieldError('private_event_type')}>
-                <select value={data.private_event_type} onChange={(event) => setData('private_event_type', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('private_event_type')))}>
-                  <option value="">Select private event type</option>
-                  {privateEventOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}
-                </select>
-              </Field>
-              <Field label="MICE Exemption Note">
-                <input value={data.mice_exemption_reason} onChange={(event) => setData('mice_exemption_reason', event.target.value)} className="backend-booking-input" placeholder="Private event - MICE report not required during initial booking." />
-              </Field>
-            </>
-          )}
-        </div>
-      </section>
-    );
-  }
-
-  function renderOrganizerStep() {
-    return (
-      <section className="booking-step-panel">
-        <div className="booking-step-kicker"><UserRound className="h-4 w-4" /> Organizer details</div>
-        <div className="booking-step-heading"><h2>Enter organizer contact details</h2><p>These values are reused by the MICE report and official reservation preview.</p></div>
-        <WizardNotice errors={stepErrors} />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Organization Type" required>
-            <select value={data.organization_type} onChange={(event) => setData('organization_type', event.target.value)} className="backend-booking-input">
-              {FALLBACK_ORGANIZATION_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </Field>
-          <Field label={data.organization_type === 'Private' ? "Name of Organization of the Organizer (optional)" : "Name of Organization of the Organizer"} required={data.organization_type !== 'Private'} error={fieldError('company_name')}>
-            <input value={data.company_name} onChange={(event) => setData('company_name', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('company_name')))} placeholder={data.organization_type === 'Private' ? "Optional for private organizers" : "Organization name"} />
-          </Field>
-          <Field label="Head of Organization">
-            <input value={data.head_of_organization} onChange={(event) => setData('head_of_organization', event.target.value)} className="backend-booking-input" placeholder="Optional" />
-          </Field>
-          <Field label="Contact Person of the Organizer" required error={fieldError('client_name')}>
-            <input value={data.client_name} onChange={(event) => setData('client_name', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('client_name')))} placeholder="Full name" />
-          </Field>
-          <Field label="Contact Number of the Organizer" required error={fieldError('client_contact_number')} helper="Use 09XXXXXXXXX format.">
-            <input value={data.client_contact_number} onChange={(event) => setData('client_contact_number', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('client_contact_number')))} placeholder="09171234567" inputMode="tel" />
-          </Field>
-          <Field label="Email Address" required error={fieldError('client_email')}>
-            <input value={data.client_email} onChange={(event) => { setData('client_email', event.target.value); if (!data.survey_email) setData('survey_email', event.target.value); }} className={cx('backend-booking-input', fieldStatusClass(fieldError('client_email')))} type="email" placeholder="name@example.com" disabled={isClient && editing} />
-          </Field>
-          <Field label="Public Calendar Title">
-            <input value={data.public_calendar_title} onChange={(event) => setData('public_calendar_title', event.target.value)} className="backend-booking-input" placeholder="Optional public-facing title" />
-          </Field>
-        </div>
-      </section>
-    );
-  }
-
-  function renderAddressStep() {
-    return (
-      <section className="booking-step-panel">
-        <div className="booking-step-kicker"><MapPin className="h-4 w-4" /> Organizer address</div>
-        <div className="booking-step-heading"><h2>Complete the connected address</h2><p>Region, province, city, barangay, and ZIP code are linked. Choose Other / Manual Input when the exact street or locality is not listed.</p></div>
-        <WizardNotice errors={stepErrors} />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Region" required error={fieldError('client_region')}>
-            <select value={data.client_region} onChange={(event) => handleAddressRegionChange(event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('client_region')))}>
-              {PHILIPPINES_ADDRESS_OPTIONS.map((region) => <option key={region.code} value={region.code}>{region.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Province" required error={fieldError('client_province')}>
-            <select value={data.client_province} onChange={(event) => handleAddressProvinceChange(event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('client_province')))}>
-              {selectedRegion.provinces.map((provinceOption) => <option key={provinceOption.name} value={provinceOption.name}>{provinceOption.name}</option>)}
-            </select>
-          </Field>
-          <Field label="City / Municipality" required error={fieldError('client_city_municipality')}>
-            <select value={data.client_city_municipality} onChange={(event) => handleAddressCityChange(event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('client_city_municipality')))}>
-              {selectedProvince.cities.map((cityOption) => <option key={cityOption.name} value={cityOption.name}>{cityOption.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Barangay">
-            <select value={data.client_barangay} onChange={(event) => setData('client_barangay', event.target.value)} className="backend-booking-input">
-              <option value="">Select barangay</option>
-              {selectedCity.barangays.map((barangay) => <option key={barangay.name} value={barangay.name}>{barangay.name}</option>)}
-            </select>
-          </Field>
-          <Field label="ZIP Code">
-            <input value={data.client_zip_code} onChange={(event) => setData('client_zip_code', event.target.value)} className="backend-booking-input" inputMode="numeric" placeholder="Auto-filled when available" />
-          </Field>
-          <Field label="Street / Building / Exact Address" required error={fieldError('client_street_address')}>
-            <input value={data.client_street_address} onChange={(event) => { setData('client_street_address', event.target.value); setData('client_address', event.target.value); }} className={cx('backend-booking-input', fieldStatusClass(fieldError('client_street_address')))} placeholder="House / building / street, or choose Other then type manually" />
-          </Field>
-        </div>
-        {data.client_barangay === OTHER_ADDRESS_VALUE || data.client_city_municipality === OTHER_ADDRESS_VALUE ? (
-          <div className="booking-schedule-note mt-4">Manual locality selected. Please type the exact address clearly in the street address field.</div>
-        ) : null}
-        <div className="booking-generated-address"><p>Generated Full Address</p><strong>{finalAddress || 'Complete the address fields to generate full address.'}</strong></div>
-      </section>
-    );
+    openFinalPolicyModal();
   }
 
   function renderScheduleStep() {
-    const monthDays = calendarDaysForMonth(calendarCursor);
-    const daysCount = inclusiveDateCount(selectedDateRange.from, selectedDateRange.to);
-    const canAddHours = baseBlock === 'PM' || baseBlock === 'WHOLE_DAY';
-    const scheduleSegmentsPreview = buildScheduleSegmentsPayload();
-    const selectedAreaLabel = selectedChargedItems.length > 0 ? selectedChargedItems.map((item) => item.displayLabel).join(' + ') : 'No area selected';
-    const additionalEndLabel = additionalHours > 0 ? `until ${String(18 + additionalHours).padStart(2, '0')}:00` : 'No extension';
+    const monthDays = daysForMonth(calendarCursor);
+    const selectedDates = new Set(scheduleSelections.map((row) => row.date));
+    const today = todayDate();
 
     return (
-      <section className="booking-step-panel booking-schedule-step-panel">
-        <div className="booking-step-kicker"><CalendarDays className="h-4 w-4" /> Operational schedule planner</div>
-        <div className="booking-step-heading">
-          <h2>Select the exact booking range and time coverage</h2>
-          <p>This is now the detailed operational calendar. It prepares ingress, event, egress, AM/PM/Whole Day, and additional-hour segments for backend conflict validation.</p>
-        </div>
-        <WizardNotice errors={stepErrors} />
-
-        <div className="booking-operational-calendar-shell">
-          <section className="booking-calendar-card booking-calendar-card-detailed">
-            <header className="booking-calendar-header">
-              <button type="button" onClick={() => setCalendarCursor((current) => addMonthsToInputDate(current, -1))} className="booking-calendar-nav"><ChevronLeft className="h-4 w-4" /></button>
-              <div>
-                <p>Package-aware calendar</p>
-                <h3>{calendarMonthTitle(calendarCursor)}</h3>
-                <span>{selectedAreaLabel}</span>
+      <SectionShell kicker="Step 01 · Schedule" title="Choose the reservation dates first" description="The calendar owns the full left side. Selected dates are summarized on the right with AM, PM, Whole Day, and additional-hours controls." icon={<CalendarDays className="h-4 w-4" />}>
+        <div className="grid min-h-[680px] gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+          <div className="border border-slate-200 bg-slate-50/70 p-3">
+            <div className="mb-3 flex items-center justify-between border border-slate-200 bg-white px-3 py-2">
+              <button type="button" onClick={() => setCalendarCursor((current) => shiftMonth(current, -1))} className="grid h-10 w-10 place-items-center border border-slate-200 bg-white transition hover:border-[#164734] hover:text-[#164734]"><ChevronLeft className="h-4 w-4" /></button>
+              <div className="text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#a88633]">BCCC Calendar</p>
+                <h3 className="text-xl font-semibold text-slate-950">{monthLabel(calendarCursor)}</h3>
               </div>
-              <button type="button" onClick={() => setCalendarCursor((current) => addMonthsToInputDate(current, 1))} className="booking-calendar-nav"><ChevronRight className="h-4 w-4" /></button>
-            </header>
-
-            <div className="booking-calendar-weekdays">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}</div>
-            <div className="booking-calendar-grid booking-calendar-grid-operational">
+              <button type="button" onClick={() => setCalendarCursor((current) => shiftMonth(current, 1))} className="grid h-10 w-10 place-items-center border border-slate-200 bg-white transition hover:border-[#164734] hover:text-[#164734]"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+            <div className="grid grid-cols-7 border-l border-t border-slate-200 bg-white">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <div key={day} className="border-b border-r border-slate-200 bg-[#164734] px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-white">{day}</div>)}
               {monthDays.map((day) => {
-                const selected = isCalendarDateSelected(day.date);
-                const edge = isCalendarDateEdge(day.date);
-                const anchor = rangeClickAnchor === day.date;
-                const isStart = day.date === selectedDateRange.from;
-                const isEnd = day.date === selectedDateRange.to;
+                const isSelected = selectedDates.has(day.date);
+                const isToday = day.date === today;
+                const isAnchor = rangeAnchor === day.date;
                 return (
                   <button
-                    type="button"
                     key={day.date}
-                    onClick={() => handleCalendarDateClick(day.date)}
-                    className={cx('booking-calendar-day booking-calendar-day-operational', !day.inMonth && 'is-muted', selected && 'is-selected', edge && 'is-edge', anchor && 'is-anchor')}
+                    type="button"
+                    onClick={() => selectCalendarDate(day.date)}
+                    className={cx(
+                      'group relative min-h-[92px] border-b border-r border-slate-200 p-2 text-left transition duration-300 hover:bg-[#fff7df]',
+                      !day.inMonth && 'bg-slate-50 text-slate-300',
+                      isSelected && 'bg-[#164734] text-white hover:bg-[#164734]',
+                      isAnchor && 'ring-2 ring-inset ring-[#d6b56d]',
+                    )}
                   >
-                    <span className="booking-calendar-day-number">{day.day}</span>
-                    <small>{isStart ? 'Start' : isEnd ? 'End' : selected ? 'Selected' : 'Tap'}</small>
-                    {selected ? <em>{SCHEDULE_BASE_BLOCKS[baseBlock].label}</em> : null}
+                    <span className={cx('grid h-8 w-8 place-items-center rounded-full text-sm font-semibold', isToday && !isSelected ? 'bg-[#d6b56d] text-[#164734]' : '')}>{Number(day.date.slice(-2))}</span>
+                    {isSelected ? <span className="absolute bottom-2 left-2 right-2 truncate border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">Selected</span> : null}
                   </button>
                 );
               })}
             </div>
+          </div>
 
-            <div className="booking-calendar-instruction-row">
-              <div><span>1</span><strong>{rangeClickAnchor ? 'Select the final date' : 'Click start date'}</strong></div>
-              <div><span>2</span><strong>{rangeClickAnchor ? formatDateOnly(rangeClickAnchor) : 'Click end date'}</strong></div>
-              <div><span>3</span><strong>Choose AM / PM / Whole Day</strong></div>
+          <aside className="sticky top-24 h-fit border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 bg-[#f8f3e6] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">Selected Dates</p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-950">{scheduleTotalDays} day(s) · {scheduleTotalHours} hour(s)</h3>
             </div>
-          </section>
-
-          <aside className="booking-schedule-command-panel">
-            <div className="booking-schedule-summary-card">
-              <p className="booking-mini-heading">Selected Schedule</p>
-              <div className="booking-schedule-range-display">
-                <div><span>From</span><strong>{formatDateOnly(selectedDateRange.from)}</strong></div>
-                <div><span>To</span><strong>{formatDateOnly(selectedDateRange.to)}</strong></div>
-                <div><span>Total Days</span><strong>{daysCount}</strong></div>
-              </div>
-              <label className="booking-checkbox-card">
-                <input type="checkbox" checked={hasIngress} onChange={(event) => setHasIngress(event.target.checked)} />
-                <span><strong>First date has ingress/setup/preparation</strong><small>If enabled, the last selected date is automatically marked as egress/pack-out.</small></span>
+            <div className="max-h-[470px] overflow-y-auto p-3">
+              {scheduleSelections.map((selection) => (
+                <div key={selection.date} className="mb-3 border border-slate-200 bg-white p-3 last:mb-0">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <strong className="text-sm text-slate-950">{displayDate(selection.date)}</strong>
+                    <button type="button" onClick={() => setScheduleSelections((current) => current.filter((row) => row.date !== selection.date))} className="grid h-7 w-7 place-items-center border border-slate-200 text-slate-500 transition hover:border-red-300 hover:text-red-600" disabled={scheduleSelections.length === 1}><Minus className="h-3.5 w-3.5" /></button>
+                  </div>
+                  <div className="grid grid-cols-[minmax(0,4fr)_minmax(72px,1fr)] gap-2">
+                    <select value={selection.block} onChange={(event) => patchSelection(selection.date, { block: event.target.value as ScheduleBlock })} className={inputClass()}>
+                      <option value="am">AM</option>
+                      <option value="pm">PM</option>
+                      <option value="whole_day">WHOLE DAY</option>
+                    </select>
+                    <select value={selection.additionalHours} onChange={(event) => patchSelection(selection.date, { additionalHours: Number(event.target.value) })} className={inputClass()} aria-label="Additional hours">
+                      {Array.from({ length: MAX_ADDITIONAL_HOURS + 1 }, (_, hour) => <option key={hour} value={hour}>{hour}h</option>)}
+                    </select>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">{blockLabel(selection.block)} · {blockBaseHours(selection.block)} base hour(s) + {selection.additionalHours} additional hour(s)</p>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-slate-100 p-4">
+              <label className="flex items-start gap-3 border border-dashed border-[#d6b56d] bg-[#fff8e6] p-3 text-sm text-slate-700">
+                <input type="checkbox" checked={ingressPrep} onChange={(event) => setIngressPrep(event.target.checked)} className="mt-1" />
+                <span><strong className="block text-slate-950">Ingress / setup / preparation</strong><small className="mt-1 block leading-5 text-slate-600">Discount details stay hidden until final computation and BCCC assessment.</small></span>
               </label>
-              <div className="booking-time-blocks">
-                {(['AM', 'PM', 'WHOLE_DAY'] as ScheduleBaseBlock[]).map((block) => (
-                  <button type="button" key={block} onClick={() => handleBaseBlockChange(block)} className={cx('booking-time-block-card', baseBlock === block && 'is-selected')}>
-                    <span>{block === 'WHOLE_DAY' ? 'DAY' : block}</span>
-                    <strong>{SCHEDULE_BASE_BLOCKS[block].label}</strong>
-                    <small>{SCHEDULE_BASE_BLOCKS[block].helper}</small>
-                  </button>
-                ))}
-              </div>
-              <Field label="Additional Hours after 6:00 PM" helper={canAddHours ? `Allowed after ${SCHEDULE_BASE_BLOCKS[baseBlock].label}; ${additionalEndLabel}.` : 'Not available for AM bookings.'} error={fieldError('additional_hours')}>
-                <select value={additionalHours} onChange={(event) => handleAdditionalHourChange(Number(event.target.value))} className="backend-booking-input" disabled={!canAddHours}>
-                  {ADDITIONAL_HOUR_OPTIONS.map((hours) => <option key={hours} value={hours}>{hours === 0 ? 'No additional hours' : `${hours} hour(s)`}</option>)}
-                </select>
-              </Field>
-            </div>
-
-            <div className="booking-charge-card booking-charge-card-compact">
-              <div><p>Venue Estimate</p><strong>{money(estimatedBase)}</strong></div>
-              <div><p>Dressing Room</p><strong>{money(selectedDressingCharge)}</strong></div>
-              <div><p>Total Estimate</p><strong>{money(estimatedTotal)}</strong></div>
-              <span>Backend validation checks the final selected areas, date segments, calendar blocks, and existing bookings before saving.</span>
+              {mergedErrors.schedule ? <p className="mt-3 text-sm font-semibold text-red-600">{mergedErrors.schedule}</p> : null}
             </div>
           </aside>
         </div>
+      </SectionShell>
+    );
+  }
 
-        <section className="booking-segment-preview-panel">
-          <div className="booking-segment-preview-header">
-            <div>
-              <p className="booking-mini-heading">Per-date schedule segments</p>
-              <h3>{hasIngress ? 'Ingress, event proper, and egress are prepared automatically.' : 'All selected dates are marked as event proper.'}</h3>
+  function renderServicesStep() {
+    return (
+      <SectionShell kicker="Step 02 · Package / Services" title="Choose only the active BCCC charge items" description="Lobby is included with Full Hall. Basement, shop rentals, catering maintenance, air-conditioning, stationery kit, and ordinance special packages are not shown as booking charges." icon={<PackageCheck className="h-4 w-4" />}>
+        <div className="grid min-h-[680px] gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+          <div>
+            <div className="mb-4 flex justify-center">
+              <div className="inline-flex border border-slate-200 bg-white p-1 shadow-sm">
+                <button type="button" onClick={() => { setPackageMode('packages'); choosePackage(selectedPackage); }} className={cx('px-5 py-2 text-sm font-semibold uppercase tracking-[0.16em] transition', packageMode === 'packages' ? 'bg-[#164734] text-white' : 'text-slate-600 hover:bg-slate-50')}>Packages</button>
+                <button type="button" onClick={() => setPackageMode('manual')} className={cx('px-5 py-2 text-sm font-semibold uppercase tracking-[0.16em] transition', packageMode === 'manual' ? 'bg-[#164734] text-white' : 'text-slate-600 hover:bg-slate-50')}>Manual Selection</button>
+              </div>
             </div>
-            <span>{scheduleSegmentsPreview.length} segment{scheduleSegmentsPreview.length === 1 ? '' : 's'}</span>
+
+            {packageMode === 'packages' ? (
+              <div className="grid gap-2">
+                {packages.map((pkg, index) => {
+                  const active = selectedPackageCode === pkg.code;
+                  return (
+                    <button key={pkg.code} type="button" onClick={() => choosePackage(pkg)} className={cx('group relative min-h-[112px] overflow-hidden border text-left transition duration-300', active ? 'border-[#d6b56d] shadow-lg ring-2 ring-[#d6b56d]/40' : 'border-slate-200 hover:border-[#d6b56d]')}>
+                      <img src={pkg.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                      <span className="absolute inset-0 bg-gradient-to-r from-black/78 via-black/38 to-black/70" />
+                      <span className="relative flex min-h-[112px] items-center justify-between gap-4 p-4 text-white">
+                        <span className="flex items-center gap-4">
+                          <span className="grid h-12 w-12 place-items-center border border-white/35 bg-white/10 text-sm font-semibold">{String(index + 1).padStart(2, '0')}</span>
+                          <span>
+                            <strong className="block text-2xl font-semibold uppercase tracking-[0.08em]">{pkg.label}</strong>
+                            <small className="mt-1 block max-w-2xl text-sm leading-5 text-white/75">{pkg.subtitle}</small>
+                            <small className="mt-2 block text-xs uppercase tracking-[0.2em] text-[#f2d58b]">{pkg.areaKeys.map((key) => selectedVenueByKey(key).shortLabel).join(' + ')}</small>
+                          </span>
+                        </span>
+                        <span className="hidden min-w-[230px] text-right lg:block">
+                          <strong className="block text-xl font-semibold">{money(pkg.areaKeys.reduce((sum, key) => sum + selectedVenueByKey(key).rates.wholeDay, 0))}</strong>
+                          <small className="block text-white/70">Whole day</small>
+                          <small className="mt-1 block text-[#f2d58b]">{packagePriceLabel(pkg)}</small>
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid gap-0">
+                {ACTIVE_VENUES.map((venue) => {
+                  const active = selectedAreaKeys.includes(venue.key);
+                  return (
+                    <button key={venue.key} type="button" onClick={() => toggleArea(venue.key)} className={cx('group relative min-h-[118px] overflow-hidden border-x border-t text-left transition duration-300 last:border-b', active ? 'z-10 border-[#d6b56d] shadow-lg ring-2 ring-[#d6b56d]/40' : 'border-slate-200 hover:border-[#d6b56d]')}>
+                      <img src={venue.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
+                      <span className="absolute inset-0 bg-gradient-to-r from-black/82 via-black/30 to-black/75" />
+                      <span className="relative flex min-h-[118px] items-center justify-between gap-4 p-4 text-white">
+                        <span className="flex min-w-0 items-center gap-4">
+                          <span className="group/number relative grid h-14 w-14 shrink-0 place-items-center border border-white/35 bg-white/10 text-sm font-semibold">
+                            {venue.number}
+                            <span className="pointer-events-none absolute left-16 top-0 w-[260px] translate-y-2 border border-white/20 bg-black/75 p-3 text-left text-xs font-normal leading-5 text-white/80 opacity-0 shadow-xl backdrop-blur transition duration-300 group-hover/number:translate-y-0 group-hover/number:opacity-100">{venue.description}</span>
+                          </span>
+                          <span className="min-w-0">
+                            <strong className="block truncate text-3xl font-semibold uppercase tracking-[0.08em]">{venue.label}</strong>
+                            <small className="mt-1 block max-w-2xl truncate text-sm text-white/75">{venue.inclusions.join(' · ')}</small>
+                          </span>
+                        </span>
+                        <span className="min-w-[210px] text-right">
+                          <strong className="block text-xl font-semibold">{money(venue.rates.wholeDay)}</strong>
+                          <small className="block text-white/70">Whole day</small>
+                          <small className="mt-1 block text-[#f2d58b]">{money(venue.rates.halfDay)} half · {money(venue.rates.extraHour)}/hr</small>
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {mergedErrors.selected_area_keys ? <p className="mt-3 text-sm font-semibold text-red-600">{mergedErrors.selected_area_keys}</p> : null}
           </div>
-          <div className="booking-segment-preview-grid">
-            {scheduleSegmentsPreview.map((segment, index) => {
-              const roleLabel = segment.segment_role === 'ingress' ? 'Ingress / setup' : segment.segment_role === 'egress' ? 'Egress / pack-out' : 'Event proper';
-              const blockLabel = segment.base_block === 'whole_day' ? 'Whole Day · 6:00 AM – 6:00 PM' : segment.base_block === 'pm' ? 'PM · 12:00 PM – 6:00 PM' : 'AM · 6:00 AM – 12:00 PM';
-              return (
-                <article key={`${segment.date}-${index}`} className="booking-segment-card">
-                  <div>
-                    <span>{roleLabel}</span>
-                    <strong>{formatDateOnly(segment.date)}</strong>
+
+          <ComputationAside title="Service Computation" subtitle={`${scheduleTotalDays} day(s) · ${scheduleTotalHours} hour(s)`} hideDiscount={activeStep < 3} rows={scheduleSelections} areaKeys={selectedAreaKeys} ingressPrep={ingressPrep} />
+        </div>
+      </SectionShell>
+    );
+  }
+
+  function renderContactStep() {
+    const isPublic = data.event_nature === 'public';
+    return (
+      <SectionShell kicker="Step 03 · Contact Details" title="Complete organizer, event, and MICE information" description="Public events collect MICE statistical fields. Private/personal events skip the MICE tourism statistics and store skipped values as dashes." icon={<UserRound className="h-4 w-4" />}>
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+          <div className="grid gap-4">
+            <div className="grid gap-4 border border-slate-200 bg-white p-4 lg:grid-cols-2">
+              <div className="lg:col-span-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">Event Scope</p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <button type="button" onClick={() => { setData('event_nature', 'public'); setData('mice_required', true); }} className={cx('border p-4 text-left transition duration-300', isPublic ? 'border-[#164734] bg-[#164734] text-white shadow-md' : 'border-slate-200 bg-white hover:border-[#164734]')}><strong className="block text-lg">PUBLIC EVENT</strong><small className={cx('mt-1 block leading-5', isPublic ? 'text-white/75' : 'text-slate-500')}>Requires MICE classification, event type, attendees, countries, and exhibition details.</small></button>
+                  <button type="button" onClick={() => { setData('event_nature', 'private'); setData('mice_required', false); }} className={cx('border p-4 text-left transition duration-300', !isPublic ? 'border-[#164734] bg-[#164734] text-white shadow-md' : 'border-slate-200 bg-white hover:border-[#164734]')}><strong className="block text-lg">PRIVATE / PERSONAL EVENT</strong><small className={cx('mt-1 block leading-5', !isPublic ? 'text-white/75' : 'text-slate-500')}>Skips public MICE statistical fields; required basics remain.</small></button>
+                </div>
+              </div>
+              <Field label="Event Name" required error={mergedErrors.type_of_event}><input value={data.type_of_event} onChange={(event) => setData('type_of_event', upper(event.target.value))} className={inputClass(Boolean(mergedErrors.type_of_event))} /></Field>
+              <Field label="Expected Number of Guests" required error={mergedErrors.number_of_guests}><input value={data.number_of_guests} onChange={(event) => setData('number_of_guests', event.target.value.replace(/\D/g, ''))} className={inputClass(Boolean(mergedErrors.number_of_guests))} inputMode="numeric" /></Field>
+              {!isPublic ? <Field label="Private Event Type" required><select value={data.private_event_type} onChange={(event) => setData('private_event_type', event.target.value)} className={inputClass()}>{privateTypeOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}</select></Field> : null}
+              <Field label="Public Calendar Title"><input value={data.public_calendar_title} onChange={(event) => setData('public_calendar_title', event.target.value)} className={inputClass()} placeholder="Optional display title" /></Field>
+              <label className="flex items-center gap-3 self-end border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"><input type="checkbox" checked={data.is_public_calendar_visible} onChange={(event) => setData('is_public_calendar_visible', event.target.checked)} /> Show approved title on public calendar</label>
+            </div>
+
+            <div className="grid gap-4 border border-slate-200 bg-white p-4 lg:grid-cols-2">
+              <div className="lg:col-span-2"><p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">Organizer Details</p></div>
+              <Field label="Name of Organization" required error={mergedErrors.company_name}><input value={data.company_name} onChange={(event) => setData('company_name', upper(event.target.value))} className={inputClass(Boolean(mergedErrors.company_name))} /></Field>
+              <Field label="Head of Organization"><input value={data.head_of_organization} onChange={(event) => setData('head_of_organization', upper(event.target.value))} className={inputClass()} /></Field>
+              <Field label="Contact Person" required error={mergedErrors.client_name}><input value={data.client_name} onChange={(event) => setData('client_name', upper(event.target.value))} className={inputClass(Boolean(mergedErrors.client_name))} /></Field>
+              <Field label="Contact Number" required error={mergedErrors.client_contact_number}><input value={data.client_contact_number} onChange={(event) => setData('client_contact_number', event.target.value.replace(/\D/g, ''))} className={inputClass(Boolean(mergedErrors.client_contact_number))} inputMode="numeric" /></Field>
+              <Field label="Email Address" required error={mergedErrors.client_email}><input value={data.client_email} onChange={(event) => setData('client_email', event.target.value)} className={inputClass(Boolean(mergedErrors.client_email))} type="email" /></Field>
+              <Field label="Organization Type"><input value={data.organization_type} onChange={(event) => setData('organization_type', event.target.value)} className={inputClass()} /></Field>
+              <Field label="Address of Organizer" required error={mergedErrors.client_address}><textarea value={data.client_address} onChange={(event) => { setData('client_address', upper(event.target.value)); setData('client_street_address', upper(event.target.value)); }} className={cx(inputClass(Boolean(mergedErrors.client_address)), 'min-h-24')} /></Field>
+              <Field label="Comment / Feedback"><textarea value={data.comments_feedback} onChange={(event) => setData('comments_feedback', event.target.value)} className={cx(inputClass(), 'min-h-24')} placeholder="N/A if none" /></Field>
+            </div>
+
+            <div className="grid gap-4 border border-slate-200 bg-white p-4 lg:grid-cols-2">
+              <div className="lg:col-span-2"><p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">MICE Report Fields</p></div>
+              <Field label="Name of Event Center"><input value={PUBLIC_EVENT_CENTER} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              <Field label="Covered Month"><input value={data.covered_month} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              <Field label="Date Event Started"><input value={displayDate(scheduleSelections[0]?.date ?? '')} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              <Field label="Date Event Finished"><input value={displayDate(scheduleSelections[scheduleSelections.length - 1]?.date ?? '')} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              <Field label="No. of Function Halls"><input value={isPublic ? '1' : '-'} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              <Field label="Function Hall Capacity"><input value={isPublic ? '4000' : '-'} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              <Field label="Number of Hours"><input value={String(scheduleTotalHours)} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              {isPublic ? (
+                <>
+                  <div className="lg:col-span-2 border border-[#d6b56d]/60 bg-[#fff8e6] p-4 text-sm leading-6 text-slate-700">
+                    <strong className="block text-slate-950">Classification guide</strong>
+                    International = participants from two continents. Regional Asia Pacific = two or more countries in same continent. Regional Offshore = one foreign country excluding Philippines. Regional Philippines = within a Philippine region. National = two or more Philippine regions.
                   </div>
-                  <p>{blockLabel}</p>
-                  <small>{Number(segment.additional_hours || 0) > 0 ? `+ ${segment.additional_hours} evening hour(s) after 6:00 PM` : 'No evening extension'}</small>
-                </article>
-              );
-            })}
+                  <Field label="Classification of Event" required error={mergedErrors.classification_of_event}><select value={data.classification_of_event} onChange={(event) => setData('classification_of_event', event.target.value)} className={inputClass(Boolean(mergedErrors.classification_of_event))}>{classificationOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}</select></Field>
+                  <Field label="Type of Event" required error={mergedErrors.mice_type_of_event}><select value={data.mice_type_of_event} onChange={(event) => setData('mice_type_of_event', event.target.value)} className={inputClass(Boolean(mergedErrors.mice_type_of_event))}>{miceTypeOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}</select></Field>
+                  <Field label="Foreign Attendees"><input value={data.foreign_attendees} onChange={(event) => setData('foreign_attendees', event.target.value.replace(/\D/g, ''))} className={inputClass()} inputMode="numeric" /></Field>
+                  <Field label="Domestic Attendees" required error={mergedErrors.domestic_attendees}><input value={data.domestic_attendees} onChange={(event) => setData('domestic_attendees', event.target.value.replace(/\D/g, ''))} className={inputClass(Boolean(mergedErrors.domestic_attendees))} inputMode="numeric" /></Field>
+                  <Field label="Total Number of Countries" required error={mergedErrors.total_number_of_countries}><input value={data.total_number_of_countries} onChange={(event) => setData('total_number_of_countries', event.target.value.replace(/\D/g, ''))} className={inputClass(Boolean(mergedErrors.total_number_of_countries))} inputMode="numeric" /></Field>
+                  <Field label="Breakdown of Countries" required error={mergedErrors.countries_breakdown_text}><input value={data.countries_breakdown_text} onChange={(event) => setData('countries_breakdown_text', upper(event.target.value))} className={inputClass(Boolean(mergedErrors.countries_breakdown_text))} placeholder="PHILIPPINES" /></Field>
+                  <Field label="Exhibitions"><select value={data.has_exhibitions} onChange={(event) => setData('has_exhibitions', event.target.value)} className={inputClass()}><option value="No">No</option><option value="Yes">Yes</option></select></Field>
+                  {data.has_exhibitions === 'Yes' ? <Field label="No. of Exhibitors" required error={mergedErrors.exhibitors_count}><input value={data.exhibitors_count} onChange={(event) => setData('exhibitors_count', event.target.value.replace(/\D/g, ''))} className={inputClass(Boolean(mergedErrors.exhibitors_count))} inputMode="numeric" /></Field> : null}
+                  {data.has_exhibitions === 'Yes' ? <Field label="No. of Visitors" required><input value={data.visitors_count} onChange={(event) => setData('visitors_count', event.target.value.replace(/\D/g, ''))} className={inputClass()} inputMode="numeric" /></Field> : null}
+                </>
+              ) : (
+                <div className="lg:col-span-2 border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">Private/personal event selected. MICE statistical fields are skipped and saved as <strong>-</strong> on the record.</div>
+              )}
+            </div>
           </div>
-        </section>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Field label="Number of Guests" required error={fieldError('number_of_guests')}><input value={data.number_of_guests} onChange={(event) => { setData('number_of_guests', event.target.value); setData('domestic_attendees', event.target.value); setData('function_hall_capacity', event.target.value); }} className={cx('backend-booking-input', fieldStatusClass(fieldError('number_of_guests')))} inputMode="numeric" placeholder="0" /></Field>
-          <Field label="Other Rentals"><select value={data.dressing_room_selection} onChange={(event) => handleDressingRoomChange(event.target.value)} className="backend-booking-input">{dressingRoomOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label} {option.charge_label ? `(${option.charge_label})` : ''}</option>)}</select></Field>
-          <Field label="Additional Charges"><input value={money(selectedDressingCharge)} className="backend-booking-input" readOnly /></Field>
+          <ComputationAside title="Current Booking Summary" subtitle={`${selectedVenues.map((venue) => venue.shortLabel).join(' + ')}`} hideDiscount rows={scheduleSelections} areaKeys={selectedAreaKeys} ingressPrep={ingressPrep} />
         </div>
-        <Field label="Reservation Notes"><textarea value={data.reservation_notes} onChange={(event) => setData('reservation_notes', event.target.value)} className="backend-booking-input min-h-28 py-3" placeholder="Optional notes" /></Field>
-      </section>
-    );
-  }
-
-  function renderMiceStep() {
-    if (!isMiceRequired) {
-      return (
-        <section className="booking-step-panel">
-          <div className="booking-step-kicker"><Sparkles className="h-4 w-4" /> Private event exemption</div>
-          <div className="booking-step-heading"><h2>MICE report is not required for this booking intake</h2><p>Because the event was marked private, only the booking and guidelines confirmations are required now.</p></div>
-          <div className="booking-mice-required-card"><div><p>Private event</p><h3>{data.private_event_type || 'Private event selected'}</h3></div><span>{data.mice_exemption_reason || 'MICE report not required during initial booking.'}</span></div>
-        </section>
-      );
-    }
-
-    return (
-      <section className="booking-step-panel">
-        <div className="booking-step-kicker"><Sparkles className="h-4 w-4" /> Official MICE report fields</div>
-        <div className="booking-step-heading"><h2>Complete the MICE details inside the booking</h2><p>These fields follow the MICE report format you provided and will be carried into the official registry/print workflow.</p></div>
-        <WizardNotice errors={stepErrors} />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="Name of Event Center" required error={fieldError('event_center_name')}><select value={data.event_center_name} onChange={(event) => setData('event_center_name', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('event_center_name')))}>{eventCenterOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}</select></Field>
-          {data.event_center_name === 'OTHER' ? <Field label="Other Event Center" required error={fieldError('event_center_other')}><input value={data.event_center_other} onChange={(event) => setData('event_center_other', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('event_center_other')))} /></Field> : null}
-          <Field label="Covered Month" required error={fieldError('covered_month')}><select value={data.covered_month} onChange={(event) => setData('covered_month', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('covered_month')))}>{coveredMonthOptions.map((option) => <option key={optionValue(option.value)} value={optionValue(option.value)}>{option.label}</option>)}</select></Field>
-          <Field label="No. of Function Halls" required error={fieldError('function_halls_count')}><input value={data.function_halls_count} onChange={(event) => setData('function_halls_count', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('function_halls_count')))} inputMode="numeric" /></Field>
-          <Field label="Function Hall Capacity" required error={fieldError('function_hall_capacity')}><input value={data.function_hall_capacity} onChange={(event) => setData('function_hall_capacity', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('function_hall_capacity')))} inputMode="numeric" /></Field>
-          <Field label="Number of Hours" required error={fieldError('number_of_hours')}><input value={data.number_of_hours} onChange={(event) => setData('number_of_hours', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('number_of_hours')))} inputMode="decimal" /></Field>
-          <Field label="Number of Attendees - Foreign" required><input value={data.foreign_attendees} onChange={(event) => setData('foreign_attendees', event.target.value)} className="backend-booking-input" inputMode="numeric" /></Field>
-          <Field label="Number of Attendees - Domestic" required error={fieldError('domestic_attendees')}><input value={data.domestic_attendees} onChange={(event) => setData('domestic_attendees', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('domestic_attendees')))} inputMode="numeric" /></Field>
-          <Field label="Total Number of Countries" required error={fieldError('total_number_of_countries')}><input value={data.total_number_of_countries} onChange={(event) => setData('total_number_of_countries', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('total_number_of_countries')))} inputMode="numeric" /></Field>
-          <Field label="Breakdown of Countries" required error={fieldError('countries_breakdown_text')}><input value={data.countries_breakdown_text} onChange={(event) => setData('countries_breakdown_text', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('countries_breakdown_text')))} placeholder="Example: PHILIPPINES" /></Field>
-          <Field label="Exhibitions" required><select value={data.has_exhibitions} onChange={(event) => setData('has_exhibitions', event.target.value)} className="backend-booking-input"><option value="No">No</option><option value="Yes">Yes</option></select></Field>
-          <Field label="No. of Exhibitors" error={fieldError('exhibitors_count')}><input value={data.exhibitors_count} onChange={(event) => setData('exhibitors_count', event.target.value)} className={cx('backend-booking-input', fieldStatusClass(fieldError('exhibitors_count')))} inputMode="numeric" /></Field>
-          <Field label="No. of Visitors"><input value={data.visitors_count} onChange={(event) => setData('visitors_count', event.target.value)} className="backend-booking-input" inputMode="numeric" /></Field>
-          <Field label="Comment and/or Feedback"><textarea value={data.comments_feedback} onChange={(event) => setData('comments_feedback', event.target.value)} className="backend-booking-input min-h-28 py-3" placeholder="N/A if none" /></Field>
-        </div>
-      </section>
-    );
-  }
-
-  function renderGuidelinesStep() {
-    return (
-      <section className="booking-step-panel">
-        <div className="booking-step-kicker"><ShieldCheck className="h-4 w-4" /> Guidelines and confirmation</div>
-        <div className="booking-step-heading"><h2>Review the rules before submitting</h2><p>Guidelines are kept inside the booking flow so the organizer confirms them before the request is submitted.</p></div>
-        <WizardNotice errors={stepErrors} />
-        <div className="booking-guideline-grid">{BCCC_BOOKING_GENERAL_GUIDELINES.map((section) => <article key={section.title} className="booking-guideline-card"><p>Guideline</p><h3>{section.title}</h3><ul>{section.items.map((item) => <li key={item}>{item}</li>)}</ul></article>)}</div>
-        <div className="booking-mice-required-card"><div><p>{isMiceRequired ? 'MICE report required' : 'Private event exemption'}</p><h3>{isMiceRequired ? 'MICE details were collected inside this booking.' : 'Full MICE report is not required for this private event.'}</h3></div><span>{isMiceRequired ? 'The official MICE fields will be forwarded as draft data for the registry and print form.' : data.mice_exemption_reason || 'Private event exemption was recorded.'}</span></div>
-        <div className="grid gap-3">
-          <label className={cx('booking-checkbox-card', fieldError('policy_acknowledged') && 'has-error')}><input type="checkbox" checked={data.policy_acknowledged} onChange={(event) => setData('policy_acknowledged', event.target.checked)} /><span><strong>I reviewed the BCCC guidelines.</strong><small>The booking is subject to BCCC review, payment compliance, schedule validation, and house rules.</small></span></label>
-          <label className={cx('booking-checkbox-card', fieldError('accuracy_acknowledged') && 'has-error')}><input type="checkbox" checked={data.accuracy_acknowledged} onChange={(event) => setData('accuracy_acknowledged', event.target.checked)} /><span><strong>I confirm that all information is accurate.</strong><small>Incorrect details may delay assessment and approval.</small></span></label>
-        </div>
-        {isStaffLike ? <div className="mt-5 grid gap-4 border border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel-muted)] p-5 lg:grid-cols-2"><Field label="Booking Status"><select value={data.booking_status} onChange={(event) => setData('booking_status', event.target.value)} className="backend-booking-input" disabled={isManager}><option value="pending">Pending</option><option value="pencil_booked">Pencil Booked</option><option value="confirmed">Confirmed</option><option value="active">Active</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option><option value="declined">Declined</option></select></Field><Field label="Payment Status"><select value={data.payment_status} onChange={(event) => setData('payment_status', event.target.value)} className="backend-booking-input" disabled={isManager}><option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option><option value="owing">Owing</option></select></Field></div> : null}
-      </section>
+      </SectionShell>
     );
   }
 
   function renderReviewStep() {
     return (
-      <section className="booking-step-panel">
-        <div className="booking-step-kicker"><CheckCircle2 className="h-4 w-4" /> Final review</div>
-        <div className="booking-step-heading"><h2>Check everything before submitting</h2><p>Use the edit buttons if something needs correction. This is the last screen before submission.</p></div>
-        <ServerErrorsBanner errors={errors as Record<string, string>} />
-        <div className="grid gap-5">
-          <ReviewBlock title="Package and Venue" icon={PackageCheck} onEdit={() => goToStep(0)}><ReviewGrid items={[[ 'Selected Package', selectedPackage?.name ?? selectedPackage?.label ?? 'Manual area selection' ], [ 'Selected Areas', selectedChargedItems.map((item) => item.displayLabel).join(', ') ], [ 'Package Note', packageSelectionLabel(selectedVenueKeys, selectedPackage?.name ?? selectedPackage?.label) ], [ 'Venue Estimate', money(estimatedBase) ], [ 'Dressing Room', `${data.dressing_room_selection} · ${money(selectedDressingCharge)}` ], [ 'Estimated Total', money(estimatedTotal) ]]} /></ReviewBlock>
-          <ReviewBlock title="Event Identity" icon={ClipboardList} onEdit={() => goToStep(1)}><ReviewGrid items={[[ 'Event', data.type_of_event ], [ 'Nature', isMiceRequired ? 'MICE / reportable' : 'Private event' ], [ 'Classification', isMiceRequired ? data.classification_of_event : 'Private' ], [ 'Type', isMiceRequired ? data.mice_type_of_event : data.private_event_type ]]} /></ReviewBlock>
-          <ReviewBlock title="Organizer" icon={UserRound} onEdit={() => goToStep(2)}><ReviewGrid items={[[ 'Organization', data.company_name ], [ 'Head', data.head_of_organization ], [ 'Contact', data.client_name ], [ 'Mobile', data.client_contact_number ], [ 'Email', data.client_email ]]} /></ReviewBlock>
-          <ReviewBlock title="Address" icon={MapPin} onEdit={() => goToStep(3)}><ReviewGrid items={[[ 'Region', data.client_region ], [ 'Province', data.client_province ], [ 'City / Municipality', data.client_city_municipality ], [ 'Barangay', data.client_barangay ], [ 'ZIP', data.client_zip_code ], [ 'Full Address', finalAddress ]]} /></ReviewBlock>
-          <ReviewBlock title="Schedule and Guests" icon={CalendarDays} onEdit={() => goToStep(4)}><ReviewGrid items={[[ 'Start', formatDateTime(data.booking_date_from) ], [ 'End', formatDateTime(data.booking_date_to) ], [ 'Duration', `${rangeHours(data.booking_date_from, data.booking_date_to)} hour(s)` ], [ 'Ingress/Egress', hasIngress ? 'Ingress first day + egress last day' : 'Event days only' ], [ 'Base Schedule', SCHEDULE_BASE_BLOCKS[baseBlock].label ], [ 'Additional Hours', additionalHours > 0 ? `${additionalHours} hour(s)` : 'None' ], [ 'Guests', data.number_of_guests ], [ 'Notes', data.reservation_notes ]]} /></ReviewBlock>
-          <ReviewBlock title="MICE / Guidelines" icon={ShieldCheck} onEdit={() => goToStep(5)}><ReviewGrid items={[[ 'MICE Requirement', isMiceRequired ? 'Required' : 'Private event exemption' ], [ 'Covered Month', isMiceRequired ? data.covered_month : '—' ], [ 'Countries', isMiceRequired ? data.countries_breakdown_text : '—' ], [ 'Exhibitions', isMiceRequired ? data.has_exhibitions : '—' ], [ 'Policy Confirmed', data.policy_acknowledged ? 'Yes' : 'No' ], [ 'Accuracy Confirmed', data.accuracy_acknowledged ? 'Yes' : 'No' ]]} /></ReviewBlock>
+      <SectionShell kicker="Step 04 · Review" title="Final computation and confirmation" description="This is the first stage where hidden discounts and payment guidance are visible. Final approval and billing still depend on BCCC assessment." icon={<ReceiptText className="h-4 w-4" />}>
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+          <div className="grid gap-4">
+            <ReviewCard title="Schedule" icon={<CalendarDays className="h-4 w-4" />}>
+              <ReviewGrid rows={[
+                ['Start', displayDateTime(buildBookingDateFrom(scheduleSelections[0]))],
+                ['End', displayDateTime(buildBookingDateTo(scheduleSelections[scheduleSelections.length - 1]))],
+                ['Total Days', `${scheduleTotalDays}`],
+                ['Total Hours', `${scheduleTotalHours}`],
+                ['Ingress / setup / preparation', ingressPrep ? 'Marked for BCCC assessment' : 'No'],
+              ]} />
+            </ReviewCard>
+            <ReviewCard title="Selected Services" icon={<PackageCheck className="h-4 w-4" />}>
+              <div className="grid gap-2">
+                {selectedVenues.map((venue) => <div key={venue.key} className="flex items-center justify-between border border-slate-200 bg-white px-3 py-2"><span><strong className="block text-sm text-slate-950">{venue.shortLabel}</strong><small className="text-xs text-slate-500">{venue.officialLabel}</small></span><span className="text-right text-sm font-semibold text-slate-950">{money(venue.rates.wholeDay)}<small className="block font-normal text-slate-500">whole day</small></span></div>)}
+              </div>
+            </ReviewCard>
+            <ReviewCard title="Contact and MICE" icon={<UserRound className="h-4 w-4" />}>
+              <ReviewGrid rows={[
+                ['Event Scope', data.event_nature === 'public' ? 'PUBLIC EVENT' : 'PRIVATE/PERSONAL EVENT'],
+                ['Event Name', data.type_of_event],
+                ['Organization', data.company_name],
+                ['Contact Person', data.client_name],
+                ['Contact Number', data.client_contact_number],
+                ['Email', data.client_email],
+                ['Event Center', PUBLIC_EVENT_CENTER],
+                ['Covered Month', data.covered_month],
+                ['MICE Classification', data.event_nature === 'public' ? data.classification_of_event : '-'],
+                ['MICE Type', data.event_nature === 'public' ? data.mice_type_of_event : '-'],
+              ]} />
+            </ReviewCard>
+            <ReviewCard title="Policy Confirmation" icon={<ShieldCheck className="h-4 w-4" />}>
+              <div className="grid gap-3">
+                <div className="border border-[#d6b56d]/60 bg-[#fff8e6] p-4 text-sm leading-6 text-slate-700">
+                  <strong className="block text-slate-950">BCCC final review notice</strong>
+                  This review page is the first place where the hidden computation details are shown. Final billing still depends on BCCC assessment, approved discounts, payment compliance, and event-policy review.
+                </div>
+                <div className="grid gap-3 lg:grid-cols-2">
+                  {REVIEW_POLICY_SECTIONS.map((section) => (
+                    <div key={section.title} className="border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-600">
+                      <strong className="block text-slate-950">{section.title}</strong>
+                      {section.body}
+                    </div>
+                  ))}
+                </div>
+                <div className="border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+                  <strong className="block text-slate-950">Excluded from user charges</strong>
+                  <span>{EXCLUDED_USER_CHARGES.join(' · ')}</span>
+                </div>
+                <label className={cx('flex items-start gap-3 border p-3 text-sm', mergedErrors.policy_acknowledged ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white')}><input type="checkbox" checked={data.policy_acknowledged} onChange={(event) => setData('policy_acknowledged', event.target.checked)} className="mt-1" /><span><strong className="block text-slate-950">I have read and agree to the BCCC booking policy and house rules.</strong><small className="mt-1 block leading-5 text-slate-500">Includes payment terms, bond requirement, cancellation policy, outsourced service requirements, and post-event responsibility.</small></span></label>
+                <label className={cx('flex items-start gap-3 border p-3 text-sm', mergedErrors.accuracy_acknowledged ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white')}><input type="checkbox" checked={data.accuracy_acknowledged} onChange={(event) => setData('accuracy_acknowledged', event.target.checked)} className="mt-1" /><span><strong className="block text-slate-950">I confirm that the reservation details are accurate.</strong><small className="mt-1 block leading-5 text-slate-500">Incorrect or incomplete data may delay assessment or approval.</small></span></label>
+                {mergedErrors.policy_acknowledged ? <p className="text-sm font-semibold text-red-600">{mergedErrors.policy_acknowledged}</p> : null}
+                {mergedErrors.accuracy_acknowledged ? <p className="text-sm font-semibold text-red-600">{mergedErrors.accuracy_acknowledged}</p> : null}
+              </div>
+            </ReviewCard>
+            <ReviewCard title="Final line-item preview" icon={<ReceiptText className="h-4 w-4" />}>
+              <ReviewLineItemsTable rows={scheduleSelections} areaKeys={selectedAreaKeys} ingressPrep={ingressPrep} />
+            </ReviewCard>
+          </div>
+          <ComputationAside title="Final Computation" subtitle="Discounts visible only here" hideDiscount={false} rows={scheduleSelections} areaKeys={selectedAreaKeys} ingressPrep={ingressPrep} />
+        </div>
+      </SectionShell>
+    );
+  }
+
+  function renderSubmittedStep() {
+    return (
+      <section className="grid min-h-[620px] place-items-center border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
+          <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-[#164734] text-white shadow-xl"><CheckCircle2 className="h-12 w-12" /></div>
+          <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.34em] text-[#a88633]">Reservation Submitted</p>
+          <h2 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-slate-950">Your Reservation has been Submitted</h2>
+          <p className="mt-4 text-base leading-8 text-slate-600">BCCC will review the schedule, active service selection, contact details, MICE draft data, and payment requirements before confirmation.</p>
+          <Link href={bookingBasePath(role)} className="mt-8 inline-flex items-center justify-center gap-2 bg-[#164734] px-6 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#0f3325]">View My Bookings <ArrowRight className="h-4 w-4" /></Link>
         </div>
       </section>
     );
   }
 
   function renderActiveStep() {
-    if (activeStep === 0) return renderPackageStep();
-    if (activeStep === 1) return renderEventStep();
-    if (activeStep === 2) return renderOrganizerStep();
-    if (activeStep === 3) return renderAddressStep();
-    if (activeStep === 4) return renderScheduleStep();
-    if (activeStep === 5) return renderMiceStep();
-    if (activeStep === 6) return renderGuidelinesStep();
+    if (submitted || activeStep === 4) return renderSubmittedStep();
+    if (activeStep === 0) return renderScheduleStep();
+    if (activeStep === 1) return renderServicesStep();
+    if (activeStep === 2) return renderContactStep();
     return renderReviewStep();
   }
 
   return (
-    <BookingRolePageShell role={role} title={formTitle(role, editing)} description={formDescription(role)} actions={<><Link href={backHref} className="booking-ghost-action"><ArrowLeft className="h-4 w-4" />Back</Link><button type="button" onClick={() => setShowDigitalForm((current) => !current)} className="booking-secondary-action">{showDigitalForm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}{showDigitalForm ? 'Hide Form' : 'View Form'}</button></>}>
-      <form onSubmit={handleSubmit} className="booking-lux-form" data-booking-wizard-root>
-        <PrefillBanner />
-        <Stepper activeStep={activeStep} maxStep={maxStep} onStepClick={goToStep} />
-        <DigitalFormPanel />
-        <div className={cx('booking-wizard-stage', stepLoading && 'is-loading')}>
-          {stepLoading ? <div className="booking-step-loader"><LoaderCircle className="h-8 w-8 animate-spin" /><p>Preparing next page...</p></div> : null}
+    <BookingRolePageShell
+      role={role}
+      title={formTitle(role, editing)}
+      description={formDescription(role)}
+      actions={<Link href={backHref} className="inline-flex items-center gap-2 border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#164734] hover:text-[#164734]"><ArrowLeft className="h-4 w-4" />Back</Link>}
+      compact
+    >
+      <form onSubmit={handleSubmit} className="relative bg-slate-100/70 pb-24">
+        <StepProgress activeStep={activeStep} submitted={submitted} onStepClick={(index) => { if (index <= activeStep || validateStep(activeStep)) setActiveStep(index); }} />
+        <div className="mx-auto max-w-[1700px] p-3 sm:p-5">
+          {Object.keys(errors as Record<string, string>).length > 0 ? <div className="mb-4 flex gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertTriangle className="h-5 w-5 shrink-0" /><div><strong className="block">Please check the highlighted fields.</strong><span>The server returned validation feedback after submission.</span></div></div> : null}
           {renderActiveStep()}
         </div>
-        <StepFooter />
+        {showPolicyModal ? <FinalPolicyModal checked={policyModalChecked} setChecked={setPolicyModalChecked} onClose={() => setShowPolicyModal(false)} onConfirm={confirmFinalPolicyAndSubmit} processing={processing} /> : null}
+        {!submitted && activeStep < 4 ? (
+          <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+            <div className="mx-auto flex max-w-[1700px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">{STEPS[activeStep]?.label}</p>
+                <p className="truncate text-sm text-slate-600">{scheduleTotalDays} day(s), {scheduleTotalHours} hour(s), {selectedVenues.map((venue) => venue.shortLabel).join(' + ')}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {activeStep > 0 ? <button type="button" onClick={goBack} className="border border-slate-200 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:border-[#164734] hover:text-[#164734]">Back</button> : null}
+                <button type="submit" disabled={processing || (activeStep === 3 && (!data.policy_acknowledged || !data.accuracy_acknowledged))} className="inline-flex items-center justify-center gap-2 bg-[#164734] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#0f3325] disabled:cursor-not-allowed disabled:opacity-60">
+                  {processing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : activeStep === 3 ? <CheckCircle2 className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
+                  {activeStep === 3 ? 'Submit Reservation' : 'Save & Continue'}
+                </button>
+              </div>
+            </div>
+          </footer>
+        ) : null}
       </form>
-      <SummaryDrawer />
     </BookingRolePageShell>
   );
+
+  function ComputationAside({ title, subtitle, hideDiscount, rows, areaKeys, ingressPrep: hasIngressPrep }: { title: string; subtitle: string; hideDiscount: boolean; rows: ScheduleSelection[]; areaKeys: ActiveVenueKey[]; ingressPrep: boolean }) {
+    const subtotal = baseTotal(rows, areaKeys);
+    const discountLines = finalDiscountLines(rows, areaKeys, hasIngressPrep);
+    const discount = discountLines.reduce((sum, line) => sum + line.amount, 0);
+    const total = Math.max(0, subtotal - (hideDiscount ? 0 : discount));
+    const down = Math.round(total * 0.5);
+    const balance = Math.max(0, total - down);
+    const lineItems = reviewLineItems(rows, areaKeys);
+    return (
+      <aside className="sticky top-24 h-fit border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-[#164734] p-4 text-white">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f2d58b]">{title}</p>
+          <h3 className="mt-1 text-lg font-semibold">{subtitle}</h3>
+        </div>
+        <div className="max-h-[calc(100vh-220px)] overflow-y-auto p-4">
+          <div className="grid gap-2">
+            {areaKeys.map((key) => {
+              const venue = selectedVenueByKey(key);
+              return <div key={key} className="flex justify-between gap-3 border-b border-slate-100 py-2 text-sm"><span className="text-slate-600">{venue.shortLabel}</span><strong className="text-slate-950">{money(rows.reduce((sum, row) => sum + dateVenueBaseTotal(row, [key]), 0))}</strong></div>;
+            })}
+          </div>
+          {!hideDiscount && lineItems.length ? (
+            <div className="mt-4 border border-slate-100 bg-slate-50 p-3">
+              <strong className="block text-xs uppercase tracking-[0.18em] text-slate-500">Line items</strong>
+              <div className="mt-2 grid gap-2">
+                {lineItems.slice(0, 6).map((line) => <div key={line.key} className="flex justify-between gap-3 text-xs"><span className="text-slate-600">{displayDate(line.date)} · {line.label}</span><strong>{money(line.amount)}</strong></div>)}
+                {lineItems.length > 6 ? <p className="text-xs text-slate-500">+ {lineItems.length - 6} more line item(s) shown in the review table.</p> : null}
+              </div>
+            </div>
+          ) : null}
+          <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-sm">
+            <div className="flex justify-between"><span className="text-slate-600">Base venue estimate</span><strong>{money(subtotal)}</strong></div>
+            {hideDiscount ? <div className="flex items-start gap-2 border border-dashed border-[#d6b56d] bg-[#fff8e6] p-3 text-xs leading-5 text-slate-600"><Eye className="mt-0.5 h-4 w-4 shrink-0 text-[#a88633]" />{hiddenDiscountNote()}</div> : discountLines.length ? discountLines.map((line) => <div key={line.key} className="grid gap-1 border border-[#d6b56d]/60 bg-[#fff8e6] p-3 text-xs text-[#164734]"><div className="flex justify-between gap-3"><span>{line.label}</span><strong>-{money(line.amount)}</strong></div><small className="text-slate-600">Basis {money(line.basis)} · {Math.round(line.rate * 100)}%</small></div>) : <div className="text-xs text-slate-500">No hidden discount is currently applicable.</div>}
+            {!hideDiscount ? <div className="flex justify-between"><span>Required 50% down payment</span><strong>{money(down)}</strong></div> : null}
+            {!hideDiscount ? <div className="flex justify-between"><span>Required bond</span><strong>{money(REQUIRED_BOND)}</strong></div> : null}
+            {!hideDiscount ? <div className="flex justify-between"><span>Balance after down payment</span><strong>{money(balance)}</strong></div> : null}
+          </div>
+        </div>
+        <div className="border-t border-slate-100 bg-slate-50 p-4">
+          <div className="flex items-end justify-between gap-3">
+            <span><small className="block text-xs uppercase tracking-[0.18em] text-slate-500">{hideDiscount ? 'Running Estimate' : 'Final Estimate'}</small><strong className="text-sm text-slate-700">Subject to BCCC review</strong></span>
+            <strong className="text-2xl tracking-[-0.04em] text-slate-950">{money(total)}</strong>
+          </div>
+        </div>
+      </aside>
+    );
+  }
 }
+function ReviewCard({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+  return <article className="border border-slate-200 bg-white p-4 shadow-sm"><h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#164734]">{icon}{title}</h3>{children}</article>;
+}
+
+function ReviewGrid({ rows }: { rows: Array<[string, ReactNode]> }) {
+  return <div className="grid gap-2 md:grid-cols-2">{rows.map(([label, value]) => <div key={label} className="border border-slate-100 bg-slate-50 p-3"><small className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</small><strong className="mt-1 block break-words text-sm text-slate-950">{value || '—'}</strong></div>)}</div>;
+}
+
+function ReviewLineItemsTable({ rows, areaKeys, ingressPrep }: { rows: ScheduleSelection[]; areaKeys: ActiveVenueKey[]; ingressPrep: boolean }) {
+  const lineItems = reviewLineItems(rows, areaKeys);
+  const discounts = finalDiscountLines(rows, areaKeys, ingressPrep);
+  const subtotal = lineItems.reduce((sum, line) => sum + line.amount, 0);
+  const discountTotal = discounts.reduce((sum, line) => sum + line.amount, 0);
+  const finalTotal = Math.max(0, subtotal - discountTotal);
+
+  return (
+    <div className="overflow-hidden border border-slate-200">
+      <div className="hidden grid-cols-[1.2fr_1.4fr_.7fr_.8fr] bg-[#164734] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white md:grid">
+        <span>Date</span>
+        <span>Charge</span>
+        <span className="text-right">Qty</span>
+        <span className="text-right">Amount</span>
+      </div>
+      <div className="divide-y divide-slate-100 bg-white">
+        {lineItems.map((line) => (
+          <div key={line.key} className="grid gap-1 px-3 py-3 text-sm md:grid-cols-[1.2fr_1.4fr_.7fr_.8fr] md:items-center">
+            <span className="font-medium text-slate-950">{displayDate(line.date)}</span>
+            <span className="text-slate-600"><strong className="block text-slate-950">{line.label}</strong><small>{line.detail}</small></span>
+            <span className="text-slate-600 md:text-right">{line.quantity}</span>
+            <strong className="text-slate-950 md:text-right">{money(line.amount)}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-slate-200 bg-slate-50 p-3 text-sm">
+        <div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>
+        {discounts.length ? discounts.map((line) => <div key={line.key} className="mt-2 flex justify-between text-[#164734]"><span>{line.label}</span><strong>-{money(line.amount)}</strong></div>) : <div className="mt-2 text-xs text-slate-500">No discount is currently applicable for this draft computation.</div>}
+        <div className="mt-3 flex justify-between border-t border-slate-200 pt-3 text-base"><span>Final estimate</span><strong>{money(finalTotal)}</strong></div>
+      </div>
+    </div>
+  );
+}
+
+function FinalPolicyModal({ checked, setChecked, onClose, onConfirm, processing }: { checked: boolean; setChecked: (value: boolean) => void; onClose: () => void; onConfirm: () => void; processing: boolean }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden border border-white/20 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-[#164734] p-5 text-white">
+          <div>
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#f2d58b]"><ScrollText className="h-4 w-4" /> Final confirmation</p>
+            <h3 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Before submitting your reservation</h3>
+            <p className="mt-1 text-sm leading-6 text-white/75">Read this confirmation. The submit button unlocks only after the checkbox is marked.</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center border border-white/20 text-white transition hover:bg-white/10"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto p-5">
+          <div className="grid gap-3">
+            {BCCC_POLICY_NOTICE.map((item) => <div key={item} className="flex gap-3 border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700"><Check className="mt-1 h-4 w-4 shrink-0 text-[#164734]" /><span>{item}</span></div>)}
+          </div>
+          <div className="mt-4 border border-[#d6b56d]/70 bg-[#fff8e6] p-4 text-sm leading-6 text-slate-700">
+            <strong className="block text-slate-950">Computation privacy notice</strong>
+            Discounts and final billing adjustments are shown only at review/finalization and remain subject to BCCC assessment. Excluded charge categories are not part of this user booking flow.
+          </div>
+          <label className="mt-4 flex items-start gap-3 border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+            <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} className="mt-1" />
+            <span><strong className="block text-slate-950">I have read this final notice and I want to submit this reservation request.</strong><small className="mt-1 block text-slate-500">The request will still be reviewed by BCCC before confirmation.</small></span>
+          </label>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50 p-4 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className="border border-slate-200 bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:border-[#164734] hover:text-[#164734]">Review Again</button>
+          <button type="button" disabled={!checked || processing} onClick={onConfirm} className="inline-flex items-center justify-center gap-2 bg-[#164734] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#0f3325] disabled:cursor-not-allowed disabled:opacity-50">{processing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />} Submit Reservation</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default BookingFormPage;

@@ -5,6 +5,9 @@ use App\Http\Controllers\AdminInquiryController;
 use App\Http\Controllers\AdminPublicContentController;
 use App\Http\Controllers\AdminSortController;
 use App\Http\Controllers\BookingAnalyticsController;
+use App\Http\Controllers\BookingPrintableController;
+use App\Http\Controllers\BookingBillingController;
+use App\Http\Controllers\BookingApprovalController;
 use App\Http\Controllers\BookingAuditController;
 use App\Http\Controllers\BookingAvailabilityController;
 use App\Http\Controllers\BookingController;
@@ -214,6 +217,64 @@ Route::middleware(['auth', 'verified', 'role:admin'])
                 Route::get('/print', [BookingAuditController::class, 'printReport'])
                     ->name('print');
             });
+
+
+        Route::post('/bookings/{booking}/approval/for-review', [BookingApprovalController::class, 'forReview'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.for-review');
+
+        Route::post('/bookings/{booking}/approval/pencil-book', [BookingApprovalController::class, 'pencilBook'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.pencil-book');
+
+        Route::post('/bookings/{booking}/approval/confirm', [BookingApprovalController::class, 'confirm'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.confirm');
+
+        Route::post('/bookings/{booking}/approval/decline', [BookingApprovalController::class, 'decline'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.decline');
+
+        Route::post('/bookings/{booking}/approval/cancel', [BookingApprovalController::class, 'cancel'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.cancel');
+
+        Route::post('/bookings/{booking}/approval/complete', [BookingApprovalController::class, 'complete'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.complete');
+
+        Route::put('/bookings/{booking}/billing', [BookingBillingController::class, 'update'])
+            ->whereNumber('booking')
+            ->name('bookings.billing.update');
+
+        Route::post('/bookings/{booking}/post-event-charges', [BookingBillingController::class, 'storePostEventCharge'])
+            ->whereNumber('booking')
+            ->name('bookings.post-event-charges.store');
+
+        Route::put('/bookings/{booking}/post-event-charges/{bookingPostEventCharge}', [BookingBillingController::class, 'updatePostEventCharge'])
+            ->whereNumber(['booking', 'bookingPostEventCharge'])
+            ->name('bookings.post-event-charges.update');
+
+        Route::delete('/bookings/{booking}/post-event-charges/{bookingPostEventCharge}', [BookingBillingController::class, 'destroyPostEventCharge'])
+            ->whereNumber(['booking', 'bookingPostEventCharge'])
+            ->name('bookings.post-event-charges.destroy');
+
+
+        Route::get('/bookings/{booking}/print/reservation', [BookingPrintableController::class, 'reservation'])
+            ->whereNumber('booking')
+            ->name('bookings.print.reservation');
+
+        Route::get('/bookings/{booking}/print/final-bill', [BookingPrintableController::class, 'finalBill'])
+            ->whereNumber('booking')
+            ->name('bookings.print.final-bill');
+
+        Route::get('/bookings/{booking}/print/cancellation', [BookingPrintableController::class, 'cancellation'])
+            ->whereNumber('booking')
+            ->name('bookings.print.cancellation');
+
+        Route::get('/bookings/{booking}/print/mice-summary', [BookingPrintableController::class, 'miceSummary'])
+            ->whereNumber('booking')
+            ->name('bookings.print.mice-summary');
 
         Route::get('/bookings/{booking}/survey', [BookingController::class, 'survey'])
             ->whereNumber('booking')
@@ -498,6 +559,64 @@ Route::middleware(['auth', 'verified', 'role:manager'])
                     ->name('print');
             });
 
+
+        Route::post('/bookings/{booking}/approval/for-review', [BookingApprovalController::class, 'forReview'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.for-review');
+
+        Route::post('/bookings/{booking}/approval/pencil-book', [BookingApprovalController::class, 'pencilBook'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.pencil-book');
+
+        Route::post('/bookings/{booking}/approval/confirm', [BookingApprovalController::class, 'confirm'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.confirm');
+
+        Route::post('/bookings/{booking}/approval/decline', [BookingApprovalController::class, 'decline'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.decline');
+
+        Route::post('/bookings/{booking}/approval/cancel', [BookingApprovalController::class, 'cancel'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.cancel');
+
+        Route::post('/bookings/{booking}/approval/complete', [BookingApprovalController::class, 'complete'])
+            ->whereNumber('booking')
+            ->name('bookings.approval.complete');
+
+        Route::put('/bookings/{booking}/billing', [BookingBillingController::class, 'update'])
+            ->whereNumber('booking')
+            ->name('bookings.billing.update');
+
+        Route::post('/bookings/{booking}/post-event-charges', [BookingBillingController::class, 'storePostEventCharge'])
+            ->whereNumber('booking')
+            ->name('bookings.post-event-charges.store');
+
+        Route::put('/bookings/{booking}/post-event-charges/{bookingPostEventCharge}', [BookingBillingController::class, 'updatePostEventCharge'])
+            ->whereNumber(['booking', 'bookingPostEventCharge'])
+            ->name('bookings.post-event-charges.update');
+
+        Route::delete('/bookings/{booking}/post-event-charges/{bookingPostEventCharge}', [BookingBillingController::class, 'destroyPostEventCharge'])
+            ->whereNumber(['booking', 'bookingPostEventCharge'])
+            ->name('bookings.post-event-charges.destroy');
+
+
+        Route::get('/bookings/{booking}/print/reservation', [BookingPrintableController::class, 'reservation'])
+            ->whereNumber('booking')
+            ->name('bookings.print.reservation');
+
+        Route::get('/bookings/{booking}/print/final-bill', [BookingPrintableController::class, 'finalBill'])
+            ->whereNumber('booking')
+            ->name('bookings.print.final-bill');
+
+        Route::get('/bookings/{booking}/print/cancellation', [BookingPrintableController::class, 'cancellation'])
+            ->whereNumber('booking')
+            ->name('bookings.print.cancellation');
+
+        Route::get('/bookings/{booking}/print/mice-summary', [BookingPrintableController::class, 'miceSummary'])
+            ->whereNumber('booking')
+            ->name('bookings.print.mice-summary');
+
         Route::get('/bookings/{booking}/survey', [BookingController::class, 'survey'])
             ->whereNumber('booking')
             ->name('bookings.survey');
@@ -593,6 +712,23 @@ Route::middleware(['auth', 'verified', 'role:staff'])
         Route::get('/bookings/availability', [BookingController::class, 'availability'])
             ->name('bookings.availability');
 
+
+        Route::get('/bookings/{booking}/print/reservation', [BookingPrintableController::class, 'reservation'])
+            ->whereNumber('booking')
+            ->name('bookings.print.reservation');
+
+        Route::get('/bookings/{booking}/print/final-bill', [BookingPrintableController::class, 'finalBill'])
+            ->whereNumber('booking')
+            ->name('bookings.print.final-bill');
+
+        Route::get('/bookings/{booking}/print/cancellation', [BookingPrintableController::class, 'cancellation'])
+            ->whereNumber('booking')
+            ->name('bookings.print.cancellation');
+
+        Route::get('/bookings/{booking}/print/mice-summary', [BookingPrintableController::class, 'miceSummary'])
+            ->whereNumber('booking')
+            ->name('bookings.print.mice-summary');
+
         Route::get('/bookings/{booking}/survey', [BookingController::class, 'survey'])
             ->whereNumber('booking')
             ->name('bookings.survey');
@@ -661,6 +797,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/my-bookings/{booking}', [BookingController::class, 'show'])
         ->whereNumber('booking')
         ->name('user.bookings.show');
+
+
+    Route::get('/my-bookings/{booking}/print/reservation', [BookingPrintableController::class, 'reservation'])
+        ->whereNumber('booking')
+        ->name('user.bookings.print.reservation');
+
+    Route::get('/my-bookings/{booking}/print/final-bill', [BookingPrintableController::class, 'finalBill'])
+        ->whereNumber('booking')
+        ->name('user.bookings.print.final-bill');
+
+    Route::get('/my-bookings/{booking}/print/cancellation', [BookingPrintableController::class, 'cancellation'])
+        ->whereNumber('booking')
+        ->name('user.bookings.print.cancellation');
+
+    Route::get('/my-bookings/{booking}/print/mice-summary', [BookingPrintableController::class, 'miceSummary'])
+        ->whereNumber('booking')
+        ->name('user.bookings.print.mice-summary');
 
     Route::get('/my-bookings/{booking}/survey', [BookingController::class, 'survey'])
         ->whereNumber('booking')
@@ -805,6 +958,72 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/print', [BookingAuditController::class, 'printReport'])
                 ->name('print');
         });
+
+    Route::post('/bookings/{booking}/approval/for-review', [BookingApprovalController::class, 'forReview'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.approval.for-review');
+
+    Route::post('/bookings/{booking}/approval/pencil-book', [BookingApprovalController::class, 'pencilBook'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.approval.pencil-book');
+
+    Route::post('/bookings/{booking}/approval/confirm', [BookingApprovalController::class, 'confirm'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.approval.confirm');
+
+    Route::post('/bookings/{booking}/approval/decline', [BookingApprovalController::class, 'decline'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.approval.decline');
+
+    Route::post('/bookings/{booking}/approval/cancel', [BookingApprovalController::class, 'cancel'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.approval.cancel');
+
+    Route::post('/bookings/{booking}/approval/complete', [BookingApprovalController::class, 'complete'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.approval.complete');
+
+    Route::put('/bookings/{booking}/billing', [BookingBillingController::class, 'update'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.billing.update');
+
+    Route::post('/bookings/{booking}/post-event-charges', [BookingBillingController::class, 'storePostEventCharge'])
+        ->middleware('role:admin|manager')
+        ->whereNumber('booking')
+        ->name('bookings.post-event-charges.store');
+
+    Route::put('/bookings/{booking}/post-event-charges/{bookingPostEventCharge}', [BookingBillingController::class, 'updatePostEventCharge'])
+        ->middleware('role:admin|manager')
+        ->whereNumber(['booking', 'bookingPostEventCharge'])
+        ->name('bookings.post-event-charges.update');
+
+    Route::delete('/bookings/{booking}/post-event-charges/{bookingPostEventCharge}', [BookingBillingController::class, 'destroyPostEventCharge'])
+        ->middleware('role:admin|manager')
+        ->whereNumber(['booking', 'bookingPostEventCharge'])
+        ->name('bookings.post-event-charges.destroy');
+
+    Route::get('/bookings/{booking}/print/reservation', [BookingPrintableController::class, 'reservation'])
+        ->whereNumber('booking')
+        ->name('bookings.print.reservation');
+
+    Route::get('/bookings/{booking}/print/final-bill', [BookingPrintableController::class, 'finalBill'])
+        ->whereNumber('booking')
+        ->name('bookings.print.final-bill');
+
+    Route::get('/bookings/{booking}/print/cancellation', [BookingPrintableController::class, 'cancellation'])
+        ->whereNumber('booking')
+        ->name('bookings.print.cancellation');
+
+    Route::get('/bookings/{booking}/print/mice-summary', [BookingPrintableController::class, 'miceSummary'])
+        ->whereNumber('booking')
+        ->name('bookings.print.mice-summary');
 
     Route::get('/bookings/{booking}/survey', [BookingController::class, 'survey'])
         ->middleware('permission:bookings.create')

@@ -247,34 +247,24 @@ final class VenueAreaCatalog
             ->all();
     }
 
+    public static function activeSelectableKeys(): array
+    {
+        return ActiveVenueCatalog::activeKeys();
+    }
+
+    public static function isActiveSelectable(?string $value): bool
+    {
+        return ActiveVenueCatalog::isSelectableLabel($value);
+    }
+
+    public static function activeCanonicalKeys(mixed $values): array
+    {
+        return ActiveVenueCatalog::sanitizeKeys($values);
+    }
+
     public static function publicOptions(): array
     {
-        return collect([
-            'full_hall',
-            'main_hall',
-            'led_wall',
-            'vip_lounge',
-            'board_room',
-        ])->map(fn (string $key) => [
-            'label' => mb_strtoupper(self::displayName($key)),
-            'value' => self::displayName($key),
-            'area_key' => $key,
-            'category' => match ($key) {
-                'full_hall' => 'Hall rental',
-                'main_hall' => 'Primary hall',
-                'led_wall' => 'Presentation add-on',
-                'vip_lounge' => 'Executive support space',
-                'board_room' => 'Meeting support space',
-                default => 'Venue area',
-            },
-            'capacity' => match ($key) {
-                'full_hall' => 'Full hall layout, subject to final setup',
-                'main_hall' => 'Large-format events',
-                'led_wall' => 'Display support',
-                'vip_lounge' => 'VIP holding',
-                'board_room' => 'Small-group setup',
-                default => 'Layout dependent',
-            },
-        ])->values()->all();
+        return ActiveVenueCatalog::options();
     }
 }
+

@@ -26,10 +26,30 @@ class Booking extends Model
         'is_public_calendar_visible' => 'boolean',
         'number_of_guests' => 'integer',
         'payment_meta' => 'array',
+        'policy_acknowledged_at' => 'datetime',
+        'final_computation_at' => 'datetime',
         'selected_area_keys' => 'array',
         'dressing_room_charge' => 'decimal:2',
         'mice_required' => 'boolean',
         'schedule_meta' => 'array',
+
+        'base_subtotal' => 'decimal:2',
+        'discount_total' => 'decimal:2',
+        'finalized_total' => 'decimal:2',
+        'required_down_payment_amount' => 'decimal:2',
+        'required_bond_amount' => 'decimal:2',
+        'bond_paid_at' => 'datetime',
+        'bond_waived_at' => 'datetime',
+        'down_payment_due_at' => 'datetime',
+        'balance_due_at' => 'datetime',
+        'confirmed_at' => 'datetime',
+        'declined_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'final_computation_meta' => 'array',
+        'final_computation_locked_at' => 'datetime',
+        'cancellation_penalty_rate' => 'decimal:4',
+        'cancellation_penalty_amount' => 'decimal:2',
     ];
 
     protected $appends = [
@@ -77,6 +97,11 @@ class Booking extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(BookingPayment::class);
+    }
+
+    public function postEventCharges(): HasMany
+    {
+        return $this->hasMany(BookingPostEventCharge::class);
     }
 
     public function createdBy(): BelongsTo

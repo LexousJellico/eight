@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreBookingPaymentRequest;
 use App\Http\Requests\StoreBookingRequest;
+use App\Http\Requests\StoreBookingMiceSurveyRequest;
 use App\Http\Requests\UpdateBookingPaymentRequest;
 use App\Http\Requests\UpdateBookingRequest;
 use App\Http\Resources\BookingResource;
@@ -21,6 +22,7 @@ use App\Support\BookingStatusCatalog;
 use App\Support\BookingScheduleCatalog;
 use App\Support\DressingRoomCatalog;
 use App\Support\MiceReportCatalog;
+use App\Support\MiceRecordPayload;
 use App\Support\VenueAreaCatalog;
 use App\Support\VenuePackageCatalog;
 use App\Support\WorkspaceAccess;
@@ -81,6 +83,7 @@ class BookingController extends Controller
             'createdBy',
             'miceRecord',
             'scheduleSegments',
+            'postEventCharges',
         ]);
 
         $statusCounts = $this->bookings->getStatusCounts($filters);
@@ -181,6 +184,7 @@ class BookingController extends Controller
             'createdBy',
             'miceRecord',
             'scheduleSegments',
+            'postEventCharges',
         ]);
 
         $record = MiceRecord::query()
@@ -197,6 +201,10 @@ class BookingController extends Controller
                 ...$this->bookingFormOptions(),
                 'eventCategories' => MiceReportCatalog::classificationOptions(),
                 'eventTypes' => MiceReportCatalog::typeOptions(),
+                'eventScopes' => MiceReportCatalog::eventScopeOptions(),
+                'countries' => MiceReportCatalog::countryOptions(),
+                'classificationInstructions' => MiceReportCatalog::classificationInstructions(),
+                'eventTypeInstructions' => MiceReportCatalog::eventTypeInstructions(),
                 'organizerTypes' => [
                     'Private',
                     'Government',
@@ -216,124 +224,54 @@ class BookingController extends Controller
         ]);
     }
 
-    public function storeSurvey(Request $request, Booking $booking): RedirectResponse
+    public function storeSurvey(StoreBookingMiceSurveyRequest $request, Booking $booking): RedirectResponse
     {
         $this->ensureBookingAccess($request, $booking);
 
-        $data = $request->validate([
-            'year_recorded' => ['required', 'integer', 'min:2020', 'max:2100'],
-            'enterprise_group' => ['nullable', 'string', 'max:50'],
-            'btc_group_code' => ['nullable', 'string', 'max:50'],
-
-            'event_name' => ['required', 'string', 'max:255'],
-            'event_category' => ['required', 'string', 'max:255'],
-            'type_of_event' => ['required', 'string', 'max:255'],
-            'venue_area' => ['required', 'string', 'max:255'],
-            'event_date_from' => ['required', 'date'],
-            'event_date_to' => ['required', 'date', 'after_or_equal:event_date_from'],
-
-            'organization_name' => ['required', 'string', 'max:255'],
-            'organizer_name' => ['nullable', 'string', 'max:255'],
-            'organizer_type' => ['nullable', 'string', 'max:255'],
-            'contact_person' => ['required', 'string', 'max:255'],
-            'contact_number' => ['nullable', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['nullable', 'string', 'max:1000'],
-
-            'local_male_participants' => ['nullable', 'integer', 'min:0'],
-            'local_female_participants' => ['nullable', 'integer', 'min:0'],
-            'domestic_male_participants' => ['nullable', 'integer', 'min:0'],
-            'domestic_female_participants' => ['nullable', 'integer', 'min:0'],
-            'foreign_male_participants' => ['nullable', 'integer', 'min:0'],
-            'foreign_female_participants' => ['nullable', 'integer', 'min:0'],
-
-            'main_origin_country' => ['nullable', 'string', 'max:255'],
-            'main_origin_province' => ['nullable', 'string', 'max:255'],
-            'main_origin_city' => ['nullable', 'string', 'max:255'],
-
-            'same_day_visitors' => ['nullable', 'integer', 'min:0'],
-            'overnight_visitors' => ['nullable', 'integer', 'min:0'],
-            'estimated_room_nights' => ['nullable', 'integer', 'min:0'],
-            'estimated_tourism_receipts' => ['nullable', 'numeric', 'min:0'],
-
-            'total_employees' => ['nullable', 'integer', 'min:0'],
-            'female_employees' => ['nullable', 'integer', 'min:0'],
-            'male_employees' => ['nullable', 'integer', 'min:0'],
-
-            'permit_to_engage' => ['nullable', 'boolean'],
-            'dot_accredited' => ['nullable', 'boolean'],
-            'active_member' => ['nullable', 'boolean'],
-
-            'remarks' => ['nullable', 'string', 'max:2000'],
-            'certified' => ['accepted'],
-        ], [
-            'certified.accepted' => 'Please certify that the MICE report information is accurate.',
+        $booking->loadMissing([
+            'service.serviceType',
+            'bookingServices.service.serviceType',
+            'scheduleSegments',
+            'postEventCharges',
         ]);
-
-        unset($data['certified']);
-
-        foreach ([
-            'local_male_participants',
-            'local_female_participants',
-            'domestic_male_participants',
-            'domestic_female_participants',
-            'foreign_male_participants',
-            'foreign_female_participants',
-            'same_day_visitors',
-            'overnight_visitors',
-            'estimated_room_nights',
-            'total_employees',
-            'female_employees',
-            'male_employees',
-        ] as $field) {
-            $data[$field] = max(0, (int) ($data[$field] ?? 0));
-        }
-
-        $totalParticipants =
-            $data['local_male_participants']
-            + $data['local_female_participants']
-            + $data['domestic_male_participants']
-            + $data['domestic_female_participants']
-            + $data['foreign_male_participants']
-            + $data['foreign_female_participants'];
-
-        if ($totalParticipants < 1) {
-            return back()
-                ->withErrors(['total_participants' => 'At least one participant must be encoded.'])
-                ->withInput();
-        }
-
-        $from = Carbon::parse($data['event_date_from'])->startOfDay();
-        $to = Carbon::parse($data['event_date_to'])->startOfDay();
 
         $existing = MiceRecord::query()
             ->where('booking_id', $booking->id)
             ->first();
 
-        $data['booking_id'] = $booking->id;
-        $data['record_no'] = $existing?->record_no ?: $this->nextMiceRecordNumber((int) $data['year_recorded']);
-        $data['event_days'] = max(1, $from->diffInDays($to) + 1);
-        $data['total_participants'] = $totalParticipants;
-        $data['estimated_tourism_receipts'] = round((float) ($data['estimated_tourism_receipts'] ?? 0), 2);
-        $data['permit_to_engage'] = (bool) ($data['permit_to_engage'] ?? false);
-        $data['dot_accredited'] = (bool) ($data['dot_accredited'] ?? false);
-        $data['active_member'] = (bool) ($data['active_member'] ?? false);
-        $data['status'] = 'submitted';
-        $data['submitted_at'] = now();
-        $data['updated_by_user_id'] = $request->user()?->id;
+        $payload = MiceRecordPayload::fromRequest(
+            $request->safe()->except('certified'),
+            $booking,
+            $request->user(),
+        );
+
+        $yearRecorded = (int) ($payload['year_recorded'] ?? now()->year);
+        $payload['record_no'] = $existing?->record_no ?: $this->nextMiceRecordNumber($yearRecorded);
+        $payload['updated_by_user_id'] = $request->user()?->id;
+        $payload['submitted_at'] = now();
 
         if (! $existing) {
-            $data['submitted_by_user_id'] = $request->user()?->id;
+            $payload['submitted_by_user_id'] = $request->user()?->id;
+        }
+
+        if (($payload['status'] ?? 'draft') === 'draft') {
+            $payload['draft_expires_at'] = $existing?->draft_expires_at ?: now()->addWeekdays(15);
+            $payload['finalized_at'] = null;
+        } else {
+            $payload['draft_expires_at'] = null;
+            $payload['finalized_at'] = $existing?->finalized_at ?: now();
         }
 
         MiceRecord::query()->updateOrCreate(
             ['booking_id' => $booking->id],
-            $data,
+            $payload,
         );
 
         return redirect()
             ->route(WorkspacePage::routeName($request, 'bookings.show'), $booking->id)
-            ->with('success', 'MICE report submitted successfully.');
+            ->with('success', ($payload['status'] ?? 'draft') === 'draft'
+                ? 'MICE/contact details saved as draft. It will become official after booking confirmation.'
+                : 'MICE report submitted and finalized successfully.');
     }
 
     public function show(Request $request, Booking $booking): Response
@@ -351,6 +289,7 @@ class BookingController extends Controller
             'lifecycleEvents.actor',
             'miceRecord',
             'scheduleSegments',
+            'postEventCharges',
         ]);
 
         $services = WorkspaceAccess::isStaffLike($request)
@@ -822,32 +761,72 @@ class BookingController extends Controller
 
     private function miceDefaultsFromBooking(Booking $booking): array
     {
+        $booking->loadMissing(['bookingServices.service.serviceType', 'service.serviceType', 'scheduleSegments']);
+
         $start = $booking->booking_date_from ? Carbon::parse($booking->booking_date_from) : now();
         $end = $booking->booking_date_to ? Carbon::parse($booking->booking_date_to) : $start;
 
-        $venueArea = $booking->service?->serviceType?->name
-            ?: $booking->bookingServices->first()?->service?->serviceType?->name
-            ?: $booking->service?->name
-            ?: 'Baguio Convention and Cultural Center';
+        $venueArea = $booking->bookingServices->isNotEmpty()
+            ? $booking->bookingServices
+                ->map(fn ($item) => $item->service?->serviceType?->name ?: $item->service?->name)
+                ->filter()
+                ->unique()
+                ->implode(', ')
+            : ($booking->service?->serviceType?->name ?: $booking->service?->name ?: 'Baguio Convention and Cultural Center');
+
+        $hours = $booking->scheduleSegments->sum(function ($segment): float {
+            if (! $segment->starts_at || ! $segment->ends_at) {
+                return 0;
+            }
+
+            try {
+                return max(0, Carbon::parse($segment->starts_at)->floatDiffInHours(Carbon::parse($segment->ends_at)));
+            } catch (\Throwable) {
+                return 0;
+            }
+        });
+
+        if ($hours <= 0) {
+            $hours = max(1, $start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) + 1) * 10;
+        }
+
+        $totalGuests = (int) ($booking->number_of_guests ?? 0);
 
         return [
+            'event_scope' => MiceReportCatalog::EVENT_SCOPE_PUBLIC,
             'year_recorded' => $start->year,
-            'event_name' => $booking->type_of_event,
-            'event_category' => $this->guessMiceCategory((string) $booking->type_of_event),
-            'type_of_event' => $booking->type_of_event,
+            'event_center_name' => MiceReportCatalog::EVENT_CENTER_NAME,
+            'function_halls_count' => MiceReportCatalog::FUNCTION_HALLS_COUNT,
+            'function_hall_capacity' => MiceReportCatalog::FUNCTION_HALL_CAPACITY,
+            'covered_month' => $start->format('F'),
+            'event_started_at' => $start->toDateString(),
+            'event_finished_at' => $end->toDateString(),
+            'number_of_hours' => round($hours, 2),
+            'event_name' => mb_strtoupper((string) ($booking->type_of_event ?: $booking->public_calendar_title ?: '')),
+            'event_category' => 'REGIONAL PHILIPPINES',
+            'classification_of_event' => 'REGIONAL PHILIPPINES',
+            'type_of_event' => 'SEMINAR/WORKSHOP/SYMPOSIUM/OTHERS',
+            'mice_type_of_event' => 'SEMINAR/WORKSHOP/SYMPOSIUM/OTHERS',
             'venue_area' => $venueArea,
             'event_date_from' => $start->toDateString(),
             'event_date_to' => $end->toDateString(),
-
-            'organization_name' => $booking->company_name ?: $booking->client_name,
-            'organizer_name' => $booking->head_of_organization,
+            'organization_name' => mb_strtoupper((string) ($booking->company_name ?: $booking->client_name ?: '')),
+            'organizer_organization_name' => mb_strtoupper((string) ($booking->company_name ?: $booking->client_name ?: '')),
+            'organizer_name' => mb_strtoupper((string) ($booking->head_of_organization ?: '')),
             'organizer_type' => $booking->organization_type,
-            'contact_person' => $booking->client_name,
+            'contact_person' => mb_strtoupper((string) ($booking->client_name ?: '')),
+            'organizer_contact_person' => mb_strtoupper((string) ($booking->client_name ?: '')),
             'contact_number' => $booking->client_contact_number,
+            'organizer_contact_number' => $booking->client_contact_number,
             'email' => $booking->client_email,
-            'address' => $booking->client_address,
-
-            'total_participants' => (int) ($booking->number_of_guests ?? 0),
+            'address' => mb_strtoupper((string) ($booking->client_address ?: '')),
+            'organizer_address' => mb_strtoupper((string) ($booking->client_address ?: '')),
+            'domestic_attendees' => $totalGuests,
+            'foreign_attendees' => 0,
+            'total_participants' => $totalGuests,
+            'total_number_of_countries' => 1,
+            'main_origin_country' => 'Philippines',
+            'comments_feedback' => 'N/A',
         ];
     }
 
@@ -858,19 +837,41 @@ class BookingController extends Controller
             'booking_id' => $record->booking_id,
             'record_no' => $record->record_no,
             'year_recorded' => $record->year_recorded,
+            'event_scope' => $record->event_scope ?? MiceReportCatalog::EVENT_SCOPE_PUBLIC,
             'status' => $record->status,
-
+            'draft_expires_at' => optional($record->draft_expires_at)->toIso8601String(),
+            'finalized_at' => optional($record->finalized_at)->toIso8601String(),
             'enterprise_group' => $record->enterprise_group,
             'btc_group_code' => $record->btc_group_code,
-
+            'event_center_name' => $record->event_center_name,
+            'function_halls_count' => $record->function_halls_count,
+            'function_hall_capacity' => $record->function_hall_capacity,
+            'covered_month' => $record->covered_month,
+            'event_started_at' => optional($record->event_started_at)->toDateString(),
+            'event_finished_at' => optional($record->event_finished_at)->toDateString(),
+            'number_of_hours' => $record->number_of_hours,
             'event_name' => $record->event_name,
             'event_category' => $record->event_category,
             'type_of_event' => $record->type_of_event,
+            'classification_of_event' => $record->classification_of_event,
+            'mice_type_of_event' => $record->mice_type_of_event,
             'venue_area' => $record->venue_area,
             'event_date_from' => optional($record->event_date_from)->toDateString(),
             'event_date_to' => optional($record->event_date_to)->toDateString(),
             'event_days' => $record->event_days,
-
+            'foreign_attendees' => $record->foreign_attendees,
+            'domestic_attendees' => $record->domestic_attendees,
+            'total_number_of_countries' => $record->total_number_of_countries,
+            'countries_breakdown' => $record->countries_breakdown ?: [],
+            'countries_breakdown_text' => $record->countries_breakdown_text,
+            'has_exhibitions' => (bool) $record->has_exhibitions,
+            'exhibitors_count' => $record->exhibitors_count,
+            'visitors_count' => $record->visitors_count,
+            'organizer_organization_name' => $record->organizer_organization_name,
+            'organizer_address' => $record->organizer_address,
+            'organizer_contact_person' => $record->organizer_contact_person,
+            'organizer_contact_number' => $record->organizer_contact_number,
+            'comments_feedback' => $record->comments_feedback,
             'organization_name' => $record->organization_name,
             'organizer_name' => $record->organizer_name,
             'organizer_type' => $record->organizer_type,
@@ -878,7 +879,6 @@ class BookingController extends Controller
             'contact_number' => $record->contact_number,
             'email' => $record->email,
             'address' => $record->address,
-
             'local_male_participants' => $record->local_male_participants,
             'local_female_participants' => $record->local_female_participants,
             'domestic_male_participants' => $record->domestic_male_participants,
@@ -886,24 +886,19 @@ class BookingController extends Controller
             'foreign_male_participants' => $record->foreign_male_participants,
             'foreign_female_participants' => $record->foreign_female_participants,
             'total_participants' => $record->total_participants,
-
             'main_origin_country' => $record->main_origin_country,
             'main_origin_province' => $record->main_origin_province,
             'main_origin_city' => $record->main_origin_city,
-
             'same_day_visitors' => $record->same_day_visitors,
             'overnight_visitors' => $record->overnight_visitors,
             'estimated_room_nights' => $record->estimated_room_nights,
             'estimated_tourism_receipts' => $record->estimated_tourism_receipts,
-
             'total_employees' => $record->total_employees,
             'female_employees' => $record->female_employees,
             'male_employees' => $record->male_employees,
-
             'permit_to_engage' => (bool) $record->permit_to_engage,
             'dot_accredited' => (bool) $record->dot_accredited,
             'active_member' => (bool) $record->active_member,
-
             'remarks' => $record->remarks,
             'submitted_at' => optional($record->submitted_at)->toIso8601String(),
         ];
@@ -971,7 +966,10 @@ class BookingController extends Controller
                 'typeOptions' => MiceReportCatalog::typeOptions(),
                 'coveredMonthOptions' => MiceReportCatalog::coveredMonthOptions(),
                 'eventCenterOptions' => MiceReportCatalog::eventCenterOptions(),
-                'privateEventOptions' => MiceReportCatalog::privateEventOptions(),
+                'eventScopeOptions' => MiceReportCatalog::eventScopeOptions(),
+                'countryOptions' => MiceReportCatalog::countryOptions(),
+                'classificationInstructions' => MiceReportCatalog::classificationInstructions(),
+                'eventTypeInstructions' => MiceReportCatalog::eventTypeInstructions(),
             ],
         ];
     }

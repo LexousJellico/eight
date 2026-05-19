@@ -1,5 +1,6 @@
 import BookingDeadlineBadge from '@/components/bookings/booking-deadline-badge';
 import BookingDeadlinePanel from '@/components/bookings/booking-deadline-panel';
+import BookingApprovalPanel from '@/components/bookings/booking-approval-panel';
 import { BookingRolePageShell } from '@/components/bookings/booking-role-page-shell';
 import { BookingStatusBadge } from '@/components/bookings/booking-status-badge';
 import OfficialReservationPreview from '@/components/bookings/official-reservation-preview';
@@ -23,11 +24,13 @@ import {
     CheckCircle2,
     Clock3,
     Edit3,
+    FileText,
     Mail,
     MapPin,
     Phone,
     ReceiptText,
     ShieldCheck,
+    Printer,
     Trash2,
     UserRound,
     Users,
@@ -155,6 +158,11 @@ function bookingPaymentMeta(booking: BookingLike): Record<string, unknown> {
     const meta = booking.payment_meta ?? booking.paymentMeta;
 
     return meta && typeof meta === 'object' && !Array.isArray(meta) ? meta as Record<string, unknown> : {};
+}
+
+
+function bookingPrintablePath(role: ReturnType<typeof normalizeWorkspaceRole>, id: number | string, kind: 'reservation' | 'final-bill' | 'cancellation' | 'mice-summary'): string {
+    return `${bookingBasePath(role)}/${id}/print/${kind}`;
 }
 
 function bookingPaymentsCount(booking: BookingLike): number {
@@ -618,6 +626,12 @@ export function BookingShowPage() {
                             />
                         </SectionCard>
 
+                        <BookingApprovalPanel
+                            role={role}
+                            booking={booking}
+                            canManagePayments={canManagePayments}
+                        />
+
                         <PaymentProofPanel
                             role={role}
                             booking={booking}
@@ -662,6 +676,40 @@ export function BookingShowPage() {
                                 />
                                 <MiniBox label="Remaining Balance" value={formatMoney(remainingBalance(booking))} />
                                 <MiniBox label="Payment Records" value={bookingPaymentsCount(booking).toString()} />
+                            </div>
+                        </SectionCard>
+
+
+                        <SectionCard eyebrow="Printables" title="Official outputs">
+                            <div className="grid gap-3">
+                                <Link
+                                    href={bookingPrintablePath(role, booking.id, 'reservation')}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6] bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#fff8ea] dark:border-white/10 dark:bg-white/10 dark:text-white"
+                                >
+                                    <FileText className="h-4 w-4" />
+                                    Reservation Summary
+                                </Link>
+                                <Link
+                                    href={bookingPrintablePath(role, booking.id, 'final-bill')}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6] bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#fff8ea] dark:border-white/10 dark:bg-white/10 dark:text-white"
+                                >
+                                    <ReceiptText className="h-4 w-4" />
+                                    Final Bill
+                                </Link>
+                                <Link
+                                    href={bookingPrintablePath(role, booking.id, 'cancellation')}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6] bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#fff8ea] dark:border-white/10 dark:bg-white/10 dark:text-white"
+                                >
+                                    <Printer className="h-4 w-4" />
+                                    Cancellation Assessment
+                                </Link>
+                                <Link
+                                    href={bookingPrintablePath(role, booking.id, 'mice-summary')}
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6] bg-white px-4 text-sm font-semibold text-[#2f2517] transition hover:bg-[#fff8ea] dark:border-white/10 dark:bg-white/10 dark:text-white"
+                                >
+                                    <ShieldCheck className="h-4 w-4" />
+                                    MICE Summary
+                                </Link>
                             </div>
                         </SectionCard>
 

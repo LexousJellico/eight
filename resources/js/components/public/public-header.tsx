@@ -109,19 +109,19 @@ function moreItems(settings?: PublicSiteSettings): MoreItem[] {
         {
             label: 'Venue Packages',
             href: '/#venue-packages',
-            description: 'Prepared venue combinations and package-style booking options for BCCC clients.',
+            description: 'Prepared venue combinations and package booking options.',
             icon: Sparkles,
         },
         {
             label: 'Booking Guidelines',
             href: '/guidelines',
-            description: 'Venue use rules, requirements, payment reminders, and booking policies.',
+            description: 'Venue rules, requirements, payments, and booking policies.',
             icon: BookOpenCheck,
         },
         {
             label: 'Frequently Asked Questions',
             href: setting(settings, 'faqsUrl', 'faqs_url') || 'https://main.baguio.gov.ph/more/frequently-asked-questions',
-            description: 'Quick answers to common public service and venue-use questions.',
+            description: 'Quick answers to common questions.',
             external: true,
             icon: FileQuestion,
         },
@@ -300,7 +300,7 @@ function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSetti
                     aria-expanded={moreOpen}
                 >
                     More <ChevronDown className={cx('h-3.5 w-3.5 transition', moreOpen && 'rotate-180')} />
-                </button>
+                </button> 
 
                 {moreOpen ? (
                     <div className="absolute left-1/2 top-full z-[99995] mt-3 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white/96 p-4 text-slate-800 shadow-[0_26px_70px_rgba(2,26,22,0.22)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0d1715]/96">

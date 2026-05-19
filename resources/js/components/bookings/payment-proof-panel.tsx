@@ -287,6 +287,18 @@ export function PaymentProofPanel({
       0,
   );
 
+  const minimumDueNow = useMemo(() => {
+    const summary = booking.financial_summary as Record<string, number | string | null> | null | undefined;
+    const billing = booking.billing_summary as Record<string, number | string | null> | null | undefined;
+    const due = Number(summary?.minimum_due_now ?? billing?.required_down_payment ?? 0);
+
+    if (Number.isFinite(due) && due > 0) {
+      return String(due.toFixed(2));
+    }
+
+    return '';
+  }, [booking]);
+
   const remainingBalance = useMemo(() => {
     const direct = Number(totalValue(booking, 'remaining_balance'));
 
@@ -310,7 +322,7 @@ export function PaymentProofPanel({
     payment_method: 'online',
     payment_gateway: isClient ? 'gcash' : 'manual',
     payment_type: 'down',
-    amount: remainingBalance,
+    amount: minimumDueNow || remainingBalance,
     transaction_reference: '',
     payer_name: String(booking.client_name || ''),
     proof_image: null,
@@ -320,7 +332,7 @@ export function PaymentProofPanel({
 
   useEffect(() => {
     setData('amount', remainingBalance);
-  }, [remainingBalance, setData]);
+  }, [minimumDueNow, remainingBalance, setData]);
 
   useEffect(() => {
     if (!data.proof_image) {
@@ -350,7 +362,7 @@ export function PaymentProofPanel({
       preserveScroll: true,
       onSuccess: () => {
         reset('transaction_reference', 'proof_image', 'remarks');
-        setData('amount', remainingBalance);
+        setData('amount', minimumDueNow || remainingBalance);
         setData('status', canManagePayments ? 'confirmed' : 'pending');
       },
     });
@@ -474,6 +486,8 @@ export function PaymentProofPanel({
               <option value="down">Down Payment</option>
               <option value="full">Full Payment</option>
               <option value="balance">Remaining Balance</option>
+              {canManagePayments ? <option value="bond">Bond</option> : null}
+              {canManagePayments ? <option value="post_event">Post-event Charge</option> : null}
             </select>
           </Field>
 

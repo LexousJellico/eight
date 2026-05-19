@@ -220,6 +220,15 @@ class BcccVenuePackageSeeder extends Seeder
         'Lobby/Foyer',
         'VIP Lounge - 1',
         'VIP Lounge - 2',
+        'Lobby Receiving Room',
+        'Basement Function Room',
+        'Basement Hall - Half',
+        'Whole Basement',
+        'Shop Rentals',
+        'Shop Rental',
+        'Catering Maintenance Fee',
+        'Air Conditioning',
+        'Stationery Kit',
     ];
 
     public function run(): void

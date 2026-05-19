@@ -15,6 +15,10 @@ class MiceRecord extends Model
         'booking_id',
         'record_no',
         'year_recorded',
+        'event_scope',
+        'draft_expires_at',
+        'finalized_at',
+        'decline_cleanup_at',
         'enterprise_group',
         'btc_group_code',
 
@@ -97,6 +101,9 @@ class MiceRecord extends Model
     protected $casts = [
         'booking_id' => 'integer',
         'year_recorded' => 'integer',
+        'draft_expires_at' => 'datetime',
+        'finalized_at' => 'datetime',
+        'decline_cleanup_at' => 'datetime',
 
         'event_date_from' => 'datetime',
         'event_date_to' => 'datetime',
@@ -171,6 +178,16 @@ class MiceRecord extends Model
 
     public function applySafeDefaults(): void
     {
+        if (blank($this->event_scope)) {
+            $this->event_scope = 'public';
+        }
+
+        foreach (['event_name', 'organization_name', 'organizer_organization_name', 'organizer_address', 'organizer_contact_person', 'contact_person', 'address'] as $field) {
+            if (filled($this->{$field})) {
+                $this->{$field} = mb_strtoupper((string) $this->{$field});
+            }
+        }
+
         if (blank($this->event_center_name)) {
             $this->event_center_name = 'BAGUIO CONVENTION AND CULTURAL CENTER';
         }
@@ -229,11 +246,15 @@ class MiceRecord extends Model
         }
 
         if (blank($this->comments_feedback)) {
-            $this->comments_feedback = $this->remarks;
+            $this->comments_feedback = filled($this->remarks) ? $this->remarks : 'N/A';
+        }
+
+        if (blank($this->remarks)) {
+            $this->remarks = $this->comments_feedback ?: 'N/A';
         }
 
         if (blank($this->status)) {
-            $this->status = 'submitted';
+            $this->status = 'draft';
         }
 
         if (blank($this->submitted_at)) {
