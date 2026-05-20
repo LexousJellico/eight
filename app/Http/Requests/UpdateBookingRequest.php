@@ -141,19 +141,31 @@ class UpdateBookingRequest extends FormRequest
                 $this->input('selected_package_code') ?: $this->input('package_code')
             );
 
-            if ($packageCode && ! VenuePackageCatalog::exists($packageCode)) {
-                $validator->errors()->add('selected_package_code', 'The selected package is not part of the active BCCC booking catalog.');
+            $submittedAreaKeys = ActiveVenueCatalog::sanitizeKeys(
+                $this->input('selected_area_keys') ?: $this->input('area_keys') ?: []
+            );
+
+            if ($packageCode && ! VenuePackageCatalog::exists($packageCode) && $submittedAreaKeys === []) {
+                $validator->errors()->add(
+                    'selected_package_code',
+                    'The selected package is not part of the active BCCC booking catalog. Please choose one of the displayed active packages or use manual selection.'
+                );
             }
 
             foreach (['selected_area_keys', 'area_keys'] as $field) {
                 $values = $this->input($field, []);
                 $unavailable = ActiveVenueCatalog::unavailableKeys($values);
+                $combinationError = ActiveVenueCatalog::combinationError($values);
 
                 if ($unavailable !== []) {
                     $validator->errors()->add(
                         $field,
                         'Only Full Hall, Main Hall, LED Wall, Lounge, and Boardroom are available for booking charges.'
                     );
+                }
+
+                if ($combinationError) {
+                    $validator->errors()->add($field, $combinationError);
                 }
             }
 
@@ -172,6 +184,12 @@ class UpdateBookingRequest extends FormRequest
                             "schedule_segments.$index.area_keys",
                             'Schedule rows may use only the active BCCC booking areas.'
                         );
+                    }
+
+                    $combinationError = ActiveVenueCatalog::combinationError($segment['area_keys'] ?? []);
+
+                    if ($combinationError) {
+                        $validator->errors()->add("schedule_segments.$index.area_keys", $combinationError);
                     }
                 }
             }

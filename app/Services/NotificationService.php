@@ -338,6 +338,41 @@ class NotificationService
         );
     }
 
+
+    protected function clientStatusNotice(Booking $booking, ?string $oldStatus, ?string $newStatus): array
+    {
+        $status = strtolower(trim((string) $newStatus));
+        $event = $booking->type_of_event ?: 'your event';
+
+        return match ($status) {
+            'approved', 'accepted', 'confirmed', 'active' => [
+                'type' => 'booking_approved',
+                'title' => 'Your booking has been approved',
+                'message' => sprintf('Your reservation for %s has been approved. Please check your booking page for payment and next-step instructions.', $event),
+            ],
+            'pencil_booked' => [
+                'type' => 'booking_pencil_booked',
+                'title' => 'Your booking is pencil-booked',
+                'message' => sprintf('Your reservation for %s is pencil-booked while BCCC waits for the required payment review.', $event),
+            ],
+            'declined', 'cancelled', 'expired' => [
+                'type' => 'booking_not_approved',
+                'title' => 'Your booking was not approved',
+                'message' => sprintf('Your reservation for %s was marked as %s. Please open the booking page for details.', $event, str_replace('_', ' ', $status)),
+            ],
+            'completed' => [
+                'type' => 'booking_completed',
+                'title' => 'Your booking is completed',
+                'message' => sprintf('Your reservation for %s has been marked completed.', $event),
+            ],
+            default => [
+                'type' => 'booking_status_changed',
+                'title' => 'Your booking status was updated',
+                'message' => sprintf('Your reservation for %s is now %s.', $event, str_replace('_', ' ', $status ?: 'updated')),
+            ],
+        };
+    }
+
     public function bookingUpdated(Booking $booking, ?User $actor, array $changes): void
     {
         unset($changes['updated_at']);
@@ -382,7 +417,14 @@ class NotificationService
             } else {
                 // staff/manager/admin -> owner + admins/managers depending
                 if ($owner && (! $actor || $owner->id !== $actor->id)) {
-                    $this->createNotification($owner, 'booking_status_changed', $title, $message, $link);
+                    $clientNotice = $this->clientStatusNotice($booking, $old, $new);
+                    $this->createNotification(
+                        $owner,
+                        $clientNotice['type'],
+                        $clientNotice['title'],
+                        $clientNotice['message'],
+                        $link
+                    );
                 }
 
                 $auditRecipients = match ($role) {

@@ -15,7 +15,37 @@ final class VenuePackageCatalog
         $code = preg_replace('/[^A-Z0-9_]+/', '_', $code) ?: '';
         $code = trim($code, '_');
 
-        return $code !== '' ? $code : null;
+        if ($code === '') {
+            return null;
+        }
+
+        $aliases = [
+            'FULL_HALL' => 'FULL_HALL_ONLY',
+            'FULL_HALL_PACKAGE' => 'FULL_HALL_ONLY',
+            'MAIN_HALL' => 'MAIN_HALL_ONLY',
+            'MAIN_HALL_PACKAGE' => 'MAIN_HALL_ONLY',
+            'LED_WALL' => 'LED_WALL_ONLY',
+            'LED' => 'LED_WALL_ONLY',
+            'LOUNGE' => 'VIP_LOUNGE_ONLY',
+            'VIP_LOUNGE' => 'VIP_LOUNGE_ONLY',
+            'BOARDROOM' => 'BOARD_ROOM_ONLY',
+            'BOARD_ROOM' => 'BOARD_ROOM_ONLY',
+            'MAIN_HALL_BOARDROOM' => 'MAIN_BOARD',
+            'MAIN_BOARDROOM' => 'MAIN_BOARD',
+            'MAIN_HALL_BOARD_ROOM' => 'MAIN_BOARD',
+            'MAIN_HALL_LOUNGE' => 'MAIN_LOUNGE',
+            'MAIN_HALL_LED_WALL' => 'MAIN_LED',
+            'MAIN_LED_WALL' => 'MAIN_LED',
+            'FULL_HALL_LED_WALL' => 'FULL_LED',
+            'FULL_LED_WALL' => 'FULL_LED',
+            'FULL_HALL_LOUNGE' => 'FULL_LOUNGE',
+            'FULL_HALL_BOARDROOM' => 'FULL_BOARD',
+            'FULL_HALL_BOARD_ROOM' => 'FULL_BOARD',
+            'LOUNGE_BOARDROOM' => 'LOUNGE_BOARD',
+            'LOUNGE_BOARD_ROOM' => 'LOUNGE_BOARD',
+        ];
+
+        return $aliases[$code] ?? $code;
     }
 
     public static function find(?string $code): ?array
@@ -71,7 +101,7 @@ final class VenuePackageCatalog
                     'sort_order' => (int) ($package['sort_order'] ?? 0),
                 ];
             })
-            ->filter(fn (array $package): bool => ! empty($package['area_keys']))
+            ->filter(fn (array $package): bool => ! empty($package['area_keys']) && ActiveVenueCatalog::validCombination($package['area_keys']))
             ->sortBy('sort_order')
             ->values()
             ->all();

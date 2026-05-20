@@ -130,7 +130,7 @@ final class ActiveVenueCatalog
                 'code' => 'FULL_HALL_ONLY',
                 'name' => 'Full Hall',
                 'subtitle' => 'Full hall booking with lobby access included',
-                'description' => 'Best for large civic programs, conventions, ceremonies, and full-house events. VIP Lounge, Boardroom, and LED Wall are selected separately when needed.',
+                'description' => 'Best for large civic programs, conventions, ceremonies, and full-house events. Lobby access is included. Main Hall cannot be selected together with Full Hall because it is already occupied by Full Hall use.',
                 'area_keys' => [self::FULL_HALL],
                 'image_path' => '/marketing/images/events/darkmain.JPG',
                 'is_public' => true,
@@ -141,12 +141,45 @@ final class ActiveVenueCatalog
                 'code' => 'MAIN_HALL_ONLY',
                 'name' => 'Main Hall',
                 'subtitle' => 'Primary hall only',
-                'description' => 'Best for main programs that do not require separate executive rooms or LED Wall support.',
+                'description' => 'Best for main programs that do not require Full Hall use. Can combine with LED Wall, Lounge, or Boardroom.',
                 'area_keys' => [self::MAIN_HALL],
                 'image_path' => '/marketing/images/hero/noon2.jpg',
                 'is_public' => true,
                 'is_featured' => true,
                 'sort_order' => 20,
+            ],
+            [
+                'code' => 'LED_WALL_ONLY',
+                'name' => 'LED Wall',
+                'subtitle' => 'LED Wall only',
+                'description' => 'Display support that can stand alone or combine with any active venue selection except unavailable/excluded ordinance charges.',
+                'area_keys' => [self::LED_WALL],
+                'image_path' => '/marketing/images/facilities/ledwall.jpg',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 25,
+            ],
+            [
+                'code' => 'VIP_LOUNGE_ONLY',
+                'name' => 'Lounge',
+                'subtitle' => 'Executive lounge only',
+                'description' => 'Support room for small meetings, VIP holding, or organizer coordination.',
+                'area_keys' => [self::LOUNGE],
+                'image_path' => '/marketing/images/facilities/darkvip.JPG',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 26,
+            ],
+            [
+                'code' => 'BOARD_ROOM_ONLY',
+                'name' => 'Boardroom',
+                'subtitle' => 'Executive boardroom only',
+                'description' => 'Private room for executive meetings, planning, or coordination work.',
+                'area_keys' => [self::BOARDROOM],
+                'image_path' => '/marketing/images/facilities/boardroom.jpg',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 27,
             ],
             [
                 'code' => 'MAIN_BOARD',
@@ -204,6 +237,72 @@ final class ActiveVenueCatalog
                 'sort_order' => 70,
             ],
             [
+                'code' => 'FULL_LOUNGE',
+                'name' => 'Full Hall + Lounge',
+                'subtitle' => 'Full hall with VIP support',
+                'description' => 'Full Hall selection with a separate lounge room for VIP holding or organizer support.',
+                'area_keys' => [self::FULL_HALL, self::LOUNGE],
+                'image_path' => '/marketing/images/events/darkmain.JPG',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 72,
+            ],
+            [
+                'code' => 'FULL_BOARD',
+                'name' => 'Full Hall + Boardroom',
+                'subtitle' => 'Full hall with private meeting support',
+                'description' => 'Full Hall selection with a separate boardroom for planning, briefings, or staff coordination.',
+                'area_keys' => [self::FULL_HALL, self::BOARDROOM],
+                'image_path' => '/marketing/images/events/darkmain.JPG',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 74,
+            ],
+            [
+                'code' => 'FULL_LED_LOUNGE',
+                'name' => 'Full Hall + LED Wall + Lounge',
+                'subtitle' => 'Full hall event with visual and VIP support',
+                'description' => 'Full Hall with LED Wall and Lounge. Main Hall is not separately added because Full Hall already occupies it.',
+                'area_keys' => [self::FULL_HALL, self::LED_WALL, self::LOUNGE],
+                'image_path' => '/marketing/images/events/darkmain.JPG',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 76,
+            ],
+            [
+                'code' => 'FULL_LED_BOARD',
+                'name' => 'Full Hall + LED Wall + Boardroom',
+                'subtitle' => 'Full hall event with display and meeting support',
+                'description' => 'Full Hall with LED Wall and Boardroom. Main Hall is not separately added because Full Hall already occupies it.',
+                'area_keys' => [self::FULL_HALL, self::LED_WALL, self::BOARDROOM],
+                'image_path' => '/marketing/images/events/darkmain.JPG',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 78,
+            ],
+            [
+                'code' => 'FULL_LOUNGE_BOARD',
+                'name' => 'Full Hall + Lounge + Boardroom',
+                'subtitle' => 'Full hall with executive support rooms',
+                'description' => 'Full Hall with both executive support rooms. Main Hall is not separately added because Full Hall already occupies it.',
+                'area_keys' => [self::FULL_HALL, self::LOUNGE, self::BOARDROOM],
+                'image_path' => '/marketing/images/events/darkmain.JPG',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 79,
+            ],
+            [
+                'code' => 'FULL_LED_LOUNGE_BOARD',
+                'name' => 'Full Hall + LED Wall + Lounge + Boardroom',
+                'subtitle' => 'Full hall complete active support combination',
+                'description' => 'Full Hall with LED Wall, Lounge, and Boardroom. Main Hall is not separately added because Full Hall already occupies it.',
+                'area_keys' => [self::FULL_HALL, self::LED_WALL, self::LOUNGE, self::BOARDROOM],
+                'image_path' => '/marketing/images/events/darkmain.JPG',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 80,
+            ],
+            [
                 'code' => 'LOUNGE_BOARD',
                 'name' => 'Lounge + Boardroom',
                 'subtitle' => 'Executive support rooms only',
@@ -212,7 +311,40 @@ final class ActiveVenueCatalog
                 'image_path' => '/marketing/images/facilities/darkvip.JPG',
                 'is_public' => true,
                 'is_featured' => false,
-                'sort_order' => 80,
+                'sort_order' => 90,
+            ],
+            [
+                'code' => 'LED_LOUNGE',
+                'name' => 'LED Wall + Lounge',
+                'subtitle' => 'Display support with executive room',
+                'description' => 'LED Wall paired with Lounge for smaller supported programs.',
+                'area_keys' => [self::LED_WALL, self::LOUNGE],
+                'image_path' => '/marketing/images/facilities/ledwall.jpg',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 92,
+            ],
+            [
+                'code' => 'LED_BOARD',
+                'name' => 'LED Wall + Boardroom',
+                'subtitle' => 'Display support with boardroom',
+                'description' => 'LED Wall paired with Boardroom for meetings or smaller programs needing visual support.',
+                'area_keys' => [self::LED_WALL, self::BOARDROOM],
+                'image_path' => '/marketing/images/facilities/ledwall.jpg',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 94,
+            ],
+            [
+                'code' => 'LED_LOUNGE_BOARD',
+                'name' => 'LED Wall + Lounge + Boardroom',
+                'subtitle' => 'Display and executive support rooms',
+                'description' => 'LED Wall with both executive support rooms.',
+                'area_keys' => [self::LED_WALL, self::LOUNGE, self::BOARDROOM],
+                'image_path' => '/marketing/images/facilities/ledwall.jpg',
+                'is_public' => true,
+                'is_featured' => false,
+                'sort_order' => 96,
             ],
         ];
     }
@@ -328,12 +460,33 @@ final class ActiveVenueCatalog
 
         return collect($values)
             ->flatten()
-            ->map(fn ($value) => VenueAreaCatalog::canonicalKey(is_scalar($value) ? (string) $value : ''))
+            ->map(fn ($value) => self::canonicalKey(is_scalar($value) ? (string) $value : ''))
             ->filter()
             ->reject(fn (string $key) => in_array($key, self::activeKeys(), true))
             ->unique()
             ->values()
             ->all();
+    }
+
+    public static function hasFullMainConflict(mixed $values): bool
+    {
+        $keys = self::sanitizeKeys($values);
+
+        return in_array(self::FULL_HALL, $keys, true) && in_array(self::MAIN_HALL, $keys, true);
+    }
+
+    public static function combinationError(mixed $values): ?string
+    {
+        if (self::hasFullMainConflict($values)) {
+            return 'Full Hall already includes and occupies the Main Hall. Please choose Full Hall with LED Wall, Lounge, or Boardroom, or choose Main Hall without Full Hall.';
+        }
+
+        return null;
+    }
+
+    public static function validCombination(mixed $values): bool
+    {
+        return self::combinationError($values) === null;
     }
 
     public static function rate(?string $key): ?array

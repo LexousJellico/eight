@@ -450,10 +450,10 @@ export default function PublicHeader() {
                         </span>
 
                         <span className="hidden min-w-0 sm:block">
-                            <span className="block w-fit border-b border-white/75 pb-1 text-[12px] font-bold leading-none font-medium tracking-[0.12em] text-white lg:text-[15px]">
+                            <span className="block w-fit border-b border-white/75 pb-1 text-[12px] leading-none font-medium tracking-[0.12em] text-white lg:text-[16px]">
                                 Baguio Convention and Cultural Center
                             </span>
-                            <span className="mt-2 block text-[12px] leading-none font-medium -translate-y-[5.1px] tracking-[0.12em] text-white lg:text-[15px]">
+                            <span className="mt-2 block text-[12px] leading-none font-medium -translate-y-[5.1px] tracking-[0.12em] text-white lg:text-[16px]">
                                 Events Access and Scheduling Engine
                             </span>
                         </span>

@@ -17,6 +17,13 @@ class BookingPricingService
     public function fromPayload(array $payload, array $items = [], array $segments = []): array
     {
         $areaKeys = $this->areaKeysFromPayload($payload, $items);
+
+        if ($error = ActiveVenueCatalog::combinationError($areaKeys)) {
+            throw ValidationException::withMessages([
+                'selected_area_keys' => $error,
+            ]);
+        }
+
         $segments = $this->normalizeSegmentsForPricing($payload, $segments, $areaKeys);
 
         $stage = strtolower((string) ($payload['computation_stage'] ?? $payload['pricing_stage'] ?? 'draft'));

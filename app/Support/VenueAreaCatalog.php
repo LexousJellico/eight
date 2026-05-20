@@ -5,12 +5,11 @@ namespace App\Support;
 final class VenueAreaCatalog
 {
     public const BLOCKING_BOOKING_STATUSES = [
-        'pending',
-        'pencil_booked',
-        'for_review',
+        'accepted',
         'approved',
         'active',
         'confirmed',
+        'completed',
     ];
 
     public static function normalizeLabel(?string $value): string

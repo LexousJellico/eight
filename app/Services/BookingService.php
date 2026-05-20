@@ -295,12 +295,12 @@ class BookingService implements BookingServiceInterface
 
             if ($user && ! WorkspaceAccess::isStaffLike(request())) {
                 $bookingData['client_email'] = strtolower(trim((string) $user->email));
-                $bookingData['booking_status'] = 'pencil_booked';
+                $bookingData['booking_status'] = 'pending';
                 $bookingData['payment_status'] = 'unpaid';
             }
 
             $bookingData['payment_status'] = BookingStatusCatalog::normalizeBookingPaymentStatus($bookingData['payment_status'] ?? 'unpaid', 'unpaid');
-            $bookingData['booking_status'] = BookingStatusCatalog::normalizeBookingStatus($bookingData['booking_status'] ?? 'pencil_booked', 'pencil_booked');
+            $bookingData['booking_status'] = BookingStatusCatalog::normalizeBookingStatus($bookingData['booking_status'] ?? 'pending', 'pending');
 
             if (empty($items)) {
                 throw ValidationException::withMessages([
@@ -1798,7 +1798,7 @@ class BookingService implements BookingServiceInterface
         ?string $eventType = null,
         ?int $guestCount = null,
     ): array {
-        $keys = VenueAreaCatalog::canonicalKeys($areaKeys);
+        $keys = ActiveVenueCatalog::sanitizeKeys($areaKeys);
 
         if (empty($keys)) {
             return $this->getPublicDayStatus($date, null, $excludeBookingId, $eventType, $guestCount);
@@ -2640,7 +2640,7 @@ class BookingService implements BookingServiceInterface
     {
         $booking->loadMissing(['bookingServices.service.serviceType', 'service.serviceType']);
 
-        $keys = VenueAreaCatalog::canonicalKeys($booking->selected_area_keys ?? []);
+        $keys = ActiveVenueCatalog::sanitizeKeys($booking->selected_area_keys ?? []);
 
         if (empty($keys) && ! empty($booking->selected_package_code)) {
             $keys = array_merge($keys, VenuePackageCatalog::areaKeys((string) $booking->selected_package_code));

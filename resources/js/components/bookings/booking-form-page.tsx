@@ -23,7 +23,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 type ServiceOption = {
   id: number | string;
@@ -181,6 +181,56 @@ type ScheduleSelection = {
   block: ScheduleBlock;
   additionalHours: number;
 };
+
+
+type AvailabilityBlockKey = 'AM' | 'PM' | 'EVE';
+
+type AvailabilityApiBlock = {
+  key?: string | null;
+  label?: string | null;
+  from?: string | null;
+  to?: string | null;
+  is_available?: boolean | null;
+  isAvailable?: boolean | null;
+  booked?: boolean | null;
+  blocked?: boolean | null;
+  reason?: string | null;
+};
+
+type AvailabilityApiDay = {
+  date?: string | null;
+  status?: string | null;
+  title?: string | null;
+  note?: string | null;
+  description?: string | null;
+  can_proceed?: boolean | null;
+  is_fully_booked?: boolean | null;
+  isFullyBooked?: boolean | null;
+  blocks?: AvailabilityApiBlock[] | Record<string, AvailabilityApiBlock | boolean> | null;
+};
+
+type AvailabilityBlockState = {
+  key: AvailabilityBlockKey;
+  label: string;
+  from: string;
+  to: string;
+  available: boolean | null;
+  reason: string | null;
+};
+
+type DayAvailabilitySummary = {
+  date: string;
+  status: string;
+  title: string;
+  note: string;
+  canProceed: boolean | null;
+  am: AvailabilityBlockState;
+  pm: AvailabilityBlockState;
+  eve: AvailabilityBlockState;
+  sourceCount: number;
+};
+
+type CalendarAvailabilityMap = Record<string, DayAvailabilitySummary>;
 
 
 type ReviewLineItem = {
@@ -343,7 +393,7 @@ const ACTIVE_VENUES: ActiveVenue[] = [
 
 const FALLBACK_PACKAGES: ActivePackage[] = [
   {
-    code: 'FULL_HALL',
+    code: 'FULL_HALL_ONLY',
     label: 'Full Hall',
     subtitle: 'Full Hall with lobby included',
     areaKeys: ['FULL_HALL'],
@@ -351,7 +401,7 @@ const FALLBACK_PACKAGES: ActivePackage[] = [
     featured: true,
   },
   {
-    code: 'MAIN_HALL_BOARDROOM',
+    code: 'MAIN_BOARD',
     label: 'Main Hall + Boardroom',
     subtitle: '₱66,000 whole day active combination',
     areaKeys: ['MAIN_HALL', 'BOARDROOM'],
@@ -359,14 +409,14 @@ const FALLBACK_PACKAGES: ActivePackage[] = [
     featured: true,
   },
   {
-    code: 'MAIN_HALL_LOUNGE',
+    code: 'MAIN_LOUNGE',
     label: 'Main Hall + Lounge',
     subtitle: 'Main hall with VIP support space',
     areaKeys: ['MAIN_HALL', 'LOUNGE'],
     image: '/marketing/images/facilities/darkvip.JPG',
   },
   {
-    code: 'MAIN_HALL_LED_WALL',
+    code: 'MAIN_LED',
     label: 'Main Hall + LED Wall',
     subtitle: 'Program-ready hall with visual display',
     areaKeys: ['MAIN_HALL', 'LED_WALL'],
@@ -428,13 +478,7 @@ const BCCC_POLICY_NOTICE = [
 ];
 
 const EXCLUDED_USER_CHARGES = [
-  'Lobby Receiving Room as standalone charge',
   'Basement Function Room, Basement Hall - Half, and Whole Basement',
-  'Shop rentals',
-  'Catering maintenance fee',
-  'Air conditioning charge',
-  'Stationery kit',
-  'Ordinance special package rates',
 ];
 
 const REVIEW_POLICY_SECTIONS = [
@@ -455,6 +499,98 @@ const REVIEW_POLICY_SECTIONS = [
     body: 'The organizer is responsible for accurate details, proper conduct, house-rule compliance, and possible post-event assessment for damages, violations, extra use, or unpaid balance.',
   },
 ];
+
+
+
+type PhilippinesRegionOption = {
+  code: string;
+  label: string;
+  provinces: string[];
+};
+
+const PHILIPPINES_ADDRESS_REGIONS: PhilippinesRegionOption[] = [
+  { code: 'NCR', label: 'National Capital Region (NCR)', provinces: ['NCR - CITY OF MANILA', 'NCR - SECOND DISTRICT', 'NCR - THIRD DISTRICT', 'NCR - FOURTH DISTRICT'] },
+  { code: 'CAR', label: 'Cordillera Administrative Region (CAR)', provinces: ['ABRA', 'APAYAO', 'BENGUET', 'IFUGAO', 'KALINGA', 'MOUNTAIN PROVINCE'] },
+  { code: 'REGION I', label: 'Region I (Ilocos Region)', provinces: ['ILOCOS NORTE', 'ILOCOS SUR', 'LA UNION', 'PANGASINAN'] },
+  { code: 'REGION II', label: 'Region II (Cagayan Valley)', provinces: ['BATANES', 'CAGAYAN', 'ISABELA', 'NUEVA VIZCAYA', 'QUIRINO'] },
+  { code: 'REGION III', label: 'Region III (Central Luzon)', provinces: ['AURORA', 'BATAAN', 'BULACAN', 'NUEVA ECIJA', 'PAMPANGA', 'TARLAC', 'ZAMBALES'] },
+  { code: 'REGION IV-A', label: 'Region IV-A (CALABARZON)', provinces: ['BATANGAS', 'CAVITE', 'LAGUNA', 'QUEZON', 'RIZAL'] },
+  { code: 'MIMAROPA', label: 'MIMAROPA Region', provinces: ['MARINDUQUE', 'OCCIDENTAL MINDORO', 'ORIENTAL MINDORO', 'PALAWAN', 'ROMBLON'] },
+  { code: 'REGION V', label: 'Region V (Bicol Region)', provinces: ['ALBAY', 'CAMARINES NORTE', 'CAMARINES SUR', 'CATANDUANES', 'MASBATE', 'SORSOGON'] },
+  { code: 'REGION VI', label: 'Region VI (Western Visayas)', provinces: ['AKLAN', 'ANTIQUE', 'CAPIZ', 'GUIMARAS', 'ILOILO', 'NEGROS OCCIDENTAL'] },
+  { code: 'NIR', label: 'Negros Island Region (NIR)', provinces: ['NEGROS OCCIDENTAL', 'NEGROS ORIENTAL', 'SIQUIJOR'] },
+  { code: 'REGION VII', label: 'Region VII (Central Visayas)', provinces: ['BOHOL', 'CEBU'] },
+  { code: 'REGION VIII', label: 'Region VIII (Eastern Visayas)', provinces: ['BILIRAN', 'EASTERN SAMAR', 'LEYTE', 'NORTHERN SAMAR', 'SAMAR', 'SOUTHERN LEYTE'] },
+  { code: 'REGION IX', label: 'Region IX (Zamboanga Peninsula)', provinces: ['ZAMBOANGA DEL NORTE', 'ZAMBOANGA DEL SUR', 'ZAMBOANGA SIBUGAY'] },
+  { code: 'REGION X', label: 'Region X (Northern Mindanao)', provinces: ['BUKIDNON', 'CAMIGUIN', 'LANAO DEL NORTE', 'MISAMIS OCCIDENTAL', 'MISAMIS ORIENTAL'] },
+  { code: 'REGION XI', label: 'Region XI (Davao Region)', provinces: ['DAVAO DE ORO', 'DAVAO DEL NORTE', 'DAVAO DEL SUR', 'DAVAO OCCIDENTAL', 'DAVAO ORIENTAL'] },
+  { code: 'REGION XII', label: 'Region XII (SOCCSKSARGEN)', provinces: ['COTABATO', 'SARANGANI', 'SOUTH COTABATO', 'SULTAN KUDARAT'] },
+  { code: 'REGION XIII', label: 'Region XIII (Caraga)', provinces: ['AGUSAN DEL NORTE', 'AGUSAN DEL SUR', 'DINAGAT ISLANDS', 'SURIGAO DEL NORTE', 'SURIGAO DEL SUR'] },
+  { code: 'BARMM', label: 'Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)', provinces: ['BASILAN', 'LANAO DEL SUR', 'MAGUINDANAO DEL NORTE', 'MAGUINDANAO DEL SUR', 'SULU', 'TAWI-TAWI'] },
+];
+
+const COMMON_CITY_MUNICIPALITY_OPTIONS: Record<string, string[]> = {
+  'BENGUET': ['BAGUIO CITY', 'LA TRINIDAD', 'ITOGON', 'SABLAN', 'TUBA', 'TUBLAY', 'ATOK', 'BAKUN', 'BOKOD', 'BUGUIAS', 'KABAYAN', 'KAPANGAN', 'KIBUNGAN', 'MANKAYAN'],
+  'ABRA': ['BANGUED', 'BOLINEY', 'BUCAY', 'BUCLOC', 'DAGUIOMAN', 'DANGLAS', 'DOLORES', 'LA PAZ', 'LACUB', 'LAGANGILANG', 'LAGAYAN', 'LANGIDEN', 'LICUAN-BAAY', 'LUBA', 'MALIBCONG', 'MANABO', 'PEÑARRUBIA', 'PIDIGAN', 'PILAR', 'SALLAPADAN', 'SAN ISIDRO', 'SAN JUAN', 'SAN QUINTIN', 'TAYUM', 'TINEG', 'TUBO', 'VILLAVICIOSA'],
+  'APAYAO': ['CALANASAN', 'CONNER', 'FLORA', 'KABUGAO', 'LUNA', 'PUDTOL', 'SANTA MARCELA'],
+  'IFUGAO': ['AGUINALDO', 'ALFONSO LISTA', 'ASIPULO', 'BANAUE', 'HINGYON', 'HUNGDUAN', 'KIANGAN', 'LAGAWE', 'LAMUT', 'MAYOYAO', 'TINOC'],
+  'KALINGA': ['TABUK CITY', 'BALBALAN', 'LUBUAGAN', 'PASIL', 'PINUKPUK', 'RIZAL', 'TANUDAN', 'TINGLAYAN'],
+  'MOUNTAIN PROVINCE': ['BONTOC', 'BARLIG', 'BAUKO', 'BESAO', 'NATONIN', 'PARACELIS', 'SABANGAN', 'SADANGA', 'SAGADA', 'TADIAN'],
+  'NCR - CITY OF MANILA': ['CITY OF MANILA'],
+  'NCR - SECOND DISTRICT': ['MANDALUYONG CITY', 'MARIKINA CITY', 'PASIG CITY', 'QUEZON CITY', 'SAN JUAN CITY'],
+  'NCR - THIRD DISTRICT': ['CALOOCAN CITY', 'MALABON CITY', 'NAVOTAS CITY', 'VALENZUELA CITY'],
+  'NCR - FOURTH DISTRICT': ['LAS PIÑAS CITY', 'MAKATI CITY', 'MUNTINLUPA CITY', 'PARAÑAQUE CITY', 'PASAY CITY', 'PATEROS', 'TAGUIG CITY'],
+};
+
+function provincesForRegion(regionCode: string): string[] {
+  return PHILIPPINES_ADDRESS_REGIONS.find((region) => region.code === regionCode)?.provinces ?? [];
+}
+
+function citiesForProvince(province: string): string[] {
+  return COMMON_CITY_MUNICIPALITY_OPTIONS[upper(province)] ?? [];
+}
+
+function composePhilippinesAddress(parts: Partial<Pick<BookingFormData, 'client_region' | 'client_province' | 'client_city_municipality' | 'client_barangay' | 'client_street_address'>>): string {
+  return [
+    parts.client_street_address,
+    parts.client_barangay,
+    parts.client_city_municipality,
+    parts.client_province,
+    parts.client_region,
+    'PHILIPPINES',
+  ]
+    .map((part) => upper(String(part || '').trim()))
+    .filter(Boolean)
+    .join(', ');
+}
+
+function fullMainCombinationError(areaKeys: ActiveVenueKey[]): string | null {
+  return areaKeys.includes('FULL_HALL') && areaKeys.includes('MAIN_HALL')
+    ? 'Full Hall already includes and occupies the Main Hall. Choose Full Hall with LED Wall, Lounge, or Boardroom, or choose Main Hall without Full Hall.'
+    : null;
+}
+
+function selectionAvailabilityProblem(selection: ScheduleSelection, availability: DayAvailabilitySummary | undefined): string | null {
+  if (!availability || availability.canProceed === null) return null;
+
+  if (availability.canProceed === false) {
+    return `${displayDate(selection.date)} is not available for the selected service scope.`;
+  }
+
+  const needed: AvailabilityBlockState[] = selection.block === 'whole_day'
+    ? [availability.am, availability.pm]
+    : selection.block === 'am'
+      ? [availability.am]
+      : [availability.pm];
+
+  if (selection.additionalHours > 0) {
+    needed.push(availability.eve);
+  }
+
+  const closed = needed.find((block) => block.available === false);
+
+  return closed ? `${displayDate(selection.date)} ${closed.label} is not available. ${closed.reason || 'Please choose another time block.'}` : null;
+}
 
 function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(' ');
@@ -808,6 +944,146 @@ function packagePriceLabel(pkg: ActivePackage): string {
   return `${money(whole)} whole day · ${money(half)} half day`;
 }
 
+
+function monthQueryValue(date: string): string {
+  return String(date || todayDate()).slice(0, 7);
+}
+
+function availabilityAreaLabel(key: ActiveVenueKey): string {
+  return selectedVenueByKey(key).shortLabel;
+}
+
+function availabilityBlockFallback(key: AvailabilityBlockKey): AvailabilityBlockState {
+  if (key === 'PM') return { key, label: 'PM', from: '12:00', to: '18:00', available: null, reason: null };
+  if (key === 'EVE') return { key, label: 'EVE', from: '18:00', to: '23:59', available: null, reason: null };
+  return { key, label: 'AM', from: '06:00', to: '12:00', available: null, reason: null };
+}
+
+function emptyDayAvailability(date: string, status = 'unverified', note = 'Availability is being verified.'): DayAvailabilitySummary {
+  return {
+    date,
+    status,
+    title: status === 'loading' ? 'Checking availability' : 'Availability not verified',
+    note,
+    canProceed: null,
+    am: availabilityBlockFallback('AM'),
+    pm: availabilityBlockFallback('PM'),
+    eve: availabilityBlockFallback('EVE'),
+    sourceCount: 0,
+  };
+}
+
+function normalizeAvailabilityBlocks(blocks: AvailabilityApiDay['blocks']): Record<AvailabilityBlockKey, AvailabilityBlockState> {
+  const normalized: Record<AvailabilityBlockKey, AvailabilityBlockState> = {
+    AM: availabilityBlockFallback('AM'),
+    PM: availabilityBlockFallback('PM'),
+    EVE: availabilityBlockFallback('EVE'),
+  };
+
+  if (!blocks) return normalized;
+
+  const entries: Array<[string, AvailabilityApiBlock | boolean]> = Array.isArray(blocks)
+    ? blocks.map((block, index) => [String(typeof block === 'object' && block ? block.key ?? index : index), block])
+    : Object.entries(blocks);
+
+  entries.forEach(([rawKey, rawBlock]) => {
+    const key = String(typeof rawBlock === 'object' && rawBlock ? rawBlock.key ?? rawKey : rawKey).toUpperCase();
+    if (key !== 'AM' && key !== 'PM' && key !== 'EVE') return;
+
+    if (typeof rawBlock === 'boolean') {
+      normalized[key] = {
+        ...availabilityBlockFallback(key),
+        available: rawBlock,
+        reason: rawBlock ? null : 'Booked or blocked',
+      };
+      return;
+    }
+
+    const explicitAvailable = rawBlock.is_available ?? rawBlock.isAvailable ?? true;
+    const blocked = Boolean(rawBlock.blocked);
+    const booked = Boolean(rawBlock.booked);
+    const available = Boolean(explicitAvailable) && !blocked && !booked;
+
+    normalized[key] = {
+      key,
+      label: String(rawBlock.label ?? key),
+      from: String(rawBlock.from ?? availabilityBlockFallback(key).from),
+      to: String(rawBlock.to ?? availabilityBlockFallback(key).to),
+      available,
+      reason: rawBlock.reason ?? (available ? null : 'Booked or blocked'),
+    };
+  });
+
+  return normalized;
+}
+
+function normalizeAvailabilityDay(day: AvailabilityApiDay): DayAvailabilitySummary | null {
+  const date = toDateOnly(day.date);
+  if (!date) return null;
+  const blocks = normalizeAvailabilityBlocks(day.blocks ?? null);
+  return {
+    date,
+    status: String(day.status ?? 'available'),
+    title: String(day.title ?? 'Availability status'),
+    note: String(day.note ?? day.description ?? ''),
+    canProceed: day.can_proceed === null || day.can_proceed === undefined ? null : Boolean(day.can_proceed),
+    am: blocks.AM,
+    pm: blocks.PM,
+    eve: blocks.EVE,
+    sourceCount: 1,
+  };
+}
+
+function mergeBlockAvailability(left: AvailabilityBlockState, right: AvailabilityBlockState): AvailabilityBlockState {
+  const leftAvailable = left.available;
+  const rightAvailable = right.available;
+  const available = leftAvailable === null ? rightAvailable : rightAvailable === null ? leftAvailable : leftAvailable && rightAvailable;
+  const reason = available === false ? [left.reason, right.reason].filter(Boolean).join(' / ') || 'One selected area is already occupied.' : null;
+
+  return {
+    ...left,
+    available,
+    reason,
+  };
+}
+
+function mergeDayAvailability(left: DayAvailabilitySummary, right: DayAvailabilitySummary): DayAvailabilitySummary {
+  const am = mergeBlockAvailability(left.am, right.am);
+  const pm = mergeBlockAvailability(left.pm, right.pm);
+  const eve = mergeBlockAvailability(left.eve, right.eve);
+  const hasClosedBlock = [am, pm, eve].some((block) => block.available === false);
+  const allClosed = [am, pm, eve].every((block) => block.available === false);
+
+  return {
+    date: left.date,
+    status: allClosed ? 'private_booked' : hasClosedBlock ? 'limited' : left.status === 'unverified' ? right.status : left.status,
+    title: allClosed ? 'Selected service scope is fully occupied' : hasClosedBlock ? 'Selected service scope has limited availability' : left.title || right.title,
+    note: [left.note, right.note].filter(Boolean).slice(0, 2).join(' '),
+    canProceed: left.canProceed === false || right.canProceed === false ? false : left.canProceed ?? right.canProceed,
+    am,
+    pm,
+    eve,
+    sourceCount: left.sourceCount + right.sourceCount,
+  };
+}
+
+function buildCalendarMonthUrl(month: string, areaLabel?: string): string {
+  const params = new URLSearchParams({ month });
+  if (areaLabel) params.set('area', areaLabel);
+  return `/public/calendar-month?${params.toString()}`;
+}
+
+function availabilityPillClasses(available: boolean | null, selected: boolean): string {
+  if (available === null) return selected ? 'border-white/25 bg-white/10 text-white/80' : 'border-slate-200 bg-slate-100 text-slate-500';
+  if (available) return selected ? 'border-emerald-200/50 bg-emerald-300/15 text-emerald-50' : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  return selected ? 'border-red-200/50 bg-red-300/15 text-red-50' : 'border-red-200 bg-red-50 text-red-700';
+}
+
+function availabilityPillText(available: boolean | null): string {
+  if (available === null) return 'Check';
+  return available ? 'Open' : 'Booked';
+}
+
 function coveredMonthFromDate(date: string): string {
   if (!date) return MONTHS[new Date().getMonth()];
   const parsed = new Date(`${date}T00:00:00`);
@@ -1004,16 +1280,21 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
 
   const [activeStep, setActiveStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const stepRootRef = useRef<HTMLDivElement | null>(null);
+  const [floatingNotice, setFloatingNotice] = useState<{ title: string; message: string; tone: 'error' | 'info' } | null>(null);
   const [calendarCursor, setCalendarCursor] = useState(monthStart(initialFrom));
   const [rangeAnchor, setRangeAnchor] = useState<string | null>(null);
   const [scheduleSelections, setScheduleSelections] = useState<ScheduleSelection[]>(initialSelections);
   const [packageMode, setPackageMode] = useState<PackageMode>(() => (packageInitial ? 'packages' : 'manual'));
-  const [selectedPackageCode, setSelectedPackageCode] = useState(packageInitial?.code ?? 'FULL_HALL');
+  const [selectedPackageCode, setSelectedPackageCode] = useState(packageInitial?.code ?? 'FULL_HALL_ONLY');
   const [selectedAreaKeys, setSelectedAreaKeys] = useState<ActiveVenueKey[]>(defaultAreaKeys);
   const [ingressPrep, setIngressPrep] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [policyModalChecked, setPolicyModalChecked] = useState(false);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
+  const [calendarAvailability, setCalendarAvailability] = useState<CalendarAvailabilityMap>({});
+  const [calendarAvailabilityLoading, setCalendarAvailabilityLoading] = useState(false);
+  const [calendarAvailabilityError, setCalendarAvailabilityError] = useState<string | null>(null);
 
   const initialServiceIds = serviceIdsForAreas(services, defaultAreaKeys);
   const firstSelection = scheduleSelections[0] ?? { date: todayDate(), block: 'whole_day', additionalHours: 0 };
@@ -1023,7 +1304,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     service_id: firstValue(booking?.service_id, booking?.service?.id, initialServiceIds[0]),
     items: initialServiceIds.map((service_id) => ({ service_id, quantity: 1 })),
     payment_meta: initialMeta,
-    selected_package_code: packageInitial?.code ?? '',
+    selected_package_code: packageInitial?.code ?? 'FULL_HALL_ONLY',
     selected_area_keys: defaultAreaKeys,
     schedule_version: 'segments_v1',
     schedule_meta: {},
@@ -1082,7 +1363,42 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   const setData = rawSetData as unknown as <K extends keyof BookingFormData>(key: K, value: BookingFormData[K]) => void;
   const mergedErrors = { ...(errors as Record<string, string>), ...stepErrors };
   const selectedPackage = packages.find((item) => item.code === selectedPackageCode) ?? packages[0];
+  const selectedCombinationError = fullMainCombinationError(selectedAreaKeys);
+
+  function scrollToCurrentStep() {
+    requestAnimationFrame(() => {
+      stepRootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  function showFloatingNotice(title: string, message: string, tone: 'error' | 'info' = 'error') {
+    setFloatingNotice({ title, message, tone });
+    scrollToCurrentStep();
+  }
+
+  function patchAddress(patch: Partial<Pick<BookingFormData, 'client_region' | 'client_province' | 'client_city_municipality' | 'client_barangay' | 'client_zip_code' | 'client_street_address'>>) {
+    const next = {
+      client_region: data.client_region,
+      client_province: data.client_province,
+      client_city_municipality: data.client_city_municipality,
+      client_barangay: data.client_barangay,
+      client_zip_code: data.client_zip_code,
+      client_street_address: data.client_street_address,
+      ...patch,
+    };
+
+    setData({
+      ...data,
+      ...next,
+      client_address: composePhilippinesAddress(next),
+    });
+  }
+
   const selectedVenues = selectedAreaKeys.map(selectedVenueByKey);
+  const selectedAreaSignature = selectedAreaKeys.join('|');
+  const availabilityScopeLabel = selectedAreaKeys.length === 1
+    ? availabilityAreaLabel(selectedAreaKeys[0])
+    : selectedAreaKeys.map(availabilityAreaLabel).join(' + ');
   const scheduleTotalHours = totalHours(scheduleSelections);
   const scheduleTotalDays = scheduleSelections.length;
   const estimatedBaseTotal = baseTotal(scheduleSelections, selectedAreaKeys);
@@ -1112,6 +1428,73 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAreaKeys, selectedPackageCode, packageMode, services]);
 
+  useEffect(() => {
+    scrollToCurrentStep();
+  }, [activeStep]);
+
+  useEffect(() => {
+    const serverErrors = Object.values(errors as Record<string, string>).filter(Boolean);
+
+    if (serverErrors.length > 0) {
+      showFloatingNotice('Please check the form', String(serverErrors[0]), 'error');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errors]);
+
+  useEffect(() => {
+    const month = monthQueryValue(calendarCursor);
+    const areaLabels = selectedAreaKeys.length > 0 ? selectedAreaKeys.map(availabilityAreaLabel) : [''];
+    const controller = new AbortController();
+    let cancelled = false;
+
+    setCalendarAvailabilityLoading(true);
+    setCalendarAvailabilityError(null);
+
+    Promise.all(
+      areaLabels.map(async (areaLabel) => {
+        const response = await fetch(buildCalendarMonthUrl(month, areaLabel), {
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Unable to check ${areaLabel || 'calendar'} availability.`);
+        }
+
+        return response.json() as Promise<{ days?: AvailabilityApiDay[] }>;
+      }),
+    )
+      .then((payloads) => {
+        if (cancelled) return;
+
+        const next: CalendarAvailabilityMap = {};
+        payloads.forEach((payload) => {
+          (payload.days ?? []).forEach((rawDay) => {
+            const normalizedDay = normalizeAvailabilityDay(rawDay);
+            if (!normalizedDay) return;
+            next[normalizedDay.date] = next[normalizedDay.date]
+              ? mergeDayAvailability(next[normalizedDay.date], normalizedDay)
+              : normalizedDay;
+          });
+        });
+
+        setCalendarAvailability(next);
+      })
+      .catch((error: unknown) => {
+        if (cancelled || (error instanceof DOMException && error.name === 'AbortError')) return;
+        setCalendarAvailability({});
+        setCalendarAvailabilityError(error instanceof Error ? error.message : 'Unable to verify calendar availability.');
+      })
+      .finally(() => {
+        if (!cancelled) setCalendarAvailabilityLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [calendarCursor, selectedAreaSignature]);
+
   function patchSelection(date: string, patch: Partial<ScheduleSelection>) {
     setScheduleSelections((current) => current.map((row) => (row.date === date ? { ...row, ...patch } : row)));
   }
@@ -1132,6 +1515,14 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   }
 
   function choosePackage(pkg: ActivePackage) {
+    const error = fullMainCombinationError(pkg.areaKeys);
+
+    if (error) {
+      showFloatingNotice('Package cannot be selected', error, 'error');
+      return;
+    }
+
+    setFloatingNotice(null);
     setPackageMode('packages');
     setSelectedPackageCode(pkg.code);
     setSelectedAreaKeys(pkg.areaKeys);
@@ -1143,9 +1534,20 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     setSelectedAreaKeys((current) => {
       if (current.includes(key)) {
         const next = current.filter((item) => item !== key);
+        setFloatingNotice(null);
         return next.length ? next : [key];
       }
-      return [...current, key];
+
+      const next = [...current, key];
+      const error = fullMainCombinationError(next);
+
+      if (error) {
+        showFloatingNotice('This combination is not allowed', error, 'error');
+        return current;
+      }
+
+      setFloatingNotice(null);
+      return next;
     });
   }
 
@@ -1155,10 +1557,14 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
       if (scheduleSelections.length < 1) nextErrors.schedule = 'Select at least one reservation date.';
       scheduleSelections.forEach((row) => {
         if (row.additionalHours > MAX_ADDITIONAL_HOURS) nextErrors.schedule = 'Additional hours must not exceed 6 hours.';
+        const availabilityProblem = selectionAvailabilityProblem(row, calendarAvailability[row.date]);
+        if (availabilityProblem) nextErrors.schedule = availabilityProblem;
       });
     }
     if (step === 1) {
       if (selectedAreaKeys.length < 1) nextErrors.selected_area_keys = 'Choose at least one active BCCC service.';
+      const combinationError = fullMainCombinationError(selectedAreaKeys);
+      if (combinationError) nextErrors.selected_area_keys = combinationError;
     }
     if (step === 2) {
       if (!data.type_of_event.trim()) nextErrors.type_of_event = 'Event name is required.';
@@ -1167,7 +1573,11 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
       if (!data.client_contact_number.trim()) nextErrors.client_contact_number = 'Contact number is required.';
       if (!/^\d{7,15}$/.test(data.client_contact_number.replace(/\D/g, ''))) nextErrors.client_contact_number = 'Use numbers only, 7 to 15 digits.';
       if (!data.client_email.trim()) nextErrors.client_email = 'Email address is required.';
-      if (!data.client_address.trim()) nextErrors.client_address = 'Organizer address is required.';
+      if (!data.client_region.trim()) nextErrors.client_address = 'Select the organizer region.';
+      if (!data.client_province.trim()) nextErrors.client_address = 'Select the organizer province/district.';
+      if (!data.client_city_municipality.trim()) nextErrors.client_address = 'Enter the city or municipality.';
+      if (!data.client_barangay.trim()) nextErrors.client_address = 'Enter the barangay.';
+      if (!data.client_street_address.trim()) nextErrors.client_address = 'Enter the street/building address.';
       if (!data.number_of_guests.trim()) nextErrors.number_of_guests = 'Expected attendance is required.';
       if (data.event_nature === 'public') {
         if (!data.classification_of_event) nextErrors.classification_of_event = 'Classification is required for public events.';
@@ -1185,7 +1595,16 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
       if (!data.accuracy_acknowledged) nextErrors.accuracy_acknowledged = 'Please confirm the accuracy of the reservation details.';
     }
     setStepErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
+
+    const firstError = Object.values(nextErrors)[0];
+
+    if (firstError) {
+      showFloatingNotice('Please check this step before continuing', firstError, 'error');
+      return false;
+    }
+
+    setFloatingNotice(null);
+    return true;
   }
 
   function goNext() {
@@ -1202,6 +1621,15 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
 
   function submitReservation() {
     if (!validateStep(3)) return;
+
+    const combinationError = fullMainCombinationError(selectedAreaKeys);
+
+    if (combinationError) {
+      setStepErrors({ selected_area_keys: combinationError });
+      setActiveStep(1);
+      showFloatingNotice('This combination is not allowed', combinationError, 'error');
+      return;
+    }
 
     const first = scheduleSelections[0];
     const last = scheduleSelections[scheduleSelections.length - 1];
@@ -1243,8 +1671,8 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
       number_of_hours: String(scheduleTotalHours),
       company_name: upper(current.company_name),
       client_name: upper(current.client_name),
-      client_address: upper(current.client_address),
-      client_street_address: upper(current.client_street_address || current.client_address),
+      client_address: composePhilippinesAddress(current),
+      client_street_address: upper(current.client_street_address),
       head_of_organization: upper(current.head_of_organization),
       type_of_event: upper(current.type_of_event),
       client_contact_number: current.client_contact_number.replace(/\D/g, ''),
@@ -1327,9 +1755,14 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     const monthDays = daysForMonth(calendarCursor);
     const selectedDates = new Set(scheduleSelections.map((row) => row.date));
     const today = todayDate();
+    const monthAvailabilityNote = calendarAvailabilityLoading
+      ? `Checking AM / PM availability for ${availabilityScopeLabel || 'selected service scope'}...`
+      : calendarAvailabilityError
+        ? calendarAvailabilityError
+        : `AM / PM availability is shown per day for ${availabilityScopeLabel || 'selected service scope'}.`;
 
     return (
-      <SectionShell kicker="Step 01 · Schedule" title="Choose the reservation dates first" description="The calendar owns the full left side. Selected dates are summarized on the right with AM, PM, Whole Day, and additional-hours controls." icon={<CalendarDays className="h-4 w-4" />}>
+      <SectionShell kicker="Step 01 · Schedule" title="Choose the reservation dates first" description="The calendar owns the full left side. Every date box now shows AM and PM availability, while selected dates are summarized on the right with block and additional-hour controls." icon={<CalendarDays className="h-4 w-4" />}>
         <div className="grid min-h-[680px] gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
           <div className="border border-slate-200 bg-slate-50/70 p-3">
             <div className="mb-3 flex items-center justify-between border border-slate-200 bg-white px-3 py-2">
@@ -1340,26 +1773,48 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
               </div>
               <button type="button" onClick={() => setCalendarCursor((current) => shiftMonth(current, 1))} className="grid h-10 w-10 place-items-center border border-slate-200 bg-white transition hover:border-[#164734] hover:text-[#164734]"><ChevronRight className="h-4 w-4" /></button>
             </div>
+            <div className={cx('mb-3 border px-3 py-2 text-xs font-medium', calendarAvailabilityError ? 'border-red-200 bg-red-50 text-red-700' : 'border-[#d6b56d]/50 bg-[#fff8e6] text-[#164734]')}>{monthAvailabilityNote}</div>
             <div className="grid grid-cols-7 border-l border-t border-slate-200 bg-white">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <div key={day} className="border-b border-r border-slate-200 bg-[#164734] px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-white">{day}</div>)}
               {monthDays.map((day) => {
                 const isSelected = selectedDates.has(day.date);
                 const isToday = day.date === today;
                 const isAnchor = rangeAnchor === day.date;
+                const dayAvailability = calendarAvailabilityLoading
+                  ? emptyDayAvailability(day.date, 'loading', 'Checking AM / PM availability...')
+                  : calendarAvailability[day.date] ?? emptyDayAvailability(day.date);
                 return (
                   <button
                     key={day.date}
                     type="button"
                     onClick={() => selectCalendarDate(day.date)}
                     className={cx(
-                      'group relative min-h-[92px] border-b border-r border-slate-200 p-2 text-left transition duration-300 hover:bg-[#fff7df]',
+                      'group relative min-h-[122px] border-b border-r border-slate-200 p-2 text-left transition duration-300 hover:bg-[#fff7df]',
                       !day.inMonth && 'bg-slate-50 text-slate-300',
                       isSelected && 'bg-[#164734] text-white hover:bg-[#164734]',
                       isAnchor && 'ring-2 ring-inset ring-[#d6b56d]',
                     )}
                   >
                     <span className={cx('grid h-8 w-8 place-items-center rounded-full text-sm font-semibold', isToday && !isSelected ? 'bg-[#d6b56d] text-[#164734]' : '')}>{Number(day.date.slice(-2))}</span>
-                    {isSelected ? <span className="absolute bottom-2 left-2 right-2 truncate border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">Selected</span> : null}
+                    <div className="mt-3 grid gap-1.5">
+                      {[
+                        ['AM', dayAvailability.am] as const,
+                        ['PM', dayAvailability.pm] as const,
+                      ].map(([label, block]) => (
+                        <span
+                          key={label}
+                          title={block.reason || `${label} ${availabilityPillText(block.available)}`}
+                          className={cx(
+                            'flex items-center justify-between border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] transition',
+                            availabilityPillClasses(block.available, isSelected),
+                          )}
+                        >
+                          <span>{label}</span>
+                          <span>{availabilityPillText(block.available)}</span>
+                        </span>
+                      ))}
+                    </div>
+                    {isSelected ? <span className="absolute bottom-2 left-2 right-2 truncate border border-white/20 bg-white/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]">Selected</span> : null}
                   </button>
                 );
               })}
@@ -1377,6 +1832,20 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <strong className="text-sm text-slate-950">{displayDate(selection.date)}</strong>
                     <button type="button" onClick={() => setScheduleSelections((current) => current.filter((row) => row.date !== selection.date))} className="grid h-7 w-7 place-items-center border border-slate-200 text-slate-500 transition hover:border-red-300 hover:text-red-600" disabled={scheduleSelections.length === 1}><Minus className="h-3.5 w-3.5" /></button>
+                  </div>
+                  <div className="mb-2 grid grid-cols-2 gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]">
+                    {(() => {
+                      const dayAvailability = calendarAvailability[selection.date] ?? emptyDayAvailability(selection.date);
+                      return [
+                        ['AM', dayAvailability.am] as const,
+                        ['PM', dayAvailability.pm] as const,
+                      ].map(([label, block]) => (
+                        <span key={label} className={cx('flex items-center justify-between border px-2 py-1', availabilityPillClasses(block.available, false))} title={block.reason || undefined}>
+                          <span>{label}</span>
+                          <span>{availabilityPillText(block.available)}</span>
+                        </span>
+                      ));
+                    })()}
                   </div>
                   <div className="grid grid-cols-[minmax(0,4fr)_minmax(72px,1fr)] gap-2">
                     <select value={selection.block} onChange={(event) => patchSelection(selection.date, { block: event.target.value as ScheduleBlock })} className={inputClass()}>
@@ -1474,6 +1943,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                 })}
               </div>
             )}
+            {selectedCombinationError ? <p className="mt-3 border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">{selectedCombinationError}</p> : null}
             {mergedErrors.selected_area_keys ? <p className="mt-3 text-sm font-semibold text-red-600">{mergedErrors.selected_area_keys}</p> : null}
           </div>
 
@@ -1512,7 +1982,62 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
               <Field label="Contact Number" required error={mergedErrors.client_contact_number}><input value={data.client_contact_number} onChange={(event) => setData('client_contact_number', event.target.value.replace(/\D/g, ''))} className={inputClass(Boolean(mergedErrors.client_contact_number))} inputMode="numeric" /></Field>
               <Field label="Email Address" required error={mergedErrors.client_email}><input value={data.client_email} onChange={(event) => setData('client_email', event.target.value)} className={inputClass(Boolean(mergedErrors.client_email))} type="email" /></Field>
               <Field label="Organization Type"><input value={data.organization_type} onChange={(event) => setData('organization_type', event.target.value)} className={inputClass()} /></Field>
-              <Field label="Address of Organizer" required error={mergedErrors.client_address}><textarea value={data.client_address} onChange={(event) => { setData('client_address', upper(event.target.value)); setData('client_street_address', upper(event.target.value)); }} className={cx(inputClass(Boolean(mergedErrors.client_address)), 'min-h-24')} /></Field>
+              <div className="lg:col-span-2 grid gap-4 border border-slate-100 bg-slate-50/70 p-4 lg:grid-cols-2">
+                <div className="lg:col-span-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">Address of Organizer</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">Select the Philippine region and province/district, then complete the city/municipality, barangay, and street/building details.</p>
+                  {mergedErrors.client_address ? <p className="mt-2 text-xs font-semibold text-red-600">{mergedErrors.client_address}</p> : null}
+                </div>
+                <Field label="Region" required>
+                  <select
+                    value={data.client_region}
+                    onChange={(event) => {
+                      const region = event.target.value;
+                      const firstProvince = provincesForRegion(region)[0] ?? '';
+                      patchAddress({ client_region: region, client_province: firstProvince, client_city_municipality: '', client_barangay: '' });
+                    }}
+                    className={inputClass(Boolean(mergedErrors.client_address))}
+                  >
+                    <option value="">Select region</option>
+                    {PHILIPPINES_ADDRESS_REGIONS.map((region) => <option key={region.code} value={region.code}>{region.label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Province / District" required>
+                  <select
+                    value={data.client_province}
+                    onChange={(event) => patchAddress({ client_province: event.target.value, client_city_municipality: '', client_barangay: '' })}
+                    className={inputClass(Boolean(mergedErrors.client_address))}
+                  >
+                    <option value="">Select province or district</option>
+                    {provincesForRegion(data.client_region).map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select>
+                </Field>
+                <Field label="City / Municipality" required help={citiesForProvince(data.client_province).length ? 'Choose from the list or type if not shown.' : 'Type the official city or municipality.'}>
+                  <input
+                    value={data.client_city_municipality}
+                    onChange={(event) => patchAddress({ client_city_municipality: upper(event.target.value) })}
+                    className={inputClass(Boolean(mergedErrors.client_address))}
+                    list="booking-city-municipality-options"
+                    placeholder="BAGUIO CITY"
+                  />
+                  <datalist id="booking-city-municipality-options">
+                    {citiesForProvince(data.client_province).map((city) => <option key={city} value={city} />)}
+                  </datalist>
+                </Field>
+                <Field label="Barangay" required>
+                  <input value={data.client_barangay} onChange={(event) => patchAddress({ client_barangay: upper(event.target.value) })} className={inputClass(Boolean(mergedErrors.client_address))} placeholder="BARANGAY" />
+                </Field>
+                <Field label="Street / Building / House No." required>
+                  <input value={data.client_street_address} onChange={(event) => patchAddress({ client_street_address: upper(event.target.value) })} className={inputClass(Boolean(mergedErrors.client_address))} placeholder="STREET, BUILDING, UNIT" />
+                </Field>
+                <Field label="ZIP Code">
+                  <input value={data.client_zip_code} onChange={(event) => patchAddress({ client_zip_code: event.target.value.replace(/[^0-9]/g, '') })} className={inputClass()} inputMode="numeric" />
+                </Field>
+                <div className="lg:col-span-2 border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600">
+                  <strong className="block text-slate-950">Saved address preview</strong>
+                  <span>{composePhilippinesAddress(data) || 'Complete the address fields above.'}</span>
+                </div>
+              </div>
               <Field label="Comment / Feedback"><textarea value={data.comments_feedback} onChange={(event) => setData('comments_feedback', event.target.value)} className={cx(inputClass(), 'min-h-24')} placeholder="N/A if none" /></Field>
             </div>
 
@@ -1652,8 +2177,20 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     >
       <form onSubmit={handleSubmit} className="relative bg-slate-100/70 pb-24">
         <StepProgress activeStep={activeStep} submitted={submitted} onStepClick={(index) => { if (index <= activeStep || validateStep(activeStep)) setActiveStep(index); }} />
-        <div className="mx-auto max-w-[1700px] p-3 sm:p-5">
-          {Object.keys(errors as Record<string, string>).length > 0 ? <div className="mb-4 flex gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertTriangle className="h-5 w-5 shrink-0" /><div><strong className="block">Please check the highlighted fields.</strong><span>The server returned validation feedback after submission.</span></div></div> : null}
+        {floatingNotice ? (
+          <div className="fixed right-4 top-24 z-50 max-w-md border border-red-200 bg-white p-4 text-sm text-slate-700 shadow-2xl">
+            <div className="flex gap-3">
+              <AlertTriangle className={cx('mt-0.5 h-5 w-5 shrink-0', floatingNotice.tone === 'error' ? 'text-red-600' : 'text-[#164734]')} />
+              <div>
+                <strong className="block text-slate-950">{floatingNotice.title}</strong>
+                <span className="mt-1 block leading-5">{floatingNotice.message}</span>
+                <button type="button" onClick={() => setFloatingNotice(null)} className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#164734]">Close</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        <div ref={stepRootRef} className="mx-auto max-w-[1700px] scroll-mt-28 p-3 sm:p-5">
+          {Object.keys(errors as Record<string, string>).length > 0 ? <div className="mb-4 flex gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertTriangle className="h-5 w-5 shrink-0" /><div><strong className="block">Please check the form</strong><span>{Object.values(errors as Record<string, string>)[0] || 'The server returned validation feedback after submission.'}</span></div></div> : null}
           {renderActiveStep()}
         </div>
         {showPolicyModal ? <FinalPolicyModal checked={policyModalChecked} setChecked={setPolicyModalChecked} onClose={() => setShowPolicyModal(false)} onConfirm={confirmFinalPolicyAndSubmit} processing={processing} /> : null}
