@@ -367,10 +367,10 @@ function MobileMenu({
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[99990] xl:hidden">
+        <div className="bccc-public-mobile-menu fixed inset-0 z-[99990] xl:hidden">
             <button type="button" className="absolute inset-0 bg-[#001f1b]/56 backdrop-blur-xl" onClick={onClose} aria-label="Close menu" />
 
-            <aside className="absolute right-3 top-3 flex max-h-[calc(100dvh-1.5rem)] w-[min(29rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-white/20 bg-[#135b50]/96 text-white shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
+            <aside className="bccc-public-mobile-panel absolute right-3 top-3 flex max-h-[calc(100dvh-1.5rem)] w-[min(29rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-2xl border border-white/20 bg-[#135b50]/96 text-white shadow-[0_28px_90px_rgba(0,0,0,0.36)] backdrop-blur-2xl">
                 <div className="flex items-center justify-between border-b border-white/12 px-4 py-4">
                     <div>
                         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/60">Official Public Menu</p>
@@ -437,9 +437,9 @@ export default function PublicHeader() {
             <ThinScrollbarStyle />
 
             <header className="bccc-public-header fixed inset-x-0 top-0 z-[99980] border-t-[3px] border-[#514237] bg-[#176456]/96 text-white shadow-[0_10px_28px_rgba(2,26,22,0.18)] backdrop-blur-xl">
-                <div className="mx-auto flex h-[74px] w-full max-w-[1720px] items-center gap-3 px-3 sm:px-5 lg:h-[80px] lg:px-7 2xl:px-10">
-                    <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-3" aria-label="City Government of Baguio home">
-                        <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_10px_24px_rgba(0,0,0,0.12)] ring-1 ring-white/35 sm:h-12 sm:w-12 lg:h-14 lg:w-14">
+                <div className="bccc-public-header-inner mx-auto flex h-[74px] w-full max-w-[1720px] items-center gap-3 px-3 sm:px-5 lg:h-[80px] lg:px-7 2xl:px-10">
+                    <Link href="/" className="bccc-public-brand group flex min-w-0 shrink-0 items-center gap-3" aria-label="City Government of Baguio home">
+                        <span className="bccc-public-seal grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-[0_10px_24px_rgba(0,0,0,0.12)] ring-1 ring-white/35 sm:h-12 sm:w-12 lg:h-14 lg:w-14">
                             <SafeImage
                                 src={sealSrc}
                                 fallbackSrc="/marketing/images/logo/bccc-seal.png"
@@ -449,7 +449,7 @@ export default function PublicHeader() {
                             />
                         </span>
 
-                        <span className="hidden min-w-0 sm:block">
+                        <span className="bccc-public-caption hidden min-w-0 sm:block">
                             <span className="block w-fit border-b border-white/75 pb-1 text-[12px] leading-none font-medium tracking-[0.12em] text-white lg:text-[16px]">
                                 Baguio Convention and Cultural Center
                             </span>
@@ -461,7 +461,7 @@ export default function PublicHeader() {
 
                     <DesktopNav url={page.url} settings={settings} />
 
-                    <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
+                    <div className="bccc-public-actions ml-auto flex shrink-0 items-center gap-2 sm:gap-2.5">
                         <ThemeButton />
 
                         <a

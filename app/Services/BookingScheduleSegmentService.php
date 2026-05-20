@@ -65,7 +65,16 @@ class BookingScheduleSegmentService
                 $additionalHours = (int) ($segment['additional_hours'] ?? 0);
                 $areaKeys = ActiveVenueCatalog::sanitizeKeys($segment['area_keys'] ?? $fallbackAreaKeys);
 
-                return $this->makeSegment($date, $role, $baseBlock, $additionalHours, $areaKeys ?: $fallbackAreaKeys, $index);
+                return $this->makeSegment(
+                    $date,
+                    $role,
+                    $baseBlock,
+                    $additionalHours,
+                    $areaKeys ?: $fallbackAreaKeys,
+                    $index,
+                    (bool) ($segment['has_ingress_label'] ?? $segment['is_ingress_day'] ?? $role === BookingScheduleCatalog::ROLE_INGRESS),
+                    (bool) ($segment['has_egress_label'] ?? $segment['is_egress_day'] ?? $role === BookingScheduleCatalog::ROLE_EGRESS),
+                );
             })
             ->values()
             ->all();
@@ -84,7 +93,16 @@ class BookingScheduleSegmentService
                 $additionalHours = (int) ($row['additional_hours'] ?? $defaultAdditionalHours);
                 $areaKeys = ActiveVenueCatalog::sanitizeKeys($row['area_keys'] ?? $fallbackAreaKeys);
 
-                return $this->makeSegment($date, $role, $baseBlock, $additionalHours, $areaKeys ?: $fallbackAreaKeys, $index);
+                return $this->makeSegment(
+                    $date,
+                    $role,
+                    $baseBlock,
+                    $additionalHours,
+                    $areaKeys ?: $fallbackAreaKeys,
+                    $index,
+                    (bool) ($row['has_ingress_label'] ?? $row['is_ingress_day'] ?? $role === BookingScheduleCatalog::ROLE_INGRESS),
+                    (bool) ($row['has_egress_label'] ?? $row['is_egress_day'] ?? $role === BookingScheduleCatalog::ROLE_EGRESS),
+                );
             })
             ->values()
             ->all();
@@ -109,7 +127,7 @@ class BookingScheduleSegmentService
             $additionalHours = (int) ceil($extensionBase->diffInMinutes($to) / 60);
         }
 
-        $segment = $this->makeSegment($from->toDateString(), BookingScheduleCatalog::ROLE_EVENT, $baseBlock, $additionalHours, $areaKeys, 0);
+        $segment = $this->makeSegment($from->toDateString(), BookingScheduleCatalog::ROLE_EVENT, $baseBlock, $additionalHours, $areaKeys, 0, false, false);
 
         // Preserve the exact legacy range when it is not one of the standard choices.
         $segment['starts_at'] = $from;
@@ -118,7 +136,7 @@ class BookingScheduleSegmentService
         return $segment;
     }
 
-    protected function makeSegment(string $date, string $role, string $baseBlock, int $additionalHours, array $areaKeys, int $index): array
+    protected function makeSegment(string $date, string $role, string $baseBlock, int $additionalHours, array $areaKeys, int $index, bool $hasIngressLabel = false, bool $hasEgressLabel = false): array
     {
         if ($date === '') {
             throw ValidationException::withMessages([
@@ -154,6 +172,8 @@ class BookingScheduleSegmentService
         return [
             'date' => Carbon::parse($date)->toDateString(),
             'segment_role' => $role,
+            'has_ingress_label' => $hasIngressLabel,
+            'has_egress_label' => $hasEgressLabel,
             'base_block' => $baseBlock,
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
@@ -281,7 +301,7 @@ class BookingScheduleSegmentService
         $booking->scheduleSegments()->delete();
 
         foreach ($segments as $segment) {
-            $booking->scheduleSegments()->create([
+            $payload = [
                 'date' => $segment['date'],
                 'segment_role' => $segment['segment_role'],
                 'base_block' => $segment['base_block'],
@@ -293,7 +313,17 @@ class BookingScheduleSegmentService
                 'additional_ends_at' => $segment['additional_ends_at'],
                 'area_keys' => $segment['area_keys'],
                 'sort_order' => (int) $segment['sort_order'],
-            ]);
+            ];
+
+            if (Schema::hasColumn('booking_schedule_segments', 'has_ingress_label')) {
+                $payload['has_ingress_label'] = (bool) ($segment['has_ingress_label'] ?? false);
+            }
+
+            if (Schema::hasColumn('booking_schedule_segments', 'has_egress_label')) {
+                $payload['has_egress_label'] = (bool) ($segment['has_egress_label'] ?? false);
+            }
+
+            $booking->scheduleSegments()->create($payload);
         }
     }
 

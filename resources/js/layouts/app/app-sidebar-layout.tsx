@@ -39,6 +39,7 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
 
     return (
         <div className="backend-boneyard-root min-h-screen overflow-x-hidden bg-[#edf0ea] text-[#111827] antialiased dark:bg-[#080b10] dark:text-white">
+            <a href="#backend-main-content" className="bccc-skip-link">Skip to workspace</a>
             <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(31,116,101,0.15),transparent_32%),radial-gradient(circle_at_92%_12%,rgba(77,96,124,0.16),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.80),rgba(232,236,232,0.84))] dark:bg-[radial-gradient(circle_at_12%_0%,rgba(125,215,198,0.12),transparent_32%),radial-gradient(circle_at_92%_12%,rgba(82,115,156,0.16),transparent_30%),linear-gradient(135deg,#080b10,#0d1118_45%,#0a0d12)]" />
                 <div className={collapsed ? 'absolute left-[5.25rem] top-0 hidden h-full w-px bg-gradient-to-b from-transparent via-white/50 to-transparent transition-[left] duration-300 dark:via-white/8 lg:block' : 'absolute left-[17.25rem] top-0 hidden h-full w-px bg-gradient-to-b from-transparent via-white/50 to-transparent transition-[left] duration-300 dark:via-white/8 lg:block'} />

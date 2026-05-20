@@ -7,7 +7,8 @@ export type AvailabilityStatus =
     | 'limited'
     | 'public_booked'
     | 'private_booked'
-    | 'blocked';
+    | 'blocked'
+    | 'past_unavailable';
 
 export type AvailabilityBlock = {
     key: BlockKey | string;
@@ -301,6 +302,10 @@ export function buildMonthWeeks(month: string): Date[][] {
 export function normalizeStatus(status?: string | null): AvailabilityStatus {
     const value = String(status || '').toLowerCase();
 
+    if (value === 'past_unavailable' || value === 'past-unavailable' || value === 'past') {
+        return 'past_unavailable';
+    }
+
     if (value === 'blocked' || value === 'closed' || value === 'unavailable') {
         return 'blocked';
     }
@@ -336,6 +341,7 @@ export function statusLabel(status: AvailabilityStatus | string) {
         public_booked: 'Public Event',
         private_booked: 'Reserved',
         blocked: 'Blocked',
+        past_unavailable: 'Unavailable',
     }[normalized];
 }
 
@@ -348,11 +354,16 @@ export function statusDescription(status: AvailabilityStatus | string) {
         public_booked: 'A public-facing event or activity is listed for this date.',
         private_booked: 'This date has private reserved time or is already fully occupied.',
         blocked: 'This date is unavailable for public booking requests.',
+        past_unavailable: 'Past dates are unavailable for new reservation requests.',
     }[normalized];
 }
 
 export function statusTone(status: AvailabilityStatus | string) {
     const normalized = normalizeStatus(status);
+
+    if (normalized === 'past_unavailable') {
+        return 'border-slate-200 bg-slate-100 text-slate-500 dark:border-white/10 dark:bg-white/8 dark:text-white/50';
+    }
 
     if (normalized === 'blocked') {
         return 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100';
@@ -375,6 +386,10 @@ export function statusTone(status: AvailabilityStatus | string) {
 
 export function statusDot(status: AvailabilityStatus | string) {
     const normalized = normalizeStatus(status);
+
+    if (normalized === 'past_unavailable') {
+        return 'bg-slate-400';
+    }
 
     if (normalized === 'blocked') {
         return 'bg-rose-500';
@@ -490,6 +505,10 @@ export function deriveDayStatus(day: PublicDayStatus | null | undefined): Availa
     const normalized = normalizeStatus(day.status);
     const blocks = normalizeBlocks(day.blocks);
     const closedBlocks = blocks.filter((block) => !block.is_available).length;
+
+    if (normalized === 'past_unavailable') {
+        return 'past_unavailable';
+    }
 
     if (normalized === 'blocked') {
         return 'blocked';

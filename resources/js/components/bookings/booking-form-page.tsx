@@ -1283,8 +1283,8 @@ function inputClass(hasError?: boolean): string {
 
 function StepProgress({ activeStep, submitted, onStepClick }: { activeStep: number; submitted: boolean; onStepClick: (index: number) => void }) {
   return (
-    <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur-xl sm:px-5">
-      <div className="mx-auto flex max-w-[1600px] items-center gap-2 overflow-x-auto">
+    <div className="bccc-booking-step-progress sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 shadow-sm backdrop-blur-xl sm:px-5">
+      <div className="bccc-booking-step-progress-track mx-auto flex max-w-[1600px] items-center gap-2 overflow-x-auto">
         {STEPS.map((step, index) => {
           const Icon = step.icon;
           const done = submitted || index < activeStep;
@@ -1295,7 +1295,7 @@ function StepProgress({ activeStep, submitted, onStepClick }: { activeStep: numb
               type="button"
               onClick={() => !submitted && index < 4 && onStepClick(index)}
               className={cx(
-                'group flex min-w-[170px] flex-1 items-center gap-3 border px-3 py-2 text-left transition duration-300',
+                'bccc-booking-step-button group flex min-w-[170px] flex-1 items-center gap-3 border px-3 py-2 text-left transition duration-300',
                 active ? 'border-[#164734] bg-[#164734] text-white shadow-md' : done ? 'border-[#d6b56d]/50 bg-[#fff8e6] text-[#164734]' : 'border-slate-200 bg-white text-slate-500',
               )}
             >
@@ -1316,8 +1316,8 @@ function StepProgress({ activeStep, submitted, onStepClick }: { activeStep: numb
 
 function SectionShell({ kicker, title, description, icon, children }: { kicker: string; title: string; description: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <section className="border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 lg:flex-row lg:items-end lg:justify-between">
+    <section className="bccc-booking-section-shell border border-slate-200 bg-white shadow-sm">
+      <div className="bccc-booking-section-head flex flex-col gap-3 border-b border-slate-100 px-4 py-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#a88633]">{icon}{kicker}</p>
           <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-slate-950">{title}</h2>
@@ -1719,6 +1719,8 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     const scheduleSegments = scheduleSelections.map((row, index) => ({
       date: row.date,
       segment_role: ingressPrep && index === 0 ? 'ingress' as const : ingressPrep && index === scheduleSelections.length - 1 ? 'egress' as const : 'event' as const,
+      has_ingress_label: ingressPrep && index === 0,
+      has_egress_label: ingressPrep && index === scheduleSelections.length - 1,
       base_block: row.block,
       additional_hours: row.block === 'am' ? 0 : row.additionalHours,
       area_keys: selectedAreaKeys,
@@ -1849,9 +1851,9 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
 
     return (
       <SectionShell kicker="Step 01 · Schedule" title="Choose the reservation dates first" description="The calendar owns the full left side. Every date box now shows AM and PM availability, while selected dates are summarized on the right with block and additional-hour controls." icon={<CalendarDays className="h-4 w-4" />}>
-        <div className="grid min-h-[680px] gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
-          <div className="border border-slate-200 bg-slate-50/70 p-3">
-            <div className="mb-3 flex items-center justify-between border border-slate-200 bg-white px-3 py-2">
+        <div className="bccc-booking-step-layout bccc-booking-schedule-layout grid min-h-[680px] gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+          <div className="bccc-booking-calendar-panel border border-slate-200 bg-slate-50/70 p-3">
+            <div className="bccc-booking-calendar-toolbar mb-3 flex items-center justify-between border border-slate-200 bg-white px-3 py-2">
               <button type="button" onClick={() => setCalendarCursor((current) => shiftMonth(current, -1))} className="grid h-10 w-10 place-items-center border border-slate-200 bg-white transition hover:border-[#164734] hover:text-[#164734]"><ChevronLeft className="h-4 w-4" /></button>
               <div className="text-center">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#a88633]">BCCC Calendar</p>
@@ -1860,7 +1862,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
               <button type="button" onClick={() => setCalendarCursor((current) => shiftMonth(current, 1))} className="grid h-10 w-10 place-items-center border border-slate-200 bg-white transition hover:border-[#164734] hover:text-[#164734]"><ChevronRight className="h-4 w-4" /></button>
             </div>
             <div className={cx('mb-3 border px-3 py-2 text-xs font-medium', calendarAvailabilityError ? 'border-red-200 bg-red-50 text-red-700' : 'border-[#d6b56d]/50 bg-[#fff8e6] text-[#164734]')}>{monthAvailabilityNote}</div>
-            <div className="grid grid-cols-7 border-l border-t border-slate-200 bg-white">
+            <div className="bccc-booking-calendar-scroll"><div className="bccc-booking-calendar-grid grid grid-cols-7 border-l border-t border-slate-200 bg-white">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <div key={day} className="border-b border-r border-slate-200 bg-[#164734] px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.22em] text-white">{day}</div>)}
               {monthDays.map((day) => {
                 const isSelected = selectedDates.has(day.date);
@@ -1915,13 +1917,14 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
               })}
             </div>
           </div>
+          </div>
 
-          <aside className="sticky top-24 h-fit border border-slate-200 bg-white shadow-sm">
+          <aside className="bccc-booking-side-panel sticky top-24 h-fit border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 bg-[#f8f3e6] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">Selected Dates</p>
               <h3 className="mt-1 text-lg font-semibold text-slate-950">{scheduleTotalDays} day(s) · {scheduleTotalHours} hour(s)</h3>
             </div>
-            <div className="max-h-[470px] overflow-y-auto p-3">
+            <div className="bccc-booking-selected-dates max-h-[470px] overflow-y-auto p-3">
               {scheduleSelections.map((selection) => (
                 <div key={selection.date} className="mb-3 border border-slate-200 bg-white p-3 last:mb-0">
                   <div className="mb-2 flex items-center justify-between gap-2">
@@ -1942,7 +1945,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                       ));
                     })()}
                   </div>
-                  <div className="grid grid-cols-[minmax(0,4fr)_minmax(72px,1fr)] gap-2">
+                  <div className="bccc-booking-date-control-grid grid grid-cols-[minmax(0,4fr)_minmax(72px,1fr)] gap-2">
                     <select value={selection.block} onChange={(event) => patchSelection(selection.date, { block: event.target.value as ScheduleBlock })} className={inputClass()}>
                       <option value="am">AM</option>
                       <option value="pm">PM</option>
@@ -1979,12 +1982,12 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   function renderServicesStep() {
     return (
       <SectionShell kicker="Step 02 · Package / Services" title="Choose only the active BCCC charge items" description="Lobby is included with Full Hall. Basement, shop rentals, catering maintenance, air-conditioning, stationery kit, and ordinance special packages are not shown as booking charges." icon={<PackageCheck className="h-4 w-4" />}>
-        <div className="grid min-h-[680px] gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+        <div className="bccc-booking-step-layout bccc-booking-schedule-layout grid min-h-[680px] gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
           <div>
-            <div className="mb-4 flex justify-center">
-              <div className="inline-flex border border-slate-200 bg-white p-1 shadow-sm">
-                <button type="button" onClick={() => { setPackageMode('packages'); choosePackage(selectedPackage); }} className={cx('px-5 py-2 text-sm font-semibold uppercase tracking-[0.16em] transition', packageMode === 'packages' ? 'bg-[#164734] text-white' : 'text-slate-600 hover:bg-slate-50')}>Packages</button>
-                <button type="button" onClick={() => setPackageMode('manual')} className={cx('px-5 py-2 text-sm font-semibold uppercase tracking-[0.16em] transition', packageMode === 'manual' ? 'bg-[#164734] text-white' : 'text-slate-600 hover:bg-slate-50')}>Manual Selection</button>
+            <div className="mb-4 flex justify-center sm:justify-start">
+              <div className="bccc-booking-mode-toggle inline-flex border border-slate-200 bg-white p-1 shadow-sm">
+                <button type="button" onClick={() => { setPackageMode('packages'); choosePackage(selectedPackage); }} className={cx('bccc-booking-mode-button px-5 py-2 text-sm font-semibold uppercase tracking-[0.16em] transition', packageMode === 'packages' ? 'bg-[#164734] text-white' : 'text-slate-600 hover:bg-slate-50')}>Packages</button>
+                <button type="button" onClick={() => setPackageMode('manual')} className={cx('bccc-booking-mode-button px-5 py-2 text-sm font-semibold uppercase tracking-[0.16em] transition', packageMode === 'manual' ? 'bg-[#164734] text-white' : 'text-slate-600 hover:bg-slate-50')}>Manual Selection</button>
               </div>
             </div>
 
@@ -1993,14 +1996,14 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                 {packages.map((pkg, index) => {
                   const active = selectedPackageCode === pkg.code;
                   return (
-                    <button key={pkg.code} type="button" onClick={() => choosePackage(pkg)} className={cx('group relative min-h-[112px] overflow-hidden border text-left transition duration-300', active ? 'border-[#d6b56d] shadow-lg ring-2 ring-[#d6b56d]/40' : 'border-slate-200 hover:border-[#d6b56d]')}>
+                    <button key={pkg.code} type="button" onClick={() => choosePackage(pkg)} className={cx('bccc-booking-package-card group relative min-h-[112px] overflow-hidden border text-left transition duration-300', active ? 'border-[#d6b56d] shadow-lg ring-2 ring-[#d6b56d]/40' : 'border-slate-200 hover:border-[#d6b56d]')}>
                       <img src={pkg.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                       <span className="absolute inset-0 bg-gradient-to-r from-black/78 via-black/38 to-black/70" />
-                      <span className="relative flex min-h-[112px] items-center justify-between gap-4 p-4 text-white">
-                        <span className="flex items-center gap-4">
+                      <span className="bccc-booking-package-card-content relative flex min-h-[112px] items-center justify-between gap-4 p-4 text-white">
+                        <span className="bccc-booking-package-main flex items-center gap-4">
                           <span className="grid h-12 w-12 place-items-center border border-white/35 bg-white/10 text-sm font-semibold">{String(index + 1).padStart(2, '0')}</span>
                           <span>
-                            <strong className="block text-2xl font-semibold uppercase tracking-[0.08em]">{pkg.label}</strong>
+                            <strong className="bccc-booking-package-title block text-2xl font-semibold uppercase tracking-[0.08em]">{pkg.label}</strong>
                             <small className="mt-1 block max-w-2xl text-sm leading-5 text-white/75">{pkg.subtitle}</small>
                             <small className="mt-2 block text-xs uppercase tracking-[0.2em] text-[#f2d58b]">{pkg.areaKeys.map((key) => selectedVenueByKey(key).shortLabel).join(' + ')}</small>
                             {pkg.capacityMax ? <small className="mt-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">Capacity up to {pkg.capacityMax.toLocaleString()} guests</small> : null}
@@ -2022,17 +2025,17 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                 {ACTIVE_VENUES.map((venue) => {
                   const active = selectedAreaKeys.includes(venue.key);
                   return (
-                    <button key={venue.key} type="button" onClick={() => toggleArea(venue.key)} className={cx('group relative min-h-[118px] overflow-hidden border-x border-t text-left transition duration-300 last:border-b', active ? 'z-10 border-[#d6b56d] shadow-lg ring-2 ring-[#d6b56d]/40' : 'border-slate-200 hover:border-[#d6b56d]')}>
+                    <button key={venue.key} type="button" onClick={() => toggleArea(venue.key)} className={cx('bccc-booking-manual-card group relative min-h-[118px] overflow-hidden border-x border-t text-left transition duration-300 last:border-b', active ? 'z-10 border-[#d6b56d] shadow-lg ring-2 ring-[#d6b56d]/40' : 'border-slate-200 hover:border-[#d6b56d]')}>
                       <img src={venue.image} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                       <span className="absolute inset-0 bg-gradient-to-r from-black/82 via-black/30 to-black/75" />
-                      <span className="relative flex min-h-[118px] items-center justify-between gap-4 p-4 text-white">
+                      <span className="bccc-booking-manual-card-content relative flex min-h-[118px] items-center justify-between gap-4 p-4 text-white">
                         <span className="flex min-w-0 items-center gap-4">
                           <span className="group/number relative grid h-14 w-14 shrink-0 place-items-center border border-white/35 bg-white/10 text-sm font-semibold">
                             {venue.number}
                             <span className="pointer-events-none absolute left-16 top-0 w-[260px] translate-y-2 border border-white/20 bg-black/75 p-3 text-left text-xs font-normal leading-5 text-white/80 opacity-0 shadow-xl backdrop-blur transition duration-300 group-hover/number:translate-y-0 group-hover/number:opacity-100">{venue.description}</span>
                           </span>
                           <span className="min-w-0">
-                            <strong className="block truncate text-3xl font-semibold uppercase tracking-[0.08em]">{venue.label}</strong>
+                            <strong className="bccc-booking-manual-title block truncate text-3xl font-semibold uppercase tracking-[0.08em]">{venue.label}</strong>
                             <small className="mt-1 block max-w-2xl truncate text-sm text-white/75">{venue.inclusions.join(' · ')}</small>
                           </span>
                         </span>
@@ -2062,7 +2065,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     const autoMiceClass = cx(inputClass(), 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500 shadow-inner opacity-70');
     return (
       <SectionShell kicker="Step 03 · Contact Details" title="Complete organizer, event, and MICE information" description="Public events collect MICE statistical fields. Private/personal events skip the MICE tourism statistics and store skipped values as dashes." icon={<UserRound className="h-4 w-4" />}>
-        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+        <div className="bccc-booking-step-layout grid gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
           <div className="grid gap-4">
             <div className="grid gap-4 border border-slate-200 bg-white p-4 lg:grid-cols-2">
               <div className="lg:col-span-2">
@@ -2186,7 +2189,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   function renderReviewStep() {
     return (
       <SectionShell kicker="Step 04 · Review" title="Final computation and confirmation" description="This is the first stage where hidden discounts and payment guidance are visible. Final approval and billing still depend on BCCC assessment." icon={<ReceiptText className="h-4 w-4" />}>
-        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
+        <div className="bccc-booking-step-layout grid gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
           <div className="grid gap-4">
             <ReviewCard title="Schedule" icon={<CalendarDays className="h-4 w-4" />}>
               <ReviewGrid rows={[
@@ -2252,7 +2255,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
 
   function renderSubmittedStep() {
     return (
-      <section className="grid min-h-[620px] place-items-center border border-slate-200 bg-white p-8 text-center shadow-sm">
+      <section className="bccc-booking-submitted grid min-h-[620px] place-items-center border border-slate-200 bg-white p-8 text-center shadow-sm">
         <div className="max-w-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
           <div className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-[#164734] text-white shadow-xl"><CheckCircle2 className="h-12 w-12" /></div>
           <p className="mt-8 text-[11px] font-semibold uppercase tracking-[0.34em] text-[#a88633]">Reservation Submitted</p>
@@ -2280,10 +2283,10 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
       actions={<Link href={backHref} className="inline-flex items-center gap-2 border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#164734] hover:text-[#164734]"><ArrowLeft className="h-4 w-4" />Back</Link>}
       compact
     >
-      <form onSubmit={handleSubmit} className="relative bg-slate-100/70 pb-24">
+      <form onSubmit={handleSubmit} className="bccc-booking-responsive-form relative bg-slate-100/70 pb-24">
         <StepProgress activeStep={activeStep} submitted={submitted} onStepClick={(index) => { if (index <= activeStep || validateStep(activeStep)) setActiveStep(index); }} />
         {floatingNotice ? (
-          <div className="fixed right-4 top-24 z-50 max-w-md border border-red-200 bg-white p-4 text-sm text-slate-700 shadow-2xl">
+          <div className="bccc-booking-floating-notice fixed right-4 top-24 z-50 max-w-md border border-red-200 bg-white p-4 text-sm text-slate-700 shadow-2xl">
             <div className="flex gap-3">
               <AlertTriangle className={cx('mt-0.5 h-5 w-5 shrink-0', floatingNotice.tone === 'error' ? 'text-red-600' : 'text-[#164734]')} />
               <div>
@@ -2294,19 +2297,19 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
             </div>
           </div>
         ) : null}
-        <div ref={stepRootRef} className="mx-auto max-w-[1700px] scroll-mt-28 p-3 sm:p-5">
+        <div ref={stepRootRef} className="bccc-booking-step-root mx-auto max-w-[1700px] scroll-mt-28 p-3 sm:p-5">
           {Object.keys(errors as Record<string, string>).length > 0 ? <div className="mb-4 flex gap-3 border border-red-200 bg-red-50 p-4 text-sm text-red-700"><AlertTriangle className="h-5 w-5 shrink-0" /><div><strong className="block">Please check the form</strong><span>{Object.values(errors as Record<string, string>)[0] || 'The server returned validation feedback after submission.'}</span></div></div> : null}
           {renderActiveStep()}
         </div>
         {showPolicyModal ? <FinalPolicyModal checked={policyModalChecked} setChecked={setPolicyModalChecked} onClose={() => setShowPolicyModal(false)} onConfirm={confirmFinalPolicyAndSubmit} processing={processing} /> : null}
         {!submitted && activeStep < 4 ? (
-          <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-            <div className="mx-auto flex max-w-[1700px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <footer className="bccc-booking-action-footer fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-12px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+            <div className="bccc-booking-action-footer-inner mx-auto flex max-w-[1700px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">{STEPS[activeStep]?.label}</p>
                 <p className="truncate text-sm text-slate-600">{scheduleTotalDays} day(s), {scheduleTotalHours} hour(s), {selectedVenues.map((venue) => venue.shortLabel).join(' + ')}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="bccc-booking-action-buttons flex items-center gap-2">
                 {activeStep > 0 ? <button type="button" onClick={goBack} className="border border-slate-200 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:border-[#164734] hover:text-[#164734]">Back</button> : null}
                 <button type="submit" disabled={processing || (activeStep === 3 && (!data.policy_acknowledged || !data.accuracy_acknowledged))} className="inline-flex items-center justify-center gap-2 bg-[#164734] px-5 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#0f3325] disabled:cursor-not-allowed disabled:opacity-60">
                   {processing ? <LoaderCircle className="h-4 w-4 animate-spin" /> : activeStep === 3 ? <CheckCircle2 className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
@@ -2329,7 +2332,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     const balance = Math.max(0, total - down);
     const lineItems = reviewLineItems(rows, areaKeys);
     return (
-      <aside className="sticky top-24 h-fit border border-slate-200 bg-white shadow-sm">
+      <aside className="bccc-booking-computation-aside sticky top-24 h-fit border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 bg-[#164734] p-4 text-white">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#f2d58b]">{title}</p>
           <h3 className="mt-1 text-lg font-semibold">{subtitle}</h3>
@@ -2418,8 +2421,8 @@ function FinalPolicyModal({ checked, setChecked, onClose, onConfirm, processing 
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm">
-      <div ref={modalRef} className="max-h-[90vh] w-full max-w-3xl overflow-hidden border border-white/20 bg-white shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300">
+    <div className="bccc-booking-final-modal fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div ref={modalRef} className="bccc-booking-final-modal-card max-h-[90vh] w-full max-w-3xl overflow-hidden border border-white/20 bg-white shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-[#164734] p-5 text-white">
           <div>
             <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#f2d58b]"><ScrollText className="h-4 w-4" /> Final confirmation</p>

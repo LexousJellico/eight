@@ -132,7 +132,7 @@ class MiceRegistryController extends Controller
         $venueBreakdown = $this->venueBreakdown($records);
         $originBreakdown = $this->originBreakdown($records);
 
-        $filename = 'bccc-mice-report-' . now()->format('Y-m-d-His') . '.csv';
+        $filename = 'bccc-mice-report-' . now()->format('Y-m-d-His') . '.xls';
 
         return response()->streamDownload(function () use (
             $records,
@@ -141,60 +141,58 @@ class MiceRegistryController extends Controller
             $venueBreakdown,
             $originBreakdown
         ) {
-            $out = fopen('php://output', 'w');
+            $escape = static fn (mixed $value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_XML1, 'UTF-8');
+            $sheetStart = static function (string $name) use ($escape): void {
+                echo '<Worksheet ss:Name="' . $escape($name) . '"><Table>';
+            };
+            $sheetEnd = static function (): void {
+                echo '</Table></Worksheet>';
+            };
+            $row = static function (array $cells) use ($escape): void {
+                echo '<Row>';
+                foreach ($cells as $cell) {
+                    $type = is_numeric($cell) ? 'Number' : 'String';
+                    echo '<Cell><Data ss:Type="' . $type . '">' . $escape($cell) . '</Data></Cell>';
+                }
+                echo '</Row>';
+            };
 
-            if ($out === false) {
-                return;
-            }
+            echo '<?xml version="1.0" encoding="UTF-8"?>';
+            echo '<?mso-application progid="Excel.Sheet"?>';
+            echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:html="http://www.w3.org/TR/REC-html40">';
 
-            fputcsv($out, ['BCCC MICE Registry Export']);
-            fputcsv($out, ['Generated At', now()->format('Y-m-d H:i:s')]);
-            fputcsv($out, []);
-
-            fputcsv($out, ['Summary']);
+            $sheetStart('Summary');
+            $row(['BCCC MICE Registry Export']);
+            $row(['Generated At', now()->format('Y-m-d H:i:s')]);
+            $row([]);
             foreach ($summary as $key => $value) {
-                fputcsv($out, [$key, is_numeric($value) ? (string) $value : $value]);
+                $row([ucwords(str_replace('_', ' ', (string) $key)), $value]);
             }
+            $sheetEnd();
 
-            fputcsv($out, []);
-            fputcsv($out, ['Category Breakdown']);
-            fputcsv($out, ['Category', 'Records', 'Participants', 'Room Nights', 'Tourism Receipts']);
-            foreach ($categoryBreakdown as $row) {
-                fputcsv($out, [
-                    $row['label'],
-                    $row['count'],
-                    $row['participants'],
-                    $row['room_nights'],
-                    $row['tourism_receipts'],
-                ]);
+            $sheetStart('Category Breakdown');
+            $row(['Category', 'Records', 'Participants', 'Room Nights', 'Tourism Receipts']);
+            foreach ($categoryBreakdown as $item) {
+                $row([$item['label'], $item['count'], $item['participants'], $item['room_nights'], $item['tourism_receipts']]);
             }
+            $sheetEnd();
 
-            fputcsv($out, []);
-            fputcsv($out, ['Venue Breakdown']);
-            fputcsv($out, ['Venue / Area', 'Records', 'Participants', 'Room Nights', 'Tourism Receipts']);
-            foreach ($venueBreakdown as $row) {
-                fputcsv($out, [
-                    $row['label'],
-                    $row['count'],
-                    $row['participants'],
-                    $row['room_nights'],
-                    $row['tourism_receipts'],
-                ]);
+            $sheetStart('Venue Breakdown');
+            $row(['Venue / Area', 'Records', 'Participants', 'Room Nights', 'Tourism Receipts']);
+            foreach ($venueBreakdown as $item) {
+                $row([$item['label'], $item['count'], $item['participants'], $item['room_nights'], $item['tourism_receipts']]);
             }
+            $sheetEnd();
 
-            fputcsv($out, []);
-            fputcsv($out, ['Origin Breakdown']);
-            fputcsv($out, ['Origin', 'Records', 'Participants']);
-            foreach ($originBreakdown as $row) {
-                fputcsv($out, [
-                    $row['label'],
-                    $row['count'],
-                    $row['participants'],
-                ]);
+            $sheetStart('Origin Breakdown');
+            $row(['Origin', 'Records', 'Participants']);
+            foreach ($originBreakdown as $item) {
+                $row([$item['label'], $item['count'], $item['participants']]);
             }
+            $sheetEnd();
 
-            fputcsv($out, []);
-            fputcsv($out, [
+            $sheetStart('Raw Records');
+            $headers = [
                 'Record ID',
                 'Record No',
                 'Year',
@@ -239,60 +237,62 @@ class MiceRegistryController extends Controller
                 'BTC Group Code',
                 'Submitted At',
                 'Remarks',
-            ]);
+            ];
+            $row($headers);
 
-            foreach ($records as $row) {
-                fputcsv($out, [
-                    $row['id'],
-                    $row['record_no'],
-                    $row['year_recorded'],
-                    $row['status'],
-                    $row['booking_id'],
-                    $row['booking_summary'],
-                    $row['event_name'],
-                    $row['event_category'],
-                    $row['type_of_event'],
-                    $row['venue_area'],
-                    $row['event_date_from'],
-                    $row['event_date_to'],
-                    $row['event_days'],
-                    $row['organization_name'],
-                    $row['organizer_name'],
-                    $row['organizer_type'],
-                    $row['contact_person'],
-                    $row['contact_number'],
-                    $row['email'],
-                    $row['address'],
-                    $row['local_male_participants'],
-                    $row['local_female_participants'],
-                    $row['domestic_male_participants'],
-                    $row['domestic_female_participants'],
-                    $row['foreign_male_participants'],
-                    $row['foreign_female_participants'],
-                    $row['total_participants'],
-                    $row['main_origin_country'],
-                    $row['main_origin_province'],
-                    $row['main_origin_city'],
-                    $row['same_day_visitors'],
-                    $row['overnight_visitors'],
-                    $row['estimated_room_nights'],
-                    $row['estimated_tourism_receipts'],
-                    $row['total_employees'],
-                    $row['female_employees'],
-                    $row['male_employees'],
-                    $row['permit_to_engage'] ? 'YES' : 'NO',
-                    $row['dot_accredited'] ? 'YES' : 'NO',
-                    $row['active_member'] ? 'YES' : 'NO',
-                    $row['enterprise_group'],
-                    $row['btc_group_code'],
-                    $row['submitted_at'],
-                    $row['remarks'],
+            foreach ($records as $record) {
+                $row([
+                    $record['id'],
+                    $record['record_no'],
+                    $record['year_recorded'],
+                    $record['status'],
+                    $record['booking_id'],
+                    $record['booking_summary'],
+                    $record['event_name'],
+                    $record['event_category'],
+                    $record['type_of_event'],
+                    $record['venue_area'],
+                    $record['event_date_from'],
+                    $record['event_date_to'],
+                    $record['event_days'],
+                    $record['organization_name'],
+                    $record['organizer_name'],
+                    $record['organizer_type'],
+                    $record['contact_person'],
+                    $record['contact_number'],
+                    $record['email'],
+                    $record['address'],
+                    $record['local_male_participants'],
+                    $record['local_female_participants'],
+                    $record['domestic_male_participants'],
+                    $record['domestic_female_participants'],
+                    $record['foreign_male_participants'],
+                    $record['foreign_female_participants'],
+                    $record['total_participants'],
+                    $record['main_origin_country'],
+                    $record['main_origin_province'],
+                    $record['main_origin_city'],
+                    $record['same_day_visitors'],
+                    $record['overnight_visitors'],
+                    $record['estimated_room_nights'],
+                    $record['estimated_tourism_receipts'],
+                    $record['total_employees'],
+                    $record['female_employees'],
+                    $record['male_employees'],
+                    $record['permit_to_engage'] ? 'YES' : 'NO',
+                    $record['dot_accredited'] ? 'YES' : 'NO',
+                    $record['active_member'] ? 'YES' : 'NO',
+                    $record['enterprise_group'],
+                    $record['btc_group_code'],
+                    $record['submitted_at'],
+                    $record['remarks'],
                 ]);
             }
+            $sheetEnd();
 
-            fclose($out);
+            echo '</Workbook>';
         }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
         ]);
     }
 

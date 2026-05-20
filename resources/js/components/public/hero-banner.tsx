@@ -373,8 +373,8 @@ export default function HeroBanner({ siteMetric = null }: Props) {
     const scrollCueOpacity = useTransform(smoothProgress, [0, 0.25], [1, 0]);
 
     return (
-        <section ref={heroRef} className="relative isolate h-[142svh] min-h-[54rem] w-full overflow-clip bg-[#081512] text-white">
-            <div className="sticky top-0 h-[100svh] min-h-[42rem] w-full overflow-hidden">
+        <section ref={heroRef} className="bccc-public-hero relative isolate h-[142svh] min-h-[54rem] w-full overflow-clip bg-[#081512] text-white">
+            <div className="bccc-public-hero-sticky sticky top-0 h-[100svh] min-h-[42rem] w-full overflow-hidden">
                 <div className="absolute inset-0 -z-30 bg-[radial-gradient(circle_at_50%_18%,rgba(244,223,173,0.2),transparent_34%),linear-gradient(180deg,#071411_0%,#10372f_48%,#07110f_100%)]" />
                 <div className="absolute inset-0 -z-20 bg-[linear-gradient(90deg,rgba(0,0,0,0.31),transparent_30%,transparent_70%,rgba(0,0,0,0.31))]" />
 
@@ -387,7 +387,7 @@ export default function HeroBanner({ siteMetric = null }: Props) {
                 <motion.div
                     aria-hidden="true"
                     style={{ y: textScrollY, opacity: textOpacity }}
-                    className="pointer-events-none absolute inset-x-0 top-[8svh] z-[8] flex flex-col items-center justify-center overflow-hidden text-center will-change-transform"
+                    className="bccc-public-hero-text pointer-events-none absolute inset-x-0 top-[8svh] z-[8] flex flex-col items-center justify-center overflow-hidden text-center will-change-transform"
                 >
                     <motion.div
                         initial={{
@@ -422,7 +422,7 @@ export default function HeroBanner({ siteMetric = null }: Props) {
 
                 <motion.div
                     style={{ y: imageScrollY, opacity: imageOpacity }}
-                    className="absolute inset-x-0 bottom-0 z-10 h-[100svh] min-h-[42rem] w-screen overflow-hidden will-change-transform"
+                    className="bccc-public-hero-image absolute inset-x-0 bottom-0 z-10 h-[100svh] min-h-[42rem] w-screen overflow-hidden will-change-transform"
                 >
                     <motion.div
                         initial={{
@@ -450,7 +450,7 @@ export default function HeroBanner({ siteMetric = null }: Props) {
                             src={HERO_IMAGE}
                             fallbackSrc={HERO_FALLBACK}
                             alt="Baguio Convention and Cultural Center"
-                            className="h-full w-screen max-w-none object-cover object-center"
+                            className="bccc-public-hero-photo h-full w-screen max-w-none object-cover object-center"
                             wrapperClassName="h-full w-screen max-w-none"
                         />
                     </motion.div>

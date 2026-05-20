@@ -683,7 +683,7 @@ export default function FacilitiesLayeredShowcase({ items = [] }: Props) {
             onMouseLeave={() => setPaused(false)}
             onFocus={() => setPaused(true)}
             onBlur={() => setPaused(false)}
-            className="relative isolate min-h-[100svh] overflow-hidden bg-[#061514] text-white lg:min-h-[min(100svh,62rem)]"
+            className="bccc-public-facilities-showcase relative isolate min-h-[100svh] overflow-hidden bg-[#061514] text-white lg:min-h-[min(100svh,62rem)]"
         >
             <AnimatePresence initial={false} mode="sync">
                 <ActiveFacilityPanel

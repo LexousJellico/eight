@@ -52,7 +52,7 @@ function fallbackTitle(role: RoleThemeKey): string {
 
 function fallbackDescription(role: RoleThemeKey): string {
     if (role === 'admin') {
-        return 'Review reservations, schedules, client details, payment proof, survey proof, and public calendar visibility.';
+        return 'Review reservations, schedules, client details, payment proof, MICE/report details, and public calendar visibility.';
     }
 
     if (role === 'manager') {

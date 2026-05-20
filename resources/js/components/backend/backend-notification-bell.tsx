@@ -117,11 +117,11 @@ export default function BackendNotificationBell() {
     const total = role === 'user' ? count(summary.totalUnread) || count(summary.pendingBookings) : count(summary.totalUnread) || items.reduce((sum, item) => sum + item.value, 0);
 
     return (
-        <div className="relative">
+        <div className="backend-notification-bell relative">
             <button
                 type="button"
                 onClick={() => setOpen((value) => !value)}
-                className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-200/80 bg-white/78 text-slate-900 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                className="backend-notification-button relative grid h-11 w-11 shrink-0 place-items-center rounded-full border border-slate-200/80 bg-white/78 text-slate-900 shadow-[0_14px_34px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
                 aria-label="Open notifications"
                 aria-expanded={open}
             >
@@ -136,7 +136,7 @@ export default function BackendNotificationBell() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.98 }}
                         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                        className="absolute right-0 top-full z-[90] mt-2 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white/96 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/96"
+                        className="backend-notification-menu absolute right-0 top-full z-[90] mt-2 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white/96 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/96"
                     >
                         <div className="rounded-[1rem] bg-slate-100/80 p-3 dark:bg-white/7">
                             <div className="flex items-center justify-between gap-3">

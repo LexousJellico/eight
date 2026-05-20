@@ -48,6 +48,7 @@ export function RoleWorkspaceShell({
       <Head title={title} />
 
       <section
+        data-role-workspace-header
         className={`role-workspace-header relative mb-5 overflow-hidden border border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel)] shadow-[var(--bccc-backend-shadow-soft)] backdrop-blur-xl ${
           compact ? 'p-5' : 'p-5 sm:p-6 lg:p-7'
         }`}
@@ -79,14 +80,14 @@ export function RoleWorkspaceShell({
           </div>
 
           {actions ? (
-            <div className="flex flex-wrap gap-2 lg:justify-end">
+            <div className="role-workspace-actions flex flex-wrap gap-2 lg:justify-end">
               {actions}
             </div>
           ) : null}
         </div>
       </section>
 
-      {children}
+      <div className="role-workspace-body">{children}</div>
     </AppLayout>
   );
 }

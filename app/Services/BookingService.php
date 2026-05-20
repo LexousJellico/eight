@@ -1724,6 +1724,92 @@ class BookingService implements BookingServiceInterface
         };
     }
 
+    private function calendarBlockKeys(string $block): array
+    {
+        $block = strtoupper(trim($block));
+
+        return match ($block) {
+            'AM' => ['AM'],
+            'PM' => ['PM'],
+            'EVE' => ['EVE'],
+            default => ['AM', 'PM', 'EVE'],
+        };
+    }
+
+    private function defaultAvailabilityBlocksForDay(Carbon $day): array
+    {
+        return [
+            'AM' => [
+                'key' => 'AM',
+                'label' => 'Morning',
+                'from' => '06:00',
+                'to' => '12:00',
+                'is_available' => true,
+                'isAvailable' => true,
+                'booked' => false,
+                'blocked' => false,
+                'reason' => null,
+            ],
+            'PM' => [
+                'key' => 'PM',
+                'label' => 'Afternoon',
+                'from' => '12:00',
+                'to' => '18:00',
+                'is_available' => true,
+                'isAvailable' => true,
+                'booked' => false,
+                'blocked' => false,
+                'reason' => null,
+            ],
+            'EVE' => [
+                'key' => 'EVE',
+                'label' => 'Evening',
+                'from' => '18:00',
+                'to' => '23:59',
+                'is_available' => true,
+                'isAvailable' => true,
+                'booked' => false,
+                'blocked' => false,
+                'reason' => null,
+            ],
+        ];
+    }
+
+    private function blockStatusCounts(array $blocks): array
+    {
+        $blockRows = collect(['AM', 'PM', 'EVE'])->map(fn (string $key) => $blocks[$key] ?? null)->filter();
+        $closed = $blockRows->filter(fn (array $block) => ! (bool) ($block['is_available'] ?? $block['isAvailable'] ?? false))->count();
+        $booked = $blockRows->filter(fn (array $block) => (bool) ($block['booked'] ?? false))->count();
+        $blocked = $blockRows->filter(fn (array $block) => (bool) ($block['blocked'] ?? false))->count();
+
+        return [
+            'total' => $blockRows->count(),
+            'available' => max(0, $blockRows->count() - $closed),
+            'closed' => $closed,
+            'booked' => $booked,
+            'blocked' => $blocked,
+            'fully_closed' => $blockRows->count() > 0 && $closed >= $blockRows->count(),
+        ];
+    }
+
+    private function availabilityBlock(array $availability, string $key): array
+    {
+        $blocks = $availability['blocks'] ?? [];
+
+        if (isset($blocks[$key]) && is_array($blocks[$key])) {
+            return $blocks[$key];
+        }
+
+        foreach ((array) $blocks as $block) {
+            if (is_array($block) && strtoupper((string) ($block['key'] ?? '')) === $key) {
+                return $block;
+            }
+        }
+
+        return $this->defaultAvailabilityBlocksForDay(now())[$key];
+    }
+
+
     private function buildAvailabilityBlocks(Carbon $day, array $sourceIntervals): array
     {
         $blocks = [
@@ -2118,7 +2204,7 @@ class BookingService implements BookingServiceInterface
             CalendarBlock::query()
                 ->whereDate('date_to', '>=', $start->format('Y-m-d'))
                 ->whereDate('date_from', '<=', $end->format('Y-m-d'))
-                ->get(['date_from', 'date_to', 'public_status'])
+                ->get(['date_from', 'date_to', 'block', 'public_status'])
                 ->each(function (CalendarBlock $block) use (&$blockFlagsByDate, $start, $end) {
                     $rangeStart = Carbon::parse($block->date_from)->startOfDay();
                     $rangeEnd = Carbon::parse($block->date_to)->startOfDay();
@@ -2136,13 +2222,17 @@ class BookingService implements BookingServiceInterface
                     for ($cursor = $rangeStart->copy(); $cursor->lte($rangeEnd); $cursor->addDay()) {
                         $key = $cursor->format('Y-m-d');
                         $blockFlagsByDate[$key] ??= [
-                            'red' => false,
-                            'blue' => false,
-                            'gold' => false,
+                            'red' => ['AM' => false, 'PM' => false, 'EVE' => false],
+                            'blue' => ['AM' => false, 'PM' => false, 'EVE' => false],
+                            'gold' => ['AM' => false, 'PM' => false, 'EVE' => false],
                         ];
 
-                        if (array_key_exists($status, $blockFlagsByDate[$key])) {
-                            $blockFlagsByDate[$key][$status] = true;
+                        if (! array_key_exists($status, $blockFlagsByDate[$key])) {
+                            continue;
+                        }
+
+                        foreach ($this->calendarBlockKeys((string) ($block->block ?? 'DAY')) as $blockKey) {
+                            $blockFlagsByDate[$key][$status][$blockKey] = true;
                         }
                     }
                 });
@@ -2153,31 +2243,42 @@ class BookingService implements BookingServiceInterface
         for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
             $dateKey = $day->format('Y-m-d');
             $availability = $this->getDailyAvailability($dateKey);
-            $flags = $blockFlagsByDate[$dateKey] ?? ['red' => false, 'blue' => false, 'gold' => false];
+            $flags = $blockFlagsByDate[$dateKey] ?? [
+                'red' => ['AM' => false, 'PM' => false, 'EVE' => false],
+                'blue' => ['AM' => false, 'PM' => false, 'EVE' => false],
+                'gold' => ['AM' => false, 'PM' => false, 'EVE' => false],
+            ];
 
-            $availableBlockCount = collect($availability['blocks'] ?? [])
-                ->filter(fn ($block) => (bool) data_get($block, 'is_available', false))
-                ->count();
+            $blocks = [
+                'AM' => $this->availabilityBlock($availability, 'AM'),
+                'PM' => $this->availabilityBlock($availability, 'PM'),
+                'EVE' => $this->availabilityBlock($availability, 'EVE'),
+            ];
+            $counts = $this->blockStatusCounts($blocks);
+            $redFullDay = collect($flags['red'])->every(fn (bool $value) => $value);
+            $blueFullDay = collect($flags['blue'])->every(fn (bool $value) => $value);
+            $goldFullDay = collect($flags['gold'])->every(fn (bool $value) => $value);
 
             $status = 'available';
 
-            if ($flags['red']) {
+            if ($redFullDay && $counts['fully_closed']) {
                 $status = 'blocked';
-            } elseif ($flags['blue'] || $publicEventDays->has($dateKey)) {
+            } elseif (($blueFullDay || $publicEventDays->has($dateKey)) && $counts['fully_closed']) {
                 $status = 'public_booked';
-            } elseif ($flags['gold'] || (bool) ($availability['is_fully_booked'] ?? false)) {
+            } elseif (($goldFullDay || (bool) ($availability['is_fully_booked'] ?? false)) && $counts['fully_closed']) {
                 $status = 'private_booked';
-            } elseif ($availableBlockCount < 3) {
+            } elseif ($counts['closed'] > 0 || collect($flags)->flatten()->contains(true)) {
                 $status = 'limited';
             }
 
             $monthAvailability[$dateKey] = [
                 'date' => $dateKey,
                 'day_status' => $status,
-                'AM' => (bool) data_get($availability, 'blocks.AM.is_available', true),
-                'PM' => (bool) data_get($availability, 'blocks.PM.is_available', true),
-                'EVE' => (bool) data_get($availability, 'blocks.EVE.is_available', true),
-                'is_fully_booked' => (bool) ($availability['is_fully_booked'] ?? false),
+                'blocks' => $blocks,
+                'AM' => (bool) ($blocks['AM']['is_available'] ?? $blocks['AM']['isAvailable'] ?? true),
+                'PM' => (bool) ($blocks['PM']['is_available'] ?? $blocks['PM']['isAvailable'] ?? true),
+                'EVE' => (bool) ($blocks['EVE']['is_available'] ?? $blocks['EVE']['isAvailable'] ?? true),
+                'is_fully_booked' => $counts['fully_closed'],
             ];
         }
 
@@ -2210,36 +2311,57 @@ class BookingService implements BookingServiceInterface
             ? CalendarBlock::query()
                 ->whereDate('date_from', '<=', $date)
                 ->whereDate('date_to', '>=', $date)
-                ->get(['public_status'])
+                ->get(['block', 'public_status'])
             : collect();
 
-        $hasRedBlock = $calendarBlocks->contains(fn (CalendarBlock $block) => strtolower((string) ($block->public_status ?? '')) === 'red');
-        $hasBlueBlock = $calendarBlocks->contains(fn (CalendarBlock $block) => strtolower((string) ($block->public_status ?? '')) === 'blue');
-        $hasGoldBlock = $calendarBlocks->contains(fn (CalendarBlock $block) => strtolower((string) ($block->public_status ?? '')) === 'gold');
+        $flags = [
+            'red' => ['AM' => false, 'PM' => false, 'EVE' => false],
+            'blue' => ['AM' => false, 'PM' => false, 'EVE' => false],
+            'gold' => ['AM' => false, 'PM' => false, 'EVE' => false],
+        ];
 
-        $availableBlockCount = collect($availability['blocks'] ?? [])
-            ->filter(fn ($block) => (bool) data_get($block, 'is_available', false))
-            ->count();
+        foreach ($calendarBlocks as $block) {
+            $statusKey = strtolower((string) ($block->public_status ?? 'red'));
+            if (! array_key_exists($statusKey, $flags)) {
+                continue;
+            }
+
+            foreach ($this->calendarBlockKeys((string) ($block->block ?? 'DAY')) as $blockKey) {
+                $flags[$statusKey][$blockKey] = true;
+            }
+        }
+
+        $blocks = [
+            'AM' => $this->availabilityBlock($availability, 'AM'),
+            'PM' => $this->availabilityBlock($availability, 'PM'),
+            'EVE' => $this->availabilityBlock($availability, 'EVE'),
+        ];
+        $counts = $this->blockStatusCounts($blocks);
+
+        $redFullDay = collect($flags['red'])->every(fn (bool $value) => $value);
+        $blueFullDay = collect($flags['blue'])->every(fn (bool $value) => $value);
+        $goldFullDay = collect($flags['gold'])->every(fn (bool $value) => $value);
 
         $status = 'available';
 
-        if ($hasRedBlock) {
+        if ($redFullDay && $counts['fully_closed']) {
             $status = 'blocked';
-        } elseif ($hasBlueBlock || $publicEventsExist) {
+        } elseif (($blueFullDay || $publicEventsExist) && $counts['fully_closed']) {
             $status = 'public_booked';
-        } elseif ($hasGoldBlock || (bool) ($availability['is_fully_booked'] ?? false)) {
+        } elseif (($goldFullDay || (bool) ($availability['is_fully_booked'] ?? false)) && $counts['fully_closed']) {
             $status = 'private_booked';
-        } elseif ($availableBlockCount < 3) {
+        } elseif ($counts['closed'] > 0 || collect($flags)->flatten()->contains(true)) {
             $status = 'limited';
         }
 
         return [
             'date' => $date,
             'day_status' => $status,
-            'AM' => (bool) data_get($availability, 'blocks.AM.is_available', true),
-            'PM' => (bool) data_get($availability, 'blocks.PM.is_available', true),
-            'EVE' => (bool) data_get($availability, 'blocks.EVE.is_available', true),
-            'is_fully_booked' => (bool) ($availability['is_fully_booked'] ?? false),
+            'blocks' => $blocks,
+            'AM' => (bool) ($blocks['AM']['is_available'] ?? $blocks['AM']['isAvailable'] ?? true),
+            'PM' => (bool) ($blocks['PM']['is_available'] ?? $blocks['PM']['isAvailable'] ?? true),
+            'EVE' => (bool) ($blocks['EVE']['is_available'] ?? $blocks['EVE']['isAvailable'] ?? true),
+            'is_fully_booked' => $counts['fully_closed'],
         ];
     }
 

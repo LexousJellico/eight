@@ -87,6 +87,8 @@ class UpdateBookingRequest extends FormRequest
             'schedule_segments.*.date' => ['required_with:schedule_segments', 'date_format:Y-m-d'],
             'schedule_segments.*.segment_role' => ['nullable', 'string', 'max:40'],
             'schedule_segments.*.role' => ['nullable', 'string', 'max:40'],
+            'schedule_segments.*.has_ingress_label' => ['nullable', 'boolean'],
+            'schedule_segments.*.has_egress_label' => ['nullable', 'boolean'],
             'schedule_segments.*.base_block' => ['required_with:schedule_segments', 'string', 'max:40'],
             'schedule_segments.*.additional_hours' => ['nullable', 'integer', 'min:0', 'max:5'],
             'schedule_segments.*.area_keys' => ['nullable', 'array'],

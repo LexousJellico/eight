@@ -8,9 +8,11 @@ function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
 }
 
-export function AppContent({ children, className = '', ...props }: AppContentProps) {
+export function AppContent({ children, className = '', id = 'backend-main-content', tabIndex = -1, ...props }: AppContentProps) {
     return (
         <main
+            id={id}
+            tabIndex={tabIndex}
             {...props}
             className={cx(
                 'backend-app-content relative z-10 min-h-[calc(100dvh-4rem)] w-full px-3 pb-5 pt-[5.25rem] sm:px-4 lg:px-5 xl:px-6',

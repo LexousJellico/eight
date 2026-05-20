@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Schema;
 
 class BookingDeadlineService
 {
+    public function __construct(protected ?NotificationService $notifications = null)
+    {
+    }
+
     /**
      * BCCC policy requested in Batch 2: reservations remain payable for
      * ten working days, then unpaid reservations are automatically declined.
@@ -165,6 +169,12 @@ class BookingDeadlineService
                         ],
                     );
 
+                    $this->notifications?->bookingAutoDeclinedByDeadline(
+                        $booking,
+                        'payment',
+                        'The 10-working-day payment deadline expired without settlement.'
+                    );
+
                     $expired++;
                 }
             });
@@ -266,6 +276,12 @@ class BookingDeadlineService
                             'auto_declined_at' => optional($booking->auto_declined_at)->toIso8601String(),
                             'deadline_policy' => self::PAYMENT_DEADLINE_WORKING_DAYS . ' working days',
                         ],
+                    );
+
+                    $this->notifications?->bookingAutoDeclinedByDeadline(
+                        $booking,
+                        'balance',
+                        'The 10-working-day balance payment deadline expired without settlement.'
                     );
 
                     $expired++;

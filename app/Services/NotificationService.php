@@ -465,6 +465,42 @@ class NotificationService
         );
     }
 
+    public function bookingAutoDeclinedByDeadline(Booking $booking, string $deadlineType = 'payment', ?string $reason = null): void
+    {
+        $booking->refresh();
+        $link = $this->bookingLink($booking);
+        $owner = $this->bookingOwner($booking);
+        $label = $this->bookingLabel($booking);
+        $deadlineLabel = $deadlineType === 'balance' ? 'balance payment deadline' : 'payment deadline';
+        $message = $reason ?: 'The 10-working-day '.$deadlineLabel.' expired without settlement.';
+
+        if ($owner) {
+            $this->createNotification(
+                $owner,
+                'booking_auto_declined',
+                'Your booking was automatically declined',
+                'Your reservation was automatically declined because '.$message.' Open your booking details for the full notice.',
+                $link,
+                $this->clientOptions(null, $booking, 'booking.deadline.auto_declined.client', 'danger', [
+                    'deadline_type' => $deadlineType,
+                    'deadline_policy' => '10 working days',
+                ])
+            );
+        }
+
+        $this->notifyMany(
+            $this->operationsRecipients(null),
+            'booking_auto_declined',
+            'Booking automatically declined',
+            sprintf('System auto-declined Booking #%d for %s. %s', $booking->id, $label, $message),
+            $link,
+            $this->adminOptions(null, $booking, 'booking.deadline.auto_declined.admin', 'danger', [
+                'deadline_type' => $deadlineType,
+                'deadline_policy' => '10 working days',
+            ])
+        );
+    }
+
     /* -----------------------------------------------------------------
      | Payment notifications
      * ----------------------------------------------------------------- */

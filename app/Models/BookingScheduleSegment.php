@@ -15,6 +15,8 @@ class BookingScheduleSegment extends Model
     protected $casts = [
         'booking_id' => 'integer',
         'date' => 'date',
+        'has_ingress_label' => 'boolean',
+        'has_egress_label' => 'boolean',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
         'has_additional_hours' => 'boolean',

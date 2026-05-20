@@ -350,7 +350,7 @@ export default function NotificationsIndex({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Notifications" />
 
-            <div className="backend-admin-page space-y-5">
+            <div className="notifications-responsive-page backend-admin-page space-y-5">
                 <section className={isClientNotificationCenter ? 'notification-hero notification-hero-client' : 'notification-hero'}>
                     <div>
                         <p className="backend-booking-label">Notifications</p>
@@ -368,7 +368,7 @@ export default function NotificationsIndex({
                     </button>
                 </section>
 
-                <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <section className="notification-stat-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                     <StatCard label="Total" value={stats.total ?? stats.all ?? feed.length} helper="Notifications visible to your current role." icon={Bell} />
                     <StatCard label="Unread" value={unreadCount} helper="Messages still requiring attention." icon={BellRing} />
                     <StatCard label="Read" value={readCount} helper="Already opened or marked read." icon={CheckCircle2} />
@@ -400,7 +400,7 @@ export default function NotificationsIndex({
                 {isClientNotificationCenter ? (
                     <ClientConversation feed={feed} links={pageLinks} />
                 ) : (
-                    <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+                    <section className="notification-monitoring-layout grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
                         <main className="notification-panel overflow-hidden">
                             <div className="notification-panel-header">
                                 <div>

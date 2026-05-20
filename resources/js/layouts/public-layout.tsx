@@ -100,11 +100,12 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
 
     return (
         <div className="bccc-public-shell min-h-screen bg-[#f8f5ef] text-[#201a12] antialiased dark:bg-[#0d0f12] dark:text-white">
+            <a href="#public-main-content" className="bccc-skip-link">Skip to content</a>
             <PublicMotionEffects />
             <PublicScrollProgress />
             <PublicHeaderPortal />
 
-            <main className="bccc-public-main bccc-public-page-stage relative overflow-x-clip overflow-y-visible pt-[78px]">
+            <main id="public-main-content" tabIndex={-1} className="bccc-public-main bccc-public-page-stage relative overflow-x-clip overflow-y-visible pt-[78px]">
                 {children}
             </main>
 

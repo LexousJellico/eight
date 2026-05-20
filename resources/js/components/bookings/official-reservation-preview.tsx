@@ -306,7 +306,7 @@ export default function OfficialReservationPreview({
                     <Line label="Representative" value={text(data.client_name)} />
                     <Line label="Head of Organization" value={text(data.head_of_organization)} />
                     <Line label="Email" value={text(data.client_email)} />
-                    <Line label="Survey Email" value={text(data.survey_email)} />
+                    <Line label="Report Email" value={text(data.survey_email)} />
                     <Line label="Contact Number" value={text(data.client_contact_number)} />
                     <Line label="Address" value={address} wide />
                 </Section>

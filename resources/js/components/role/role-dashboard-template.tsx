@@ -467,7 +467,7 @@ export function RoleDashboardTemplate({
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="role-dashboard-kpi-grid grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((card, index) => (
           <RoleKpiCard
             key={card.title}
@@ -481,7 +481,7 @@ export function RoleDashboardTemplate({
         ))}
       </div>
 
-      <section className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+      <section className="role-dashboard-main-grid mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-5">
           <section className="relative overflow-hidden border border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel)] p-5 shadow-[var(--bccc-backend-shadow-soft)] backdrop-blur-xl sm:p-6">
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -500,7 +500,7 @@ export function RoleDashboardTemplate({
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="role-action-grid grid gap-4 md:grid-cols-2">
               {primaryActions.map((action, index) => (
                 <RoleActionCard
                   key={action.href}

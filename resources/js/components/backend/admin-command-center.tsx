@@ -175,7 +175,7 @@ function maxOf(rows: Array<{ value: number }>): number {
 
 function CommandMetricCard({ metric, index }: { metric: CommandMetric; index: number }) {
     const content = (
-        <article className={`group relative min-h-[10.5rem] overflow-hidden rounded-[1.4rem] border p-5 shadow-[0_18px_54px_rgba(47,37,23,0.08)] transition duration-300 hover:-translate-y-1 ${toneClass(metric.tone)}`}>
+        <article className={`bccc-admin-command-metric group relative min-h-[10.5rem] overflow-hidden rounded-[1.4rem] border p-5 shadow-[0_18px_54px_rgba(47,37,23,0.08)] transition duration-300 hover:-translate-y-1 ${toneClass(metric.tone)}`}>
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(216,181,109,0.18),transparent_42%)] opacity-70" />
             <div className="relative flex h-full flex-col justify-between gap-5">
                 <div className="flex items-start justify-between gap-4">
@@ -255,7 +255,7 @@ function Panel({
     actions?: ReactNode;
 }) {
     return (
-        <section className="rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/84 p-5 shadow-[0_22px_70px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]">
+        <section className="bccc-admin-command-panel rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/84 p-5 shadow-[0_22px_70px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]">
             <div className="mb-5 flex flex-col gap-3 border-b border-[#d9c7a6]/60 pb-4 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <p className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
@@ -281,7 +281,7 @@ function TrendBars({ rows }: { rows: TrendRow[] }) {
     }
 
     return (
-        <div className="flex min-h-[15rem] items-end gap-3 pt-4">
+        <div className="bccc-admin-trend-bars flex min-h-[15rem] items-end gap-3 pt-4">
             {rows.map((row) => {
                 const height = max > 0 ? Math.max(8, Math.round((row.value / max) * 100)) : 8;
 
@@ -387,7 +387,7 @@ export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCe
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Admin Dashboard" />
 
-            <div className="space-y-5">
+            <div className="bccc-admin-command-center space-y-5">
                 <section className="relative overflow-hidden rounded-[1.85rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/92 p-5 shadow-[0_28px_90px_rgba(47,37,23,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055] lg:p-6">
                     <div className="pointer-events-none absolute inset-0">
                         <div className="absolute right-[-8rem] top-[-10rem] h-96 w-96 rounded-full bg-[#d8b56d]/22 blur-3xl dark:bg-[#d8b56d]/10" />

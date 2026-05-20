@@ -30,7 +30,7 @@ export function RoleActionCard({
       initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, scale: 0.985, filter: 'blur(8px)' }}
       animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
       transition={{ duration: 0.48, ease: easeLuxury, delay: Math.min(index * 0.055, 0.24) }}
-      className="group relative overflow-hidden border border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel)] shadow-[var(--bccc-backend-shadow-soft)] backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-[var(--bccc-backend-gold-line)] hover:shadow-[var(--bccc-backend-shadow-medium)]"
+      className="role-action-card group relative overflow-hidden border border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel)] shadow-[var(--bccc-backend-shadow-soft)] backdrop-blur-xl transition duration-500 hover:-translate-y-1 hover:border-[var(--bccc-backend-gold-line)] hover:shadow-[var(--bccc-backend-shadow-medium)]"
     >
       <Link href={href} className="block h-full p-5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(169,132,67,0.10),transparent_42%)] opacity-0 transition duration-500 group-hover:opacity-100" />

@@ -307,7 +307,7 @@ function roleCopy(role: RoleKey) {
             eyebrow: 'Staff Workspace',
             title: 'Daily booking assistance workspace.',
             description:
-                'Assist with booking creation, client requirements, survey proof, payment proof, and calendar checking from a focused operational page.',
+                'Assist with booking creation, client requirements, MICE/report details, payment proof, and calendar checking from a focused operational page.',
             base: '/staff',
             bookings: '/staff/bookings',
             calendar: '/staff/calendar',
@@ -326,7 +326,7 @@ function roleCopy(role: RoleKey) {
         eyebrow: 'My Workspace',
         title: 'Track your BCCC booking request.',
         description:
-            'View your reservations, submit survey proof, upload payment proof, and monitor your booking status in a clean personal dashboard.',
+            'View your reservations, review MICE/report details, upload payment proof, and monitor your booking status in a clean personal dashboard.',
         base: '',
         bookings: '/my-bookings',
         calendar: '/calendar',

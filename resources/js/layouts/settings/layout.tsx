@@ -13,8 +13,8 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
         typeof window !== 'undefined' ? window.location.pathname : '';
 
     return (
-        <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-            <aside className="rounded-[2rem] border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#121318]">
+        <div className="settings-responsive-layout grid gap-6 lg:grid-cols-[260px_1fr]">
+            <aside className="settings-responsive-sidebar rounded-[2rem] border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#121318]">
                 <div className="mb-4">
                     <div className="text-xs font-semibold tracking-[0.3em] text-[#174f40] uppercase dark:text-[#8ea3ff]">
                         Settings
@@ -24,7 +24,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                     </h2>
                 </div>
 
-                <nav className="space-y-2">
+                <nav className="settings-responsive-nav space-y-2">
                     {sidebarNavItems.map((item) => {
                         const active = currentPath === item.href;
 
@@ -45,7 +45,7 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 </nav>
             </aside>
 
-            <section>{children}</section>
+            <section className="settings-responsive-content">{children}</section>
         </div>
     );
 }

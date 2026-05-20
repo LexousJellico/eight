@@ -223,7 +223,7 @@ export function bookingWorkspaceCopy(role: RoleKey): BookingWorkspaceCopy {
         eyebrow: 'Client Booking Portal',
         title: 'My Bookings',
         description:
-            'Track your submitted event booking requests, continue survey requirements, and submit payment proof for review.',
+            'Track your submitted event booking requests, review booking details, complete MICE/report details when required, and submit payment proof for review.',
         emptyTitle: 'You have no bookings yet',
         emptyDescription:
             'Start a booking request to reserve a date and venue at Baguio Convention and Cultural Center.',
@@ -259,7 +259,7 @@ export function bookingEditPath(role: RoleKey, id: number | string): string {
 }
 
 export function bookingSurveyPath(role: RoleKey, id: number | string): string {
-    return `${bookingBasePath(role)}/${id}/survey`;
+    return `${bookingBasePath(role)}/${id}`;
 }
 
 export function bookingPaymentPath(role: RoleKey, id: number | string): string {

@@ -10518,3 +10518,243 @@ body:has(.bccc-availability-dock) main {
     font-size: 16px;
     line-height: 24px;
 }
+
+/* ==========================================================================
+   BCCC EASE backend responsive shell final override
+   Purpose: make the fixed backend sidebar truly collapsible and keep content,
+   topbar, tables, dashboards, calendars, and booking pages responsive from
+   mobile to large desktop. This block intentionally sits last to beat older
+   hard-coded backend chrome rules.
+   ========================================================================== */
+:root {
+    --bccc-backend-sidebar-expanded-width: 17.25rem;
+    --bccc-backend-sidebar-collapsed-width: 5.25rem;
+    --bccc-backend-sidebar-width: var(--bccc-backend-sidebar-expanded-width);
+    --bccc-backend-topbar-height: 4.65rem;
+}
+
+.backend-boneyard-root,
+.backend-shell,
+.backend-main {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    transform: none !important;
+    contain: none !important;
+    overflow: visible !important;
+}
+
+.backend-boneyard-root[data-sidebar-collapsed='true'],
+.bccc-backend-chrome-portal[data-sidebar-collapsed='true'] {
+    --bccc-backend-sidebar-width: var(--bccc-backend-sidebar-collapsed-width);
+}
+
+.backend-boneyard-root[data-sidebar-collapsed='false'],
+.bccc-backend-chrome-portal[data-sidebar-collapsed='false'] {
+    --bccc-backend-sidebar-width: var(--bccc-backend-sidebar-expanded-width);
+}
+
+.bccc-backend-chrome-portal .backend-sidebar,
+.backend-sidebar {
+    position: fixed !important;
+    inset-block: 0 !important;
+    left: 0 !important;
+    z-index: 2147483100 !important;
+    display: none !important;
+    width: var(--bccc-backend-sidebar-width) !important;
+    min-width: var(--bccc-backend-sidebar-width) !important;
+    max-width: var(--bccc-backend-sidebar-width) !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: visible !important;
+    transform: none !important;
+    contain: none !important;
+    transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1), min-width 260ms cubic-bezier(0.22, 1, 0.36, 1), max-width 260ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.bccc-backend-chrome-portal .backend-sidebar > div,
+.backend-sidebar > div {
+    max-height: 100dvh !important;
+    overflow: visible !important;
+}
+
+.bccc-backend-chrome-portal .backend-sidebar [class*='overflow-y-auto'],
+.backend-sidebar [class*='overflow-y-auto'] {
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: visible !important;
+    overscroll-behavior: contain !important;
+}
+
+.bccc-backend-chrome-portal .backend-topbar,
+.bccc-backend-chrome-portal .backend-main-topbar,
+.backend-topbar,
+.backend-main-topbar,
+header.backend-topbar {
+    position: fixed !important;
+    top: 0 !important;
+    right: 0 !important;
+    left: 0 !important;
+    z-index: 2147483200 !important;
+    min-width: 0 !important;
+    min-height: var(--bccc-backend-topbar-height) !important;
+    overflow: visible !important;
+    transform: none !important;
+    contain: none !important;
+    isolation: isolate !important;
+    transition: left 260ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.backend-main-topbar-inner {
+    min-width: 0 !important;
+    max-width: 1920px !important;
+}
+
+.backend-main {
+    padding-left: 0 !important;
+    transition: padding-left 260ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.backend-app-content {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: clip !important;
+    padding-top: calc(var(--bccc-backend-topbar-height) + env(safe-area-inset-top) + 0.65rem) !important;
+    padding-bottom: calc(2.75rem + env(safe-area-inset-bottom)) !important;
+}
+
+.backend-app-content > .mx-auto,
+.backend-app-content > div,
+.backend-app-content section,
+.backend-app-content article,
+.backend-app-content form,
+.backend-app-content .grid,
+.backend-app-content .flex {
+    min-width: 0;
+}
+
+.backend-app-content img,
+.backend-app-content svg,
+.backend-app-content canvas,
+.backend-app-content iframe,
+.backend-app-content embed,
+.backend-app-content object {
+    max-width: 100%;
+}
+
+.backend-app-content .overflow-x-auto,
+.backend-app-content .backend-scroll-zone,
+.backend-app-content .booking-scroll-zone,
+.backend-app-content .analytics-scroll-zone,
+.backend-app-content .dashboard-scroll-zone,
+.backend-app-content [data-scroll-zone='true'] {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+}
+
+.backend-app-content .booking-wizard-stage,
+.backend-app-content .backend-scroll-zone,
+.backend-app-content .analytics-scroll-zone,
+.backend-app-content .dashboard-scroll-zone {
+    max-height: none !important;
+}
+
+.backend-app-content table {
+    width: 100% !important;
+    min-width: max(760px, 100%) !important;
+}
+
+@media (min-width: 1024px) {
+    .bccc-backend-chrome-portal .backend-sidebar,
+    .backend-sidebar {
+        display: flex !important;
+    }
+
+    .backend-main {
+        padding-left: var(--bccc-backend-sidebar-width) !important;
+    }
+
+    .bccc-backend-chrome-portal .backend-topbar,
+    .bccc-backend-chrome-portal .backend-main-topbar,
+    .backend-topbar,
+    .backend-main-topbar,
+    header.backend-topbar {
+        left: var(--bccc-backend-sidebar-width) !important;
+    }
+
+    .backend-app-content {
+        padding-inline: clamp(1.1rem, 1.6vw, 1.75rem) !important;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+    :root {
+        --bccc-backend-topbar-height: 4.45rem;
+    }
+
+    .backend-app-content {
+        padding-inline: 1rem !important;
+    }
+}
+
+@media (max-width: 1023px) {
+    :root {
+        --bccc-backend-topbar-height: 4.35rem;
+    }
+
+    .bccc-backend-chrome-portal .backend-sidebar,
+    .backend-sidebar {
+        display: none !important;
+    }
+
+    .backend-main {
+        padding-left: 0 !important;
+    }
+
+    .bccc-backend-chrome-portal .backend-topbar,
+    .bccc-backend-chrome-portal .backend-main-topbar,
+    .backend-topbar,
+    .backend-main-topbar,
+    header.backend-topbar {
+        left: 0 !important;
+    }
+
+    .backend-main-topbar-inner {
+        gap: 0.5rem !important;
+        min-height: var(--bccc-backend-topbar-height) !important;
+    }
+
+    .backend-app-content {
+        padding-inline: 0.85rem !important;
+        padding-top: calc(var(--bccc-backend-topbar-height) + env(safe-area-inset-top) + 0.55rem) !important;
+    }
+
+    .backend-app-content table {
+        min-width: 680px !important;
+    }
+}
+
+@media (max-width: 640px) {
+    :root {
+        --bccc-backend-topbar-height: 4.2rem;
+    }
+
+    .backend-main-topbar-inner {
+        padding-inline: 0.65rem !important;
+    }
+
+    .backend-app-content {
+        padding-inline: 0.65rem !important;
+        padding-bottom: calc(4rem + env(safe-area-inset-bottom)) !important;
+    }
+
+    .backend-app-content table {
+        min-width: 620px !important;
+    }
+}

@@ -1,0 +1,603 @@
+/* =========================================================
+   BCCC EASE — COMPLETE PUBLIC WEBSITE RESPONSIVE PATCH
+   Scope: public marketing website only.
+   Load this file LAST so it wins over older scattered patches.
+   ========================================================= */
+
+:root {
+    --bccc-public-header-h: 4rem;
+    --bccc-public-side: clamp(0.875rem, 2.6vw, 2rem);
+    --bccc-public-wide: 1800px;
+    --bccc-public-content: 1480px;
+    --bccc-public-radius: clamp(1rem, 1.8vw, 1.75rem);
+}
+
+@media (min-width: 768px) {
+    :root {
+        --bccc-public-header-h: 4.5rem;
+        --bccc-public-side: clamp(1.25rem, 3vw, 2.5rem);
+    }
+}
+
+@media (min-width: 1280px) {
+    :root {
+        --bccc-public-header-h: 4.75rem;
+    }
+}
+
+html,
+body,
+#app {
+    width: 100%;
+    min-width: 320px;
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+body {
+    overscroll-behavior-x: none;
+}
+
+img,
+video,
+canvas,
+svg,
+iframe {
+    max-width: 100%;
+}
+
+.bccc-public-shell,
+.bccc-public-main,
+.public-display-page,
+.bccc-public-page-stage {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+}
+
+.bccc-public-main {
+    padding-top: var(--bccc-public-header-h) !important;
+}
+
+.bccc-public-main > main,
+.bccc-public-main > section,
+.bccc-public-main .public-display-page {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.bccc-public-main :where(section, article, aside, div, form, nav) {
+    min-width: 0;
+}
+
+.bccc-public-main :where(.public-container, .public-section-shell) {
+    width: min(calc(100% - (var(--bccc-public-side) * 2)), var(--bccc-public-content)) !important;
+    max-width: var(--bccc-public-content) !important;
+    margin-inline: auto !important;
+}
+
+.bccc-public-main :where(.public-section) {
+    padding-block: clamp(2.75rem, 6vw, 6.25rem) !important;
+}
+
+.bccc-public-main :where(section[id], article[id]) {
+    scroll-margin-top: calc(var(--bccc-public-header-h) + 1.25rem);
+}
+
+.bccc-public-main :where(h1, h2, h3, p, span, a, button, label, input, textarea, select) {
+    overflow-wrap: anywhere;
+}
+
+.bccc-public-main :where(button, a, input, select, textarea) {
+    touch-action: manipulation;
+}
+
+.bccc-public-main :where(input, select, textarea) {
+    min-height: 2.75rem;
+    font-size: 16px;
+}
+
+/* ---------- Header ---------- */
+.bccc-public-header-portal {
+    position: relative;
+    z-index: 99980;
+}
+
+.bccc-public-header {
+    height: var(--bccc-public-header-h) !important;
+    min-height: var(--bccc-public-header-h) !important;
+    max-height: var(--bccc-public-header-h) !important;
+    overflow: visible !important;
+    contain: layout style;
+}
+
+.bccc-public-header-inner {
+    height: var(--bccc-public-header-h) !important;
+    min-height: var(--bccc-public-header-h) !important;
+    max-height: var(--bccc-public-header-h) !important;
+    width: min(100%, var(--bccc-public-wide));
+    margin-inline: auto;
+    padding-inline: var(--bccc-public-side) !important;
+}
+
+.bccc-public-brand,
+.bccc-public-actions,
+.bccc-public-nav,
+.bccc-public-caption {
+    min-width: 0 !important;
+}
+
+.bccc-public-seal {
+    height: clamp(2.45rem, 5vw, 3.35rem) !important;
+    width: clamp(2.45rem, 5vw, 3.35rem) !important;
+    flex: 0 0 auto;
+}
+
+.bccc-public-caption {
+    max-width: min(40vw, 34rem) !important;
+}
+
+.bccc-public-caption-title,
+.bccc-public-caption-subtitle {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bccc-public-caption-title {
+    font-size: clamp(0.72rem, 0.95vw, 1rem) !important;
+    line-height: 1.1 !important;
+    letter-spacing: clamp(0.035em, 0.45vw, 0.12em) !important;
+}
+
+.bccc-public-caption-subtitle {
+    margin-top: 0.22rem !important;
+    font-size: clamp(0.64rem, 0.82vw, 0.92rem) !important;
+    line-height: 1.1 !important;
+    letter-spacing: clamp(0.035em, 0.35vw, 0.11em) !important;
+}
+
+.bccc-public-nav {
+    overflow: visible !important;
+}
+
+.bccc-public-nav a,
+.bccc-public-nav button,
+.bccc-public-actions a,
+.bccc-public-actions button {
+    flex: 0 0 auto;
+}
+
+.bccc-public-breathe-logo {
+    width: clamp(5.2rem, 8vw, 9.5rem) !important;
+    height: clamp(2.2rem, 4.4vw, 3.65rem) !important;
+    overflow: visible !important;
+}
+
+.bccc-public-breathe-logo img {
+    max-height: 100% !important;
+    object-fit: contain !important;
+}
+
+.bccc-mobile-public-menu {
+    padding: max(0.65rem, env(safe-area-inset-top)) max(0.65rem, env(safe-area-inset-right)) max(0.65rem, env(safe-area-inset-bottom)) max(0.65rem, env(safe-area-inset-left));
+}
+
+@media (max-width: 639px) {
+    .bccc-public-caption {
+        display: none !important;
+    }
+
+    .bccc-public-actions {
+        gap: 0.45rem !important;
+    }
+
+    .bccc-public-actions :where(button, a) {
+        min-width: 2.55rem;
+    }
+}
+
+@media (max-width: 430px) {
+    :root {
+        --bccc-public-side: 0.75rem;
+    }
+
+    .bccc-public-seal {
+        height: 2.35rem !important;
+        width: 2.35rem !important;
+    }
+
+    .bccc-public-breathe-logo {
+        display: none !important;
+    }
+}
+
+/* ---------- Hero ---------- */
+.bccc-public-main .bccc-hero-banner,
+.bccc-public-main section:has(.bccc-hero-main-image) {
+    min-height: calc(100svh - var(--bccc-public-header-h));
+}
+
+.bccc-public-main .bccc-hero-main-image,
+.bccc-public-main img[alt='Baguio Convention and Cultural Center'] {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+@media (max-width: 1024px) {
+    .bccc-public-main .bccc-hero-banner,
+    .bccc-public-main section[class*='h-[142svh]'] {
+        height: 118svh !important;
+        min-height: 42rem !important;
+    }
+
+    .bccc-public-main section[class*='h-[142svh]'] > div[class*='sticky'] {
+        min-height: 36rem !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .bccc-public-main .bccc-hero-banner,
+    .bccc-public-main section[class*='h-[142svh]'] {
+        height: 108svh !important;
+        min-height: 34rem !important;
+    }
+
+    .bccc-public-main section[class*='h-[142svh]'] > div[class*='sticky'] {
+        height: calc(100svh - 0px) !important;
+        min-height: 34rem !important;
+    }
+}
+
+/* ---------- Sticky public availability dock ---------- */
+.bccc-availability-dock {
+    position: fixed !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: max(env(safe-area-inset-bottom), var(--bccc-dock-footer-lift, 0px)) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    z-index: 8500 !important;
+    padding-inline: 0 !important;
+    pointer-events: none;
+}
+
+.bccc-availability-dock-panel {
+    pointer-events: auto;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: min(44svh, 17rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 0 !important;
+    scrollbar-width: thin;
+}
+
+.bccc-availability-form {
+    width: min(calc(100% - 1rem), var(--bccc-public-wide)) !important;
+    max-width: var(--bccc-public-wide) !important;
+    margin-inline: auto !important;
+    align-items: stretch !important;
+}
+
+.bccc-availability-form > * {
+    min-width: 0 !important;
+}
+
+.bccc-availability-dock input,
+.bccc-availability-dock select,
+.bccc-availability-dock button {
+    max-width: 100% !important;
+}
+
+.bccc-availability-dock button[type='submit'] {
+    min-height: 3.4rem !important;
+    white-space: nowrap;
+}
+
+body:has(.bccc-availability-dock) .bccc-public-main:not(.client-booking-public-main) {
+    padding-bottom: clamp(8rem, 18svh, 13rem) !important;
+}
+
+body:has(.bccc-availability-dock) .bccc-floating-quick-links {
+    bottom: clamp(8.4rem, 18svh, 13.5rem) !important;
+}
+
+@media (max-width: 1279px) {
+    .bccc-availability-form {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .bccc-availability-dock-panel {
+        max-height: min(58svh, 27rem);
+        padding: 0.65rem !important;
+    }
+
+    .bccc-availability-form {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.55rem !important;
+        width: 100% !important;
+        padding-inline: 0 !important;
+    }
+
+    .bccc-availability-form > label:nth-of-type(3),
+    .bccc-availability-form > label:nth-of-type(4),
+    .bccc-availability-form > label:nth-of-type(5),
+    .bccc-availability-form > button[type='submit'] {
+        grid-column: 1 / -1;
+    }
+
+    .bccc-availability-dock button[type='submit'] {
+        min-height: 3.1rem !important;
+    }
+
+    body:has(.bccc-availability-dock) .bccc-public-main:not(.client-booking-public-main) {
+        padding-bottom: clamp(16rem, 52svh, 27rem) !important;
+    }
+
+    body:has(.bccc-availability-dock) .bccc-floating-quick-links {
+        right: 0.85rem !important;
+        bottom: clamp(16.5rem, 54svh, 28rem) !important;
+    }
+}
+
+@media (max-width: 430px) {
+    .bccc-availability-form {
+        grid-template-columns: 1fr !important;
+    }
+
+    .bccc-availability-dock-panel {
+        max-height: min(62svh, 30rem);
+    }
+
+    body:has(.bccc-availability-dock) .bccc-public-main:not(.client-booking-public-main) {
+        padding-bottom: clamp(19rem, 60svh, 31rem) !important;
+    }
+
+    body:has(.bccc-availability-dock) .bccc-floating-quick-links {
+        bottom: clamp(19.5rem, 62svh, 32rem) !important;
+    }
+}
+
+/* ---------- Public sections and cards ---------- */
+.bccc-public-main :where(.bccc-public-card, .bccc-public-panel, .public-hover-card, .public-smooth-card) {
+    max-width: 100%;
+}
+
+.bccc-public-main :where(.bccc-section-title-sm, .bccc-public-heading, .public-display-heading, .public-section-title) {
+    text-wrap: balance;
+}
+
+.bccc-public-main :where(.bccc-section-copy, .public-display-subheading, .public-readable p) {
+    text-wrap: pretty;
+}
+
+@media (max-width: 768px) {
+    .bccc-public-main :where(.bccc-section-kicker, .public-display-kicker, .bccc-public-eyebrow) {
+        max-width: 100%;
+        letter-spacing: 0.14em !important;
+    }
+
+    .bccc-public-main :where(.bccc-section-title-sm, .bccc-public-heading, .public-display-heading, .public-section-title) {
+        font-size: clamp(2rem, 12vw, 3.45rem) !important;
+        line-height: 0.95 !important;
+        letter-spacing: -0.07em !important;
+    }
+}
+
+/* ---------- Facility showcase ---------- */
+.bccc-facility-stage {
+    width: 100% !important;
+    min-height: clamp(28rem, 56vw, 42rem) !important;
+    border-radius: var(--bccc-public-radius) !important;
+}
+
+.bccc-facility-card-strip {
+    max-width: min(72vw, 58rem);
+}
+
+@media (max-width: 1024px) {
+    .bccc-facility-stage {
+        min-height: 34rem !important;
+    }
+
+    .bccc-facility-card-strip {
+        left: var(--bccc-public-side) !important;
+        right: var(--bccc-public-side) !important;
+        top: auto !important;
+        bottom: 1rem !important;
+        transform: none !important;
+        max-width: none !important;
+        overflow-x: auto;
+        padding: 0.35rem 0.25rem 0.65rem;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+    }
+
+    .bccc-facility-card-strip::-webkit-scrollbar {
+        display: none;
+    }
+
+    .bccc-facility-mini-card {
+        flex: 0 0 clamp(8.6rem, 28vw, 13rem) !important;
+        height: clamp(12rem, 36vw, 17rem) !important;
+        scroll-snap-align: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .bccc-facility-stage {
+        min-height: 31rem !important;
+        border-radius: 1.1rem !important;
+    }
+
+    .bccc-facility-stage::after {
+        background:
+            linear-gradient(180deg, rgba(0, 0, 0, 0.30), rgba(0, 0, 0, 0.12) 36%, rgba(0, 0, 0, 0.74)),
+            radial-gradient(circle at 50% 88%, rgba(255, 255, 255, 0.16), transparent 15rem) !important;
+    }
+
+    .bccc-facility-mini-card {
+        flex-basis: 9.25rem !important;
+        height: 13rem !important;
+        border-radius: 0.85rem !important;
+    }
+}
+
+/* ---------- Event carousel ---------- */
+.bccc-event-stage {
+    width: 100% !important;
+    min-height: clamp(29rem, 58vw, 42rem) !important;
+    border-radius: var(--bccc-public-radius) !important;
+}
+
+.bccc-event-carousel {
+    max-width: 100%;
+}
+
+@media (max-width: 1024px) {
+    .bccc-event-stage {
+        min-height: 34rem !important;
+    }
+
+    .bccc-event-carousel {
+        height: 24rem !important;
+        perspective: 1000px !important;
+    }
+
+    .bccc-event-panel {
+        width: clamp(9rem, 25vw, 13rem) !important;
+        height: clamp(16rem, 42vw, 21rem) !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .bccc-event-stage {
+        min-height: 31rem !important;
+        border-radius: 1.1rem !important;
+    }
+
+    .bccc-event-carousel {
+        height: 21rem !important;
+        perspective: 760px !important;
+    }
+
+    .bccc-event-panel {
+        width: 9.25rem !important;
+        height: 16rem !important;
+    }
+}
+
+/* ---------- Package / offers / horizontal rails ---------- */
+.bccc-public-main :where(.public-no-scrollbar, .bccc-hidden-scrollbar, .scrollbar-hide) {
+    overscroll-behavior-inline: contain;
+    scroll-padding-inline: var(--bccc-public-side);
+}
+
+.bccc-public-main :where([class*='snap-x'], [class*='overflow-x-auto']) {
+    -webkit-overflow-scrolling: touch;
+}
+
+.bccc-public-main :where([class*='w-[16.25rem]'], [class*='w-[17rem]'], [class*='w-[18rem]'], [class*='w-[20rem]']) {
+    max-width: calc(100vw - (var(--bccc-public-side) * 2));
+}
+
+@media (max-width: 640px) {
+    .bccc-public-main :where([class*='grid-cols-[0.'], [class*='lg:grid-cols']) {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ---------- Tourism team / circular carousel fallback ---------- */
+@media (max-width: 900px) {
+    .bccc-public-main .bccc-tourism-orbit,
+    .bccc-public-main [class*='min-h-[32rem]'][class*='overflow-hidden'] {
+        min-height: auto !important;
+    }
+}
+
+/* ---------- Contact, calendar, detail pages ---------- */
+.bccc-public-main .bccc-inner-input,
+.bccc-public-main textarea.bccc-inner-input,
+.bccc-public-main select.bccc-inner-input {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+.bccc-public-main iframe {
+    border: 0;
+}
+
+@media (max-width: 767px) {
+    .bccc-public-main form :where(.grid.md\:grid-cols-2, .md\:grid-cols-2) {
+        grid-template-columns: 1fr !important;
+    }
+
+    .bccc-public-main aside[class*='sticky'] {
+        position: static !important;
+    }
+}
+
+/* ---------- Footer ---------- */
+.bccc-public-footer {
+    padding-inline: clamp(0.65rem, 2vw, 1.25rem) !important;
+    padding-bottom: max(0.9rem, env(safe-area-inset-bottom)) !important;
+}
+
+.bccc-public-footer > div {
+    width: min(100%, var(--bccc-public-wide)) !important;
+    border-radius: clamp(0.75rem, 1.5vw, 1.15rem) !important;
+}
+
+@media (max-width: 1279px) {
+    .bccc-public-footer [class*='lg:grid-cols'] {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 680px) {
+    .bccc-public-footer [class*='lg:grid-cols'] {
+        grid-template-columns: 1fr !important;
+    }
+
+    .bccc-public-footer {
+        font-size: 0.95rem;
+    }
+}
+
+/* ---------- Floating VISITA / Arts quick links ---------- */
+.bccc-floating-quick-links {
+    right: max(0.85rem, env(safe-area-inset-right)) !important;
+    bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+}
+
+.bccc-floating-quick-links-panel a {
+    max-width: calc(100vw - 2rem) !important;
+}
+
+@media (max-width: 430px) {
+    .bccc-floating-quick-links-panel a {
+        width: min(16.5rem, calc(100vw - 1.5rem)) !important;
+    }
+
+    .bccc-floating-quick-links button {
+        height: 3.1rem !important;
+        width: 3.1rem !important;
+    }
+}
+
+/* ---------- Reduced motion / low power devices ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .bccc-public-main *,
+    .bccc-floating-quick-links *,
+    .bccc-availability-dock * {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.001ms !important;
+    }
+}

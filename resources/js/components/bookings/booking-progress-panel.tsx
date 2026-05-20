@@ -186,11 +186,11 @@ function stepsForBooking(booking: BookingPayload): ProgressStep[] {
             icon: CalendarDays,
         },
         {
-            key: 'survey',
-            title: 'Survey proof ready',
+            key: 'mice-report',
+            title: 'MICE/report proof ready',
             description: hasProof
-                ? 'Survey proof image is attached.'
-                : 'Survey proof image is still missing or not yet replaced.',
+                ? 'MICE/report proof image is attached.'
+                : 'MICE/report proof image is still missing or not yet replaced.',
             complete: hasProof,
             icon: FileImage,
         },
@@ -305,9 +305,9 @@ function fallbackTimelineEntries(booking: BookingPayload): TimelineEntry[] {
     if (booking.survey_proof_image_url) {
         entries.push({
             key: 'proof',
-            title: 'Survey proof available',
+            title: 'MICE/report proof available',
             when: booking.updated_at ? formatDateTime(booking.updated_at) : 'Attached',
-            note: booking.survey_email ? `Survey email: ${booking.survey_email}` : 'Survey proof image is attached.',
+            note: booking.survey_email ? `Report email: ${booking.survey_email}` : 'MICE/report proof image is attached.',
             tone: 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100',
             icon: FileImage,
         });

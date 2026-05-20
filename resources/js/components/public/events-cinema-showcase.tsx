@@ -697,7 +697,7 @@ export default function EventsCinemaShowcase({
             onMouseLeave={() => setPaused(false)}
             onFocus={() => setPaused(true)}
             onBlur={() => setPaused(false)}
-            className="relative isolate min-h-[100svh] overflow-hidden bg-[#061514] text-white lg:min-h-[min(100svh,60rem)]"
+            className="bccc-public-events-showcase relative isolate min-h-[100svh] overflow-hidden bg-[#061514] text-white lg:min-h-[min(100svh,60rem)]"
         >
             <AnimatePresence initial={false} mode="sync">
                 <EventFeature

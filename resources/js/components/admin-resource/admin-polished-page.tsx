@@ -63,8 +63,8 @@ export function AdminPolishedPage({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={headTitle || title} />
 
-            <div className="space-y-5">
-                <section className="relative overflow-hidden border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.055]">
+            <div className="bccc-admin-polished-page space-y-5">
+                <section className="bccc-resource-hero relative overflow-hidden border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.055]">
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(216,181,109,0.18),transparent_46%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.07),transparent_46%)]" />
 
                     <div className="relative grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -140,7 +140,7 @@ export function AdminSectionCard({
     return (
         <section
             className={cx(
-                'border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.055]',
+                'bccc-resource-section border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.055]',
                 className,
             )}
         >
@@ -218,7 +218,7 @@ export function AdminToolbar({
     right,
 }: AdminToolbarProps) {
     return (
-        <div className="mb-4 flex flex-col gap-3 border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.035] lg:flex-row lg:items-center lg:justify-between">
+        <div className="bccc-resource-toolbar mb-4 flex flex-col gap-3 border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/[0.035] lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 border border-slate-200 bg-white px-4 dark:border-white/10 dark:bg-white/7">
                 <Search className="h-4 w-4 shrink-0 text-[#9d7b3d] dark:text-[#f1d89b]" />
                 <input

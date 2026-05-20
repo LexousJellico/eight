@@ -1,5 +1,5 @@
-import { PaymentReviewPage } from '@/components/payments/payment-review-page';
+import { PaymentReviewPage } from '@/components/admin-resource/payment-review-page';
 
 export default function AdminPaymentsReview() {
-  return <PaymentReviewPage />;
+    return <PaymentReviewPage />;
 }

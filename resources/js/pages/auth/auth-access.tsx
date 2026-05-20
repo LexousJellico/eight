@@ -222,7 +222,7 @@ export default function AuthAccessPage({
         <>
             <Head title={pageTitle} />
 
-            <main className="relative min-h-screen overflow-hidden bg-[#0d0f12] text-[#201a12] antialiased dark:text-white">
+            <main className="bccc-auth-access-page relative min-h-screen overflow-hidden bg-[#0d0f12] text-[#201a12] antialiased dark:text-white">
                 <SkipLink />
 
                 <AnimatePresence mode="wait" initial={false}>
@@ -242,8 +242,8 @@ export default function AuthAccessPage({
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(176,141,72,0.22),transparent_28rem),radial-gradient(circle_at_82%_70%,rgba(47,77,141,0.24),transparent_30rem)]" />
                 <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#f8f5ef] to-transparent dark:from-[#0d0f12]" />
 
-                <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1540px] flex-col px-4 py-5 sm:px-6 lg:px-8">
-                    <header className="flex items-center justify-between gap-3">
+                <div className="bccc-auth-access-shell relative z-10 mx-auto flex min-h-screen w-full max-w-[1540px] flex-col px-4 py-5 sm:px-6 lg:px-8">
+                    <header className="bccc-auth-topbar flex items-center justify-between gap-3">
                         <Link
                             href="/"
                             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#d9c7a6]/80 bg-white/72 px-4 text-sm font-bold text-[#2f2517] shadow-sm backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-white focus:outline-none focus:ring-4 focus:ring-[#b08d48]/25 dark:border-white/10 dark:bg-white/8 dark:text-white dark:hover:bg-white/14"
@@ -262,11 +262,11 @@ export default function AuthAccessPage({
                         </button>
                     </header>
 
-                    <section id="auth-form" className="flex flex-1 items-center justify-center py-8">
-                        <div className="w-full max-w-[1180px]">
+                    <section id="auth-form" className="bccc-auth-center flex flex-1 items-center justify-center py-8">
+                        <div className="bccc-auth-stage w-full max-w-[1180px]">
                             <MobileBrand />
 
-                            <div className="relative overflow-hidden rounded-[2.25rem] border border-[#d9c7a6]/70 bg-white/74 shadow-[0_35px_120px_rgba(47,37,23,0.26)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/74">
+                            <div className="bccc-auth-card relative overflow-hidden rounded-[2.25rem] border border-[#d9c7a6]/70 bg-white/74 shadow-[0_35px_120px_rgba(47,37,23,0.26)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/74">
                                 <div
                                     role="tablist"
                                     aria-label="Authentication mode"
@@ -282,7 +282,7 @@ export default function AuthAccessPage({
                                     </ModeTab>
                                 </div>
 
-                                <div className="grid h-auto lg:h-[43rem] lg:grid-cols-2">
+                                <div className="bccc-auth-form-grid grid h-auto lg:h-[43rem] lg:grid-cols-2">
                                     <AuthPane active={mode === 'register'}>
                                         <RegisterFormPanel
                                             registerNameRef={registerNameRef}
@@ -316,7 +316,7 @@ export default function AuthAccessPage({
 
                                 <motion.aside
                                     aria-hidden="true"
-                                    className="absolute top-0 z-40 hidden h-[43rem] overflow-hidden border border-white/16 bg-[#17120b] shadow-[0_40px_120px_rgba(0,0,0,0.38)] lg:block"
+                                    className="bccc-auth-image-panel absolute top-0 z-40 hidden h-[43rem] overflow-hidden border border-white/16 bg-[#17120b] shadow-[0_40px_120px_rgba(0,0,0,0.38)] lg:block"
                                     initial={false}
                                     animate={
                                         mode === 'login'
@@ -415,7 +415,7 @@ function AuthPane({
                 active ? 'pointer-events-auto opacity-100' : 'pointer-events-none hidden opacity-0 lg:flex',
             )}
         >
-            <div className="mx-auto max-h-none w-full max-w-[28rem] overflow-visible lg:max-h-[38rem] lg:overflow-y-auto lg:pr-1">
+            <div className="bccc-auth-pane-inner mx-auto max-h-none w-full max-w-[28rem] overflow-visible lg:max-h-[38rem] lg:overflow-y-auto lg:pr-1">
                 {children}
             </div>
         </div>

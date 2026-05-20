@@ -3,6 +3,14 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Observers\SystemAuditObserver;
+use App\Models\ServiceType;
+use App\Models\Service;
+use App\Models\MiceRecord;
+use App\Models\Inquiry;
+use App\Models\CalendarBlock;
+use App\Models\BookingPayment;
+use App\Models\Booking;
 use App\Services\BookingService;
 use App\Services\Contracts\BookingServiceInterface;
 use App\Services\Contracts\ServiceServiceInterface;
@@ -27,6 +35,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        foreach ([Booking::class, BookingPayment::class, CalendarBlock::class, Inquiry::class, MiceRecord::class, Service::class, ServiceType::class, User::class] as $observedModel) {
+            $observedModel::observe(SystemAuditObserver::class);
+        }
+
         Event::listen(Login::class, function (Login $event): void {
             $user = $event->user;
 

@@ -403,7 +403,7 @@ export function BookingShowPage() {
                     : 'Review booking details, client information, schedule, MICE report, payment proof, deadline status, and internal actions.'
             }
             actions={
-                <div className="flex flex-wrap gap-2">
+                <div className="bccc-booking-show-actions flex flex-wrap gap-2">
                     <Link
                         href={bookingBasePath(role)}
                         className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
@@ -435,7 +435,7 @@ export function BookingShowPage() {
                 </div>
             }
         >
-            <div className="space-y-5">
+            <div className="bccc-booking-show-page space-y-5">
                 <section className="relative overflow-hidden rounded-[1.75rem] border border-[#d9c7a6]/70 bg-white/88 p-5 shadow-[0_24px_80px_rgba(47,37,23,0.10)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.06]">
                     <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(216,181,109,0.18),transparent_48%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.07),transparent_48%)]" />
 
@@ -503,7 +503,7 @@ export function BookingShowPage() {
                     </div>
                 </section>
 
-                <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <section className="bccc-booking-show-summary-grid grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                     <SummaryCard
                         label="Schedule From"
                         value={formatDateTime(booking.booking_date_from)}
@@ -531,7 +531,7 @@ export function BookingShowPage() {
 
                 <BookingDeadlinePanel booking={booking} />
 
-                <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
+                <section className="bccc-booking-show-main-grid grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
                     <main className="space-y-5">
                         <SectionCard
                             eyebrow="Booking Information"

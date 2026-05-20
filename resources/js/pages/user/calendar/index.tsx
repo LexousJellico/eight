@@ -101,31 +101,34 @@ function eventTouchesDate(event: CalendarEvent, key: string) {
     return key >= start && key <= end;
 }
 
-function dayStatus(day?: CalendarAvailabilityDay) {
+function dayStatus(day?: CalendarAvailabilityDay, key?: string) {
     const status = String(day?.day_status || '').toLowerCase();
+    const isPast = key ? key < dateKey(new Date()) : false;
 
-    if (!day) return 'Available';
-    if (status === 'blocked' || day.is_fully_booked) return 'Unavailable';
-    if (status === 'public_booked') return 'Public Activity';
-    if (status === 'private_booked') return 'Reserved';
-    if (status === 'limited' || status === 'partial' || status === 'partially_booked') return 'Limited';
+    if (!day) return isPast ? 'Unavailable' : 'Available';
+    if (isPast && status === 'available') return 'Unavailable';
+    if (status === 'blocked' || status === 'past_unavailable' || day.is_fully_booked) return 'Unavailable';
+    if (status === 'public_booked') return isPast ? 'Past Event' : 'Public Activity';
+    if (status === 'private_booked') return isPast ? 'Completed Event' : 'Reserved';
+    if (status === 'limited' || status === 'partial' || status === 'partially_booked') return isPast ? 'Past / Limited' : 'Limited';
 
-    return 'Available';
+    return isPast ? 'Unavailable' : 'Available';
 }
 
-function dayStatusDescription(day?: CalendarAvailabilityDay) {
-    const status = dayStatus(day);
+function dayStatusDescription(day?: CalendarAvailabilityDay, key?: string) {
+    const status = dayStatus(day, key);
 
     if (status === 'Unavailable') return 'This date is not open for a new reservation request.';
     if (status === 'Reserved') return 'This date already has a reservation or operational hold.';
+    if (status === 'Completed Event' || status === 'Past Event') return 'This is a historical calendar record. It is not available for a new reservation.';
     if (status === 'Public Activity') return 'This date includes a public BCCC activity.';
     if (status === 'Limited') return 'Some time blocks may still be available. Review the block details below.';
 
     return 'This date is generally available based on the current calendar.';
 }
 
-function dayTone(day?: CalendarAvailabilityDay) {
-    const status = dayStatus(day);
+function dayTone(day?: CalendarAvailabilityDay, key?: string) {
+    const status = dayStatus(day, key);
 
     if (status === 'Unavailable') {
         return {
@@ -138,7 +141,7 @@ function dayTone(day?: CalendarAvailabilityDay) {
         };
     }
 
-    if (status === 'Reserved') {
+    if (status === 'Reserved' || status === 'Completed Event') {
         return {
             fill: 'bg-amber-500/12 dark:bg-amber-300/12',
             border: 'border-amber-500/25 dark:border-amber-300/20',
@@ -149,7 +152,7 @@ function dayTone(day?: CalendarAvailabilityDay) {
         };
     }
 
-    if (status === 'Public Activity') {
+    if (status === 'Public Activity' || status === 'Past Event') {
         return {
             fill: 'bg-sky-500/12 dark:bg-sky-300/12',
             border: 'border-sky-500/25 dark:border-sky-300/20',
@@ -181,10 +184,10 @@ function dayTone(day?: CalendarAvailabilityDay) {
     };
 }
 
-function blockAvailable(day: CalendarAvailabilityDay | undefined, block: 'AM' | 'PM' | 'EVE') {
-    if (!day) return true;
+function blockAvailable(day: CalendarAvailabilityDay | undefined, block: 'AM' | 'PM' | 'EVE', key?: string) {
+    if (!day) return key ? key >= dateKey(new Date()) : true;
 
-    return day[block] !== false && !day.is_fully_booked && dayStatus(day) !== 'Unavailable';
+    return day[block] !== false && !day.is_fully_booked && dayStatus(day, key) !== 'Unavailable';
 }
 
 function goToMonth(month: string) {
@@ -256,17 +259,17 @@ export default function UserCalendarIndex() {
     }, [month]);
 
     const selectedAvailability = availability[selectedDate];
-    const selectedStatus = dayStatus(selectedAvailability);
-    const selectedTone = dayTone(selectedAvailability);
+    const selectedStatus = dayStatus(selectedAvailability, selectedDate);
+    const selectedTone = dayTone(selectedAvailability, selectedDate);
     const selectedEvents = useMemo(
         () => events.filter((event) => eventTouchesDate(event, selectedDate)).slice(0, 4),
         [events, selectedDate],
     );
 
     const statusCounts = useMemo(() => {
-        return Object.values(availability).reduce(
-            (carry, day) => {
-                const status = dayStatus(day);
+        return Object.entries(availability).reduce(
+            (carry, [key, day]) => {
+                const status = dayStatus(day, key);
 
                 if (status === 'Available') carry.available += 1;
                 else if (status === 'Limited') carry.limited += 1;
@@ -301,7 +304,7 @@ export default function UserCalendarIndex() {
                 </Link>
             }
         >
-            <section className="overflow-hidden rounded-[1.5rem] border border-border bg-card text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.10)] dark:shadow-[0_28px_90px_rgba(0,0,0,0.35)]">
+            <section className="user-calendar-responsive-card overflow-hidden rounded-[1.5rem] border border-border bg-card text-card-foreground shadow-[0_28px_80px_rgba(0,0,0,0.10)] dark:shadow-[0_28px_90px_rgba(0,0,0,0.35)]">
                 <div className="relative border-b border-border bg-muted/40 p-4 sm:p-6">
                     <button
                         type="button"
@@ -351,10 +354,10 @@ export default function UserCalendarIndex() {
                     </div>
                 </div>
 
-                <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_23rem]">
-                    <div className="overflow-x-auto p-3 sm:p-5">
-                        <div className="min-w-[42rem] overflow-hidden">
-                            <div className="grid grid-cols-7 gap-2">
+                <div className="user-calendar-layout grid gap-0 xl:grid-cols-[minmax(0,1fr)_23rem]">
+                    <div className="user-calendar-grid-scroll overflow-x-auto p-3 sm:p-5">
+                        <div className="user-calendar-grid-inner min-w-[42rem] overflow-hidden">
+                            <div className="user-calendar-grid grid grid-cols-7 gap-2">
                                 {weekLabels.map((label) => (
                                     <div
                                         key={label}
@@ -366,7 +369,7 @@ export default function UserCalendarIndex() {
 
                                 {grid.map((day) => {
                                     const dayAvailability = availability[day.key];
-                                    const tone = dayTone(dayAvailability);
+                                    const tone = dayTone(dayAvailability, day.key);
                                     const selected = day.key === selectedDate;
 
                                     return (
@@ -375,13 +378,13 @@ export default function UserCalendarIndex() {
                                             type="button"
                                             onClick={() => setSelectedDate(day.key)}
                                             className={cx(
-                                                'group relative min-h-[5.5rem] overflow-hidden border bg-background/70 p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_rgba(0,0,0,0.10)] dark:bg-white/[0.035] sm:min-h-[6.15rem]',
+                                                'user-calendar-day group relative min-h-[5.5rem] overflow-hidden border bg-background/70 p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_rgba(0,0,0,0.10)] dark:bg-white/[0.035] sm:min-h-[6.15rem]',
                                                 tone.border,
                                                 !day.current && 'opacity-40',
                                                 selected && cx('z-10 bg-background shadow-[0_0_0_1px_rgba(180,140,80,0.20),0_24px_65px_rgba(0,0,0,0.16)] dark:bg-white/[0.07]', tone.selectedBorder),
                                                 day.today && !selected && 'ring-1 ring-inset ring-primary/35',
                                             )}
-                                            aria-label={`${fullDateLabel(day.key)} ${dayStatus(dayAvailability)}`}
+                                            aria-label={`${fullDateLabel(day.key)} ${dayStatus(dayAvailability, day.key)}`}
                                         >
                                             <span className={cx('pointer-events-none absolute inset-0 transition duration-300', tone.fill)} />
 
@@ -403,7 +406,7 @@ export default function UserCalendarIndex() {
                         </div>
                     </div>
 
-                    <aside className="border-t border-border bg-muted/30 p-4 sm:p-5 xl:border-l xl:border-t-0">
+                    <aside className="user-calendar-detail-panel border-t border-border bg-muted/30 p-4 sm:p-5 xl:border-l xl:border-t-0">
                         <div className="rounded-[1.2rem] border border-border bg-card p-4 shadow-[0_18px_45px_rgba(0,0,0,0.08)] dark:shadow-[0_18px_55px_rgba(0,0,0,0.24)]">
                             <p className="text-[0.66rem] font-black uppercase tracking-[0.28em] text-muted-foreground">Selected Date</p>
                             <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-foreground">{fullDateLabel(selectedDate)}</h3>
@@ -413,11 +416,11 @@ export default function UserCalendarIndex() {
                                 {selectedStatus}
                             </div>
 
-                            <p className="mt-4 text-sm leading-7 text-muted-foreground">{dayStatusDescription(selectedAvailability)}</p>
+                            <p className="mt-4 text-sm leading-7 text-muted-foreground">{dayStatusDescription(selectedAvailability, selectedDate)}</p>
 
                             <div className="mt-5 grid gap-2">
                                 {(['AM', 'PM', 'EVE'] as const).map((block) => {
-                                    const available = blockAvailable(selectedAvailability, block);
+                                    const available = blockAvailable(selectedAvailability, block, selectedDate);
                                     const times = blockTimes(block);
                                     const content = (
                                         <>

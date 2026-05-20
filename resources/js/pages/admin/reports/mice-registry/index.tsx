@@ -1,5 +1,5 @@
-import { MiceRegistryReportPage } from '@/components/reports/mice-registry-report-page';
+import { MiceRegistryReportPage } from '@/components/admin-resource/mice-registry-pages';
 
 export default function AdminMiceRegistry() {
-  return <MiceRegistryReportPage />;
+    return <MiceRegistryReportPage />;
 }
