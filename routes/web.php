@@ -140,6 +140,9 @@ Route::middleware(['auth', 'verified', 'role:admin'])
         Route::get('/dashboard', [WorkspaceHomeController::class, 'index'])
             ->name('dashboard');
 
+        Route::redirect('/analytics', '/admin/bookings/analytics')
+            ->name('analytics');
+
         Route::get('/content', [AdminPublicContentController::class, 'index'])
             ->name('content');
 

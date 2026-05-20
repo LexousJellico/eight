@@ -10,6 +10,15 @@ class VenuePackageTemplateSeeder extends Seeder
 {
     public function run(): void
     {
+        $officialCodes = VenuePackageCatalog::officialCodes();
+
+        VenuePackageTemplate::query()
+            ->whereNotIn('code', $officialCodes)
+            ->update([
+                'is_public' => false,
+                'is_featured' => false,
+            ]);
+
         foreach (VenuePackageCatalog::defaults() as $package) {
             VenuePackageTemplate::query()->updateOrCreate(
                 ['code' => $package['code']],

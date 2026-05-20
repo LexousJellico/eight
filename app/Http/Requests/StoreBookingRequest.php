@@ -88,7 +88,7 @@ class StoreBookingRequest extends FormRequest
             'schedule_segments.*.segment_role' => ['nullable', 'string', 'max:40'],
             'schedule_segments.*.role' => ['nullable', 'string', 'max:40'],
             'schedule_segments.*.base_block' => ['required_with:schedule_segments', 'string', 'max:40'],
-            'schedule_segments.*.additional_hours' => ['nullable', 'integer', 'min:0', 'max:6'],
+            'schedule_segments.*.additional_hours' => ['nullable', 'integer', 'min:0', 'max:5'],
             'schedule_segments.*.area_keys' => ['nullable', 'array'],
             'schedule_segments.*.area_keys.*' => ['string', 'max:80'],
 
@@ -190,6 +190,13 @@ class StoreBookingRequest extends FormRequest
 
                     if ($combinationError) {
                         $validator->errors()->add("schedule_segments.$index.area_keys", $combinationError);
+                    }
+
+                    $baseBlock = strtolower(str_replace([' ', '-'], '_', (string) ($segment['base_block'] ?? '')));
+                    $additionalHours = (int) ($segment['additional_hours'] ?? 0);
+
+                    if (in_array($baseBlock, ['am', 'half_day_am', 'morning'], true) && $additionalHours > 0) {
+                        $validator->errors()->add("schedule_segments.$index.additional_hours", 'Additional hours are available only for PM or Whole Day reservations.');
                     }
                 }
             }

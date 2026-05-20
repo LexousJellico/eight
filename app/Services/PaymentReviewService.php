@@ -126,7 +126,7 @@ class PaymentReviewService
 
         if ($remainingBalance > 0 && $approvedPayments > 0) {
             if (Schema::hasColumn('bookings', 'payment_balance_due_at') && blank($booking->payment_balance_due_at)) {
-                $bookingPayload['payment_balance_due_at'] = now()->addHours(BookingDeadlineService::BALANCE_DEADLINE_HOURS);
+                $bookingPayload['payment_balance_due_at'] = app(BookingDeadlineService::class)->addWorkingDays(now(), BookingDeadlineService::BALANCE_DEADLINE_WORKING_DAYS);
             }
         }
 

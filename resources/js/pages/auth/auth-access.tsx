@@ -483,7 +483,7 @@ function RegisterFormPanel({
                     autoComplete="username"
                     inputMode="email"
                     helper="This email will be used for access and booking updates."
-                    onChange={(value) => registerForm.setData('email', value)}
+                    onChange={(value) => registerForm.setData('email', value.toLowerCase())}
                     required
                 />
 
@@ -565,7 +565,7 @@ function LoginFormPanel({
                     autoComplete="username"
                     inputMode="email"
                     helper="Use the email connected to your account."
-                    onChange={(value) => loginForm.setData('email', value)}
+                    onChange={(value) => loginForm.setData('email', value.toLowerCase())}
                     required
                 />
 
@@ -824,6 +824,7 @@ function PasswordField({
                 <button
                     type="button"
                     onClick={onToggle}
+                    tabIndex={-1}
                     className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[#6e604c] transition hover:bg-[#f7f0e3] focus:outline-none focus:ring-4 focus:ring-[#b08d48]/20 dark:text-white/58 dark:hover:bg-white/10"
                     aria-label={visible ? 'Hide password' : 'Show password'}
                     aria-pressed={visible}

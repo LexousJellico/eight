@@ -15,6 +15,9 @@ final class BookingScheduleCatalog
     public const BLOCK_PM = 'pm';
     public const BLOCK_WHOLE_DAY = 'whole_day';
 
+    public const MAX_ADDITIONAL_HOURS = 5;
+    public const MINIMUM_LEAD_HOURS = 5;
+
     public static function baseBlocks(): array
     {
         return [
@@ -56,7 +59,7 @@ final class BookingScheduleCatalog
 
     public static function additionalHourOptions(): array
     {
-        return collect(range(0, 5))
+        return collect(range(0, self::MAX_ADDITIONAL_HOURS))
             ->map(fn (int $hours) => [
                 'value' => $hours,
                 'label' => $hours === 0 ? 'No additional hours' : $hours . ' additional hour' . ($hours === 1 ? '' : 's'),
@@ -89,6 +92,46 @@ final class BookingScheduleCatalog
         };
     }
 
+    public static function allowsAdditionalHours(?string $baseBlock): bool
+    {
+        try {
+            $block = self::baseBlocks()[self::normalizeBaseBlock($baseBlock)] ?? null;
+        } catch (InvalidArgumentException) {
+            return false;
+        }
+
+        return (bool) ($block['allows_additional_hours'] ?? false);
+    }
+
+    public static function normalizeAdditionalHours(?string $baseBlock, int|string|null $additionalHours): int
+    {
+        $hours = max(0, min(self::MAX_ADDITIONAL_HOURS, (int) $additionalHours));
+
+        return self::allowsAdditionalHours($baseBlock) ? $hours : 0;
+    }
+
+    public static function isWithinLeadTime(Carbon $startsAt, ?Carbon $now = null): bool
+    {
+        $now ??= now();
+
+        return $startsAt->lessThan($now->copy()->addHours(self::MINIMUM_LEAD_HOURS));
+    }
+
+    public static function leadTimeMessage(?string $baseBlock = null): string
+    {
+        $label = null;
+
+        try {
+            $label = self::baseBlocks()[self::normalizeBaseBlock($baseBlock)]['label'] ?? null;
+        } catch (InvalidArgumentException) {
+            $label = null;
+        }
+
+        $prefix = $label ? $label . ' reservations' : 'Reservations';
+
+        return $prefix . ' must be made at least ' . self::MINIMUM_LEAD_HOURS . ' hours before the selected start time.';
+    }
+
     public static function intervalForDate(string $date, string $baseBlock, int $additionalHours = 0): array
     {
         $block = self::baseBlocks()[self::normalizeBaseBlock($baseBlock)];
@@ -100,7 +143,7 @@ final class BookingScheduleCatalog
         $startsAt = $day->copy()->setTime($startHour, $startMinute);
         $endsAt = $day->copy()->setTime($endHour, $endMinute);
 
-        $additionalHours = max(0, min(5, $additionalHours));
+        $additionalHours = self::normalizeAdditionalHours($baseBlock, $additionalHours);
         $additionalStartsAt = null;
         $additionalEndsAt = null;
 

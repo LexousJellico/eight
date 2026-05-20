@@ -5,34 +5,40 @@ namespace App\Services;
 use App\Models\Booking;
 use App\Models\BookingPayment;
 use App\Models\CalendarBlock;
+use App\Models\Inquiry;
+use App\Models\MiceRecord;
 use App\Models\Service;
 use App\Models\ServiceType;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 class NotificationService
 {
-    /* ============================================================
-     | Roles & Recipients
-     * ============================================================ */
-
     protected function recipientsByRoles(array $roles, ?User $exclude = null): Collection
     {
-        $roles = array_values(array_filter($roles, fn ($r) => is_string($r) && trim($r) !== ''));
-        $rolesLower = array_map(fn ($r) => mb_strtolower($r), $roles);
+        $rolesLower = collect($roles)
+            ->filter(fn ($role) => is_string($role) && trim($role) !== '')
+            ->map(fn ($role) => mb_strtolower(trim($role)))
+            ->values()
+            ->all();
 
-        // spatie/permission relationship: roles()
-        $q = User::query()->whereHas('roles', function ($q) use ($rolesLower) {
-            $q->whereIn(DB::raw('LOWER(name)'), $rolesLower);
+        if (empty($rolesLower)) {
+            return collect();
+        }
+
+        $query = User::query()->whereHas('roles', function ($query) use ($rolesLower): void {
+            $query->whereIn(DB::raw('LOWER(name)'), $rolesLower);
         });
 
         if ($exclude) {
-            $q->whereKeyNot($exclude->id);
+            $query->whereKeyNot($exclude->id);
         }
 
-        return $q->get()->unique('id')->values();
+        return $query->get()->unique('id')->values();
     }
 
     protected function adminRecipients(?User $exclude = null): Collection
@@ -51,54 +57,62 @@ class NotificationService
     }
 
     /**
-     * ✅ Admin audit recipients:
-     * - exclude actor if possible
-     * - BUT if excluding the actor would produce an empty list (ex: only 1 admin),
-     *   include the actor so the action is still visible in the bell.
+     * Admin has monitoring visibility across the system. Do not hide actions
+     * from admin actors; seeing their own audit actions is intentional.
      */
     protected function adminAuditRecipients(?User $actor = null): Collection
     {
-        if (! $actor) {
-            return $this->adminRecipients(null);
-        }
+        $admins = $this->adminRecipients(null);
 
-        $recipients = $this->adminRecipients($actor);
-
-        // If actor is admin and there are no other admins, include the actor.
-        if ($recipients->isEmpty() && $this->userHasAnyRole($actor, ['admin'])) {
+        if ($admins->isEmpty() && $actor && $this->userHasAnyRole($actor, ['admin'])) {
             return collect([$actor]);
         }
 
-        return $recipients;
+        return $admins;
+    }
+
+    protected function operationsRecipients(?User $actor = null): Collection
+    {
+        return $this->adminAuditRecipients($actor)
+            ->merge($this->managerRecipients(null))
+            ->unique('id')
+            ->values();
     }
 
     protected function userHasAnyRole(User $user, array $roles): bool
     {
-        $rolesLower = array_map(fn ($r) => mb_strtolower((string) $r), $roles);
+        $rolesLower = array_map(fn ($role) => mb_strtolower((string) $role), $roles);
 
-        return $user->roles()
-            ->whereIn(DB::raw('LOWER(name)'), $rolesLower)
-            ->exists();
+        try {
+            return $user->roles()
+                ->whereIn(DB::raw('LOWER(name)'), $rolesLower)
+                ->exists();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     protected function actorRole(?User $actor): string
     {
-        if (! $actor) return 'guest';
+        if (! $actor) {
+            return 'guest';
+        }
 
-        if ($this->userHasAnyRole($actor, ['admin'])) return 'admin';
-        if ($this->userHasAnyRole($actor, ['manager'])) return 'manager';
-        if ($this->userHasAnyRole($actor, ['staff'])) return 'staff';
+        if ($this->userHasAnyRole($actor, ['admin'])) {
+            return 'admin';
+        }
+
+        if ($this->userHasAnyRole($actor, ['manager'])) {
+            return 'manager';
+        }
+
+        if ($this->userHasAnyRole($actor, ['staff'])) {
+            return 'staff';
+        }
 
         return 'client';
     }
 
-    /* ============================================================
-     | Safe route helper (prevents "Route not defined" crashes)
-     * ============================================================ */
-
-    /**
-     * ✅ Prevents user create/update from failing if a route name differs (ex: admin.users.index).
-     */
     protected function safeRouteAny(array $names, string $fallback = '/', array $params = []): string
     {
         try {
@@ -107,45 +121,65 @@ class NotificationService
                     return route($name, $params);
                 }
             }
-        } catch (\Throwable $e) {
-            // ignore and fallback
+        } catch (\Throwable) {
+            // Keep notifications from blocking business actions.
         }
 
         return $fallback;
     }
 
-    /* ============================================================
-     | Booking owner
-     * ============================================================ */
-
-    protected function clientRecipientForBooking(Booking $booking): ?User
+    protected function bookingLink(Booking $booking, ?string $fragment = null): string
     {
-        if (empty($booking->client_email)) return null;
-        return User::where('email', $booking->client_email)->first();
+        $link = $this->safeRouteAny(
+            ['bookings.show', 'user.bookings.show'],
+            '/bookings/' . $booking->id,
+            ['booking' => $booking->id]
+        );
+
+        return $fragment ? $link . $fragment : $link;
     }
 
     protected function bookingOwner(Booking $booking): ?User
     {
         if (isset($booking->user_id) && $booking->user_id) {
-            $u = User::find($booking->user_id);
-            if ($u) return $u;
+            $user = User::find($booking->user_id);
+            if ($user) {
+                return $user;
+            }
         }
 
-        return $this->clientRecipientForBooking($booking);
-    }
+        if (isset($booking->created_by_user_id) && $booking->created_by_user_id) {
+            $user = User::find($booking->created_by_user_id);
+            if ($user && ! $this->userHasAnyRole($user, ['admin', 'manager', 'staff'])) {
+                return $user;
+            }
+        }
 
-    /* ============================================================
-     | Formatting helpers
-     * ============================================================ */
+        $email = strtolower(trim((string) ($booking->client_email ?? '')));
 
-    protected function formatBookingDate(?\DateTimeInterface $dt): string
-    {
-        return $dt ? $dt->format('M d, Y h:ia') : 'N/A';
+        return $email !== '' ? User::whereRaw('LOWER(email) = ?', [$email])->first() : null;
     }
 
     protected function bookingLabel(Booking $booking): string
     {
-        return $booking->company_name ?: $booking->client_name ?: ($booking->client_email ?: 'Client');
+        return trim((string) ($booking->company_name ?: $booking->client_name ?: $booking->client_email ?: ('Booking #' . $booking->id)));
+    }
+
+    protected function actorLabel(?User $actor): string
+    {
+        if (! $actor) {
+            return 'System';
+        }
+
+        $role = $this->actorRole($actor);
+        $roleLabel = $role === 'client' ? 'Client/User' : ucfirst($role);
+
+        return trim(sprintf('%s %s (%s)', $roleLabel, $actor->name ?: 'User', $actor->email ?: 'no email'));
+    }
+
+    protected function meta(?User $actor): string
+    {
+        return sprintf('By %s • %s.', $this->actorLabel($actor), now()->format('M d, Y h:ia'));
     }
 
     protected function humanField(string $field): string
@@ -153,50 +187,27 @@ class NotificationService
         return ucwords(str_replace('_', ' ', $field));
     }
 
-    protected function stringify($value): string
+    protected function stringify(mixed $value): string
     {
-        if ($value === null) return '—';
-        if (is_bool($value)) return $value ? 'Yes' : 'No';
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
 
         if ($value instanceof \DateTimeInterface) {
-            return $this->formatBookingDate($value);
+            return $value->format('M d, Y h:ia');
         }
 
         if (is_array($value) || is_object($value)) {
             return 'Updated';
         }
 
-        $s = trim((string) $value);
-        if ($s === '') return '—';
+        $string = trim((string) $value);
 
-        return mb_strlen($s) > 90 ? (mb_substr($s, 0, 87) . '...') : $s;
-    }
-
-    /**
-     * Always include: By + Email + Date/Time
-     */
-    protected function meta(?User $actor, string $fallbackName = 'System', string $fallbackEmail = '—'): string
-    {
-        $name  = $actor?->name  ?: $fallbackName;
-        $email = $actor?->email ?: $fallbackEmail;
-
-        $at = now()->format('M d, Y h:ia');
-
-        $email = trim((string) $email);
-        if ($email !== '' && $email !== '—') {
-            return sprintf('By %s (%s) • %s.', $name, $email, $at);
-        }
-
-        return sprintf('By %s • %s.', $name, $at);
-    }
-
-    protected function metaForBooking(Booking $booking, ?User $actor): string
-    {
-        return $this->meta(
-            $actor,
-            $this->bookingLabel($booking),
-            $booking->client_email ?: '—'
-        );
+        return mb_strlen($string) > 90 ? mb_substr($string, 0, 87) . '...' : $string;
     }
 
     protected function summarizeChanges(array $changes): string
@@ -204,140 +215,141 @@ class NotificationService
         $parts = [];
 
         foreach ($changes as $field => $pair) {
-            if ($field === 'updated_at') continue;
-            if (! is_array($pair) || count($pair) !== 2) continue;
-
-            [$old, $new] = $pair;
-
-            if ($field === 'items') {
-                $parts[] = 'Items updated.';
+            if ($field === 'updated_at') {
                 continue;
             }
 
-            if ($field === 'booking_status') {
-                $parts[] = sprintf(
-                    'Status: %s → %s.',
-                    ucfirst((string) ($old ?? '—')),
-                    ucfirst((string) ($new ?? '—'))
-                );
-                continue;
+            if (is_array($pair) && count($pair) === 2) {
+                [$old, $new] = array_values($pair);
+                $parts[] = sprintf('%s: %s → %s.', $this->humanField((string) $field), $this->stringify($old), $this->stringify($new));
+            } elseif (is_string($field)) {
+                $parts[] = $this->humanField($field) . ' updated.';
             }
-
-            $parts[] = sprintf(
-                '%s: %s → %s.',
-                $this->humanField($field),
-                $this->stringify($old),
-                $this->stringify($new)
-            );
         }
 
-        return trim(implode(' ', $parts));
+        return trim(implode(' ', array_slice($parts, 0, 8)));
     }
 
-    /* ============================================================
-     | Notify helpers
-     * ============================================================ */
+    protected function subject(Model $model): array
+    {
+        return [
+            'subject_type' => $model::class,
+            'subject_id' => $model->getKey(),
+        ];
+    }
 
-    protected function notifyMany(iterable $recipients, string $type, string $title, ?string $message = null, ?string $link = null): void
+    protected function notifyMany(iterable $recipients, string $type, string $title, ?string $message = null, ?string $link = null, array $options = []): void
     {
         collect($recipients)
-            ->filter(fn ($r) => $r instanceof User)
+            ->filter(fn ($recipient) => $recipient instanceof User)
             ->unique('id')
-            ->each(function (User $recipient) use ($type, $title, $message, $link) {
-                $this->createNotification($recipient, $type, $title, $message, $link);
-            });
+            ->each(fn (User $recipient) => $this->createNotification($recipient, $type, $title, $message, $link, $options));
     }
 
-    /**
-     * Tiny dedupe window to prevent double-fire (model events + controller).
-     * Keep small so we don’t lose real repeated actions.
-     */
-    protected function createNotification(User $recipient, string $type, string $title, ?string $message = null, ?string $link = null)
+    protected function createNotification(User $recipient, string $type, string $title, ?string $message = null, ?string $link = null, array $options = [])
     {
-        $exists = $recipient->notifications()
+        $actionKey = (string) ($options['action_key'] ?? $type);
+        $subjectType = $options['subject_type'] ?? null;
+        $subjectId = $options['subject_id'] ?? null;
+
+        $recent = $recipient->notifications()
             ->where('type', $type)
             ->where('title', $title)
-            ->when($link, fn ($q) => $q->where('link', $link), fn ($q) => $q->whereNull('link'))
-            ->where('created_at', '>=', now()->subSeconds(2))
+            ->when($link, fn ($query) => $query->where('link', $link), fn ($query) => $query->whereNull('link'))
+            ->when($subjectType && Schema::hasColumn('user_notifications', 'subject_type'), fn ($query) => $query->where('subject_type', $subjectType))
+            ->when($subjectId && Schema::hasColumn('user_notifications', 'subject_id'), fn ($query) => $query->where('subject_id', $subjectId))
+            ->where('created_at', '>=', now()->subSeconds(3))
             ->exists();
 
-        if ($exists) return null;
+        if ($recent) {
+            return null;
+        }
 
-        return $recipient->notifications()->create([
-            'type'    => $type,
-            'title'   => $title,
+        $payload = [
+            'type' => $type,
+            'title' => $title,
             'message' => $message,
-            'link'    => $link,
-        ]);
+            'link' => $link,
+        ];
+
+        $optional = [
+            'actor_user_id' => $options['actor_user_id'] ?? null,
+            'subject_type' => $subjectType,
+            'subject_id' => $subjectId,
+            'action_key' => $actionKey,
+            'severity' => $options['severity'] ?? 'info',
+            'audience' => $options['audience'] ?? 'user',
+            'privacy_scope' => $options['privacy_scope'] ?? 'private',
+            'data' => $options['data'] ?? null,
+        ];
+
+        foreach ($optional as $column => $value) {
+            if (Schema::hasColumn('user_notifications', $column)) {
+                $payload[$column] = $value;
+            }
+        }
+
+        return $recipient->notifications()->create($payload);
     }
 
-    /* ============================================================
-     | BOOKING: CREATED / UPDATED / DELETED (ROLE BASED)
-     * ============================================================ */
+    protected function clientOptions(?User $actor, Model $subject, string $actionKey, string $severity = 'info', array $data = []): array
+    {
+        return [
+            ...$this->subject($subject),
+            'actor_user_id' => $actor?->id,
+            'action_key' => $actionKey,
+            'severity' => $severity,
+            'audience' => 'client',
+            'privacy_scope' => 'private',
+            'data' => $data,
+        ];
+    }
+
+    protected function adminOptions(?User $actor, Model $subject, string $actionKey, string $severity = 'info', array $data = []): array
+    {
+        return [
+            ...$this->subject($subject),
+            'actor_user_id' => $actor?->id,
+            'action_key' => $actionKey,
+            'severity' => $severity,
+            'audience' => 'admin',
+            'privacy_scope' => 'monitoring',
+            'data' => $data,
+        ];
+    }
+
+    /* -----------------------------------------------------------------
+     | Booking lifecycle notifications
+     * ----------------------------------------------------------------- */
 
     public function bookingCreated(Booking $booking, ?User $actor = null): void
     {
-        $link  = route('bookings.show', $booking);
-        $role  = $this->actorRole($actor);
+        $booking->loadMissing(['createdBy']);
+        $link = $this->bookingLink($booking);
+        $label = $this->bookingLabel($booking);
+        $event = $booking->type_of_event ?: 'event';
         $owner = $this->bookingOwner($booking);
 
-        $meta  = $this->metaForBooking($booking, $actor);
-        $event = $booking->type_of_event ?: 'Event';
-        $when  = $this->formatBookingDate($booking->booking_date_from);
-        $label = $this->bookingLabel($booking);
-
-        // Client/guest created -> notify Admin + Manager
-        if (in_array($role, ['client', 'guest'], true)) {
-            $recipients = $this->adminRecipients(null)
-                ->merge($this->managerRecipients(null))
-                ->unique('id')
-                ->values();
-
-            $title = 'New booking request';
-            $message = sprintf(
-                '%s New booking request (#%d, %s) scheduled on %s. Client: %s.',
-                $meta,
-                $booking->id,
-                $event,
-                $when,
-                $label
-            );
-
-            $this->notifyMany($recipients, 'booking_created', $title, $message, $link);
-            return;
-        }
-
-        // Staff/manager/admin created -> notify booking owner + admins/managers audit
-        $actorMeta = $this->meta($actor);
-        $actorName = $actor?->name ?? 'Staff';
-
-        if ($owner && (! $actor || $owner->id !== $actor->id)) {
+        if ($owner) {
             $this->createNotification(
                 $owner,
                 'booking_created',
-                'Booking created for you',
-                sprintf('%s Booking #%d (%s) was created for you, scheduled on %s.', $actorMeta, $booking->id, $event, $when),
-                $link
+                'Your booking request was received',
+                sprintf('System received your reservation for %s. Open the booking details to review your schedule, payment deadline, and next steps.', $event),
+                $link,
+                $this->clientOptions($actor, $booking, 'booking.created.client', 'success', ['booking_id' => $booking->id])
             );
         }
 
-        // Audit routing
-        $auditRecipients = match ($role) {
-            'manager' => $this->adminRecipients(null),                               // manager -> admins
-            'staff'   => $this->adminRecipients(null)->merge($this->managerRecipients(null)), // staff -> admins + managers
-            'admin'   => $this->adminRecipients($actor)->merge($this->managerRecipients(null)), // admin -> other admins + managers
-            default   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-        };
-
         $this->notifyMany(
-            $auditRecipients->unique('id')->values(),
+            $this->operationsRecipients($actor),
             'booking_created',
-            'Booking created by ' . $actorName,
-            sprintf('%s Booking #%d (%s) for %s scheduled on %s.', $actorMeta, $booking->id, $event, $label, $when),
-            $link
+            'Booking created',
+            sprintf('%s Booking #%d for %s was created. Event: %s. Status: %s.', $this->meta($actor), $booking->id, $label, $event, (string) ($booking->booking_status ?? 'pending')),
+            $link,
+            $this->adminOptions($actor, $booking, 'booking.created.admin', 'success', ['booking_id' => $booking->id])
         );
     }
-
 
     protected function clientStatusNotice(Booking $booking, ?string $oldStatus, ?string $newStatus): array
     {
@@ -348,27 +360,32 @@ class NotificationService
             'approved', 'accepted', 'confirmed', 'active' => [
                 'type' => 'booking_approved',
                 'title' => 'Your booking has been approved',
-                'message' => sprintf('Your reservation for %s has been approved. Please check your booking page for payment and next-step instructions.', $event),
+                'message' => sprintf('Your reservation for %s has been approved. Please open your booking details for payment and schedule instructions.', $event),
+                'severity' => 'success',
             ],
             'pencil_booked' => [
                 'type' => 'booking_pencil_booked',
                 'title' => 'Your booking is pencil-booked',
-                'message' => sprintf('Your reservation for %s is pencil-booked while BCCC waits for the required payment review.', $event),
+                'message' => sprintf('Your reservation for %s is pencil-booked while payment and document requirements are reviewed.', $event),
+                'severity' => 'info',
             ],
             'declined', 'cancelled', 'expired' => [
                 'type' => 'booking_not_approved',
                 'title' => 'Your booking was not approved',
-                'message' => sprintf('Your reservation for %s was marked as %s. Please open the booking page for details.', $event, str_replace('_', ' ', $status)),
+                'message' => sprintf('Your reservation for %s was marked as %s. Open the booking details for the full notice.', $event, str_replace('_', ' ', $status)),
+                'severity' => 'danger',
             ],
             'completed' => [
                 'type' => 'booking_completed',
                 'title' => 'Your booking is completed',
                 'message' => sprintf('Your reservation for %s has been marked completed.', $event),
+                'severity' => 'success',
             ],
             default => [
                 'type' => 'booking_status_changed',
                 'title' => 'Your booking status was updated',
                 'message' => sprintf('Your reservation for %s is now %s.', $event, str_replace('_', ' ', $status ?: 'updated')),
+                'severity' => 'info',
             ],
         };
     }
@@ -376,575 +393,324 @@ class NotificationService
     public function bookingUpdated(Booking $booking, ?User $actor, array $changes): void
     {
         unset($changes['updated_at']);
-        if (empty($changes)) return;
+        if (empty($changes)) {
+            return;
+        }
 
-        $link  = route('bookings.show', $booking);
-        $role  = $this->actorRole($actor);
+        $link = $this->bookingLink($booking);
         $owner = $this->bookingOwner($booking);
-
-        $meta   = $this->metaForBooking($booking, $actor);
-        $label  = $this->bookingLabel($booking);
-        $event  = $booking->type_of_event ?: 'Event';
-        $ref    = sprintf('Booking #%d (%s) for %s', $booking->id, $event, $label);
-
         $summary = $this->summarizeChanges($changes);
-        $hasStatus = isset($changes['booking_status']);
-        $hasOther  = count($changes) > ($hasStatus ? 1 : 0);
+        $label = $this->bookingLabel($booking);
 
-        // If ONLY status changed -> send booking_status_changed instead of booking_updated
-        if ($hasStatus && ! $hasOther) {
-            $old = $changes['booking_status'][0] ?? null;
-            $new = $changes['booking_status'][1] ?? null;
+        if (isset($changes['booking_status'])) {
+            $old = is_array($changes['booking_status']) ? ($changes['booking_status'][0] ?? null) : null;
+            $new = is_array($changes['booking_status']) ? ($changes['booking_status'][1] ?? null) : (string) ($booking->booking_status ?? 'updated');
+            $notice = $this->clientStatusNotice($booking, $old, $new);
 
-            $title = sprintf('%s status changed', $ref);
-            $message = sprintf(
-                '%s %s. Status: %s → %s.',
-                $meta,
-                $ref,
-                ucfirst((string) ($old ?? '—')),
-                ucfirst((string) ($new ?? '—'))
-            );
-
-            // Who gets status-only notifications?
-            if (in_array($role, ['client', 'guest'], true)) {
-                // client/guest -> admins + managers
-                $recipients = $this->adminRecipients(null)
-                    ->merge($this->managerRecipients(null))
-                    ->unique('id')
-                    ->values();
-
-                $this->notifyMany($recipients, 'booking_status_changed', $title, $message, $link);
-            } else {
-                // staff/manager/admin -> owner + admins/managers depending
-                if ($owner && (! $actor || $owner->id !== $actor->id)) {
-                    $clientNotice = $this->clientStatusNotice($booking, $old, $new);
-                    $this->createNotification(
-                        $owner,
-                        $clientNotice['type'],
-                        $clientNotice['title'],
-                        $clientNotice['message'],
-                        $link
-                    );
-                }
-
-                $auditRecipients = match ($role) {
-                    'manager' => $this->adminRecipients(null),
-                    'staff'   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-                    'admin'   => $this->adminRecipients($actor)->merge($this->managerRecipients(null)),
-                    default   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-                };
-
-                $this->notifyMany(
-                    $auditRecipients->unique('id')->values(),
-                    'booking_status_changed',
-                    $title,
-                    $message,
-                    $link
+            if ($owner && (! $actor || (int) $owner->id !== (int) $actor->id || $this->actorRole($actor) !== 'client')) {
+                $this->createNotification(
+                    $owner,
+                    $notice['type'],
+                    $notice['title'],
+                    $notice['message'],
+                    $link,
+                    $this->clientOptions($actor, $booking, 'booking.status.client', $notice['severity'], ['old_status' => $old, 'new_status' => $new])
                 );
             }
-
-            return;
-        }
-
-        // Otherwise -> send booking_updated notifications
-        $baseMessage = sprintf(
-            '%s %s was updated.%s',
-            $meta,
-            $ref,
-            $summary ? (' ' . $summary) : ''
-        );
-
-        // Client edits -> admins + managers
-        if (in_array($role, ['client', 'guest'], true)) {
-            $recipients = $this->adminRecipients(null)
-                ->merge($this->managerRecipients(null))
-                ->unique('id')
-                ->values();
-
-            $this->notifyMany(
-                $recipients,
-                'booking_updated',
-                'Booking updated by client',
-                $baseMessage,
-                $link
-            );
-
-            return;
-        }
-
-        // Staff/manager/admin edits -> owner gets notified
-        if ($owner && (! $actor || $owner->id !== $actor->id)) {
+        } elseif ($owner && (! $actor || (int) $owner->id !== (int) $actor->id || $this->actorRole($actor) !== 'client')) {
             $this->createNotification(
                 $owner,
                 'booking_updated',
                 'Your booking was updated',
-                $baseMessage,
-                $link
+                'System updated your booking details. ' . ($summary ?: 'Open the booking page to review the latest information.'),
+                $link,
+                $this->clientOptions($actor, $booking, 'booking.updated.client', 'info', ['changes' => array_keys($changes)])
             );
         }
 
-        $actorName = $actor?->name ?? 'Staff';
-
-        // Audit routing by role
-        $auditRecipients = match ($role) {
-            'manager' => $this->adminRecipients(null),
-            'staff'   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-            'admin'   => $this->adminRecipients($actor)->merge($this->managerRecipients(null)),
-            default   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-        };
-
         $this->notifyMany(
-            $auditRecipients->unique('id')->values(),
-            'booking_updated',
-            'Booking updated by ' . $actorName,
-            $baseMessage,
-            $link
+            $this->operationsRecipients($actor),
+            isset($changes['booking_status']) ? 'booking_status_changed' : 'booking_updated',
+            isset($changes['booking_status']) ? 'Booking status changed' : 'Booking updated',
+            sprintf('%s Booking #%d for %s was updated. %s', $this->meta($actor), $booking->id, $label, $summary ?: 'Details updated.'),
+            $link,
+            $this->adminOptions($actor, $booking, isset($changes['booking_status']) ? 'booking.status.admin' : 'booking.updated.admin', 'info', ['changes' => $changes])
         );
     }
 
     public function bookingDeleted(Booking $booking, ?User $actor = null): void
     {
-        $link  = route('bookings.index');
-        $role  = $this->actorRole($actor);
+        $link = $this->safeRouteAny(['bookings.index'], '/bookings');
+        $label = $this->bookingLabel($booking);
         $owner = $this->bookingOwner($booking);
 
-        $meta  = $this->metaForBooking($booking, $actor);
-        $event = $booking->type_of_event ?: 'Event';
-        $when  = $this->formatBookingDate($booking->booking_date_from);
-        $label = $this->bookingLabel($booking);
-
-        $ref = sprintf('Booking #%d (%s) for %s', $booking->id, $event, $label);
-
-        $message = sprintf('%s %s was deleted (scheduled on %s).', $meta, $ref, $when);
-
-        // Client/guest deletes -> admins + managers
-        if (in_array($role, ['client', 'guest'], true)) {
-            $recipients = $this->adminRecipients(null)
-                ->merge($this->managerRecipients(null))
-                ->unique('id')
-                ->values();
-
-            $this->notifyMany($recipients, 'booking_deleted', 'Booking deleted by client', $message, $link);
-            return;
+        if ($owner && (! $actor || (int) $owner->id !== (int) $actor->id)) {
+            $this->createNotification(
+                $owner,
+                'booking_deleted',
+                'Your booking was deleted',
+                sprintf('Your reservation record for %s was deleted by BCCC staff. Contact BCCC if you need assistance.', $booking->type_of_event ?: 'your event'),
+                $link,
+                $this->clientOptions($actor, $booking, 'booking.deleted.client', 'danger')
+            );
         }
-
-        // Staff/manager/admin deletes -> owner + audit
-        if ($owner && (! $actor || $owner->id !== $actor->id)) {
-            $this->createNotification($owner, 'booking_deleted', 'Your booking was deleted', $message, $link);
-        }
-
-        $actorName = $actor?->name ?? 'Staff';
-
-        $auditRecipients = match ($role) {
-            'manager' => $this->adminRecipients(null),
-            'staff'   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-            'admin'   => $this->adminRecipients($actor)->merge($this->managerRecipients(null)),
-            default   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-        };
 
         $this->notifyMany(
-            $auditRecipients->unique('id')->values(),
+            $this->operationsRecipients($actor),
             'booking_deleted',
-            'Booking deleted by ' . $actorName,
-            $message,
-            $link
+            'Booking deleted',
+            sprintf('%s Booking #%d for %s was deleted.', $this->meta($actor), $booking->id, $label),
+            $link,
+            $this->adminOptions($actor, $booking, 'booking.deleted.admin', 'warning')
         );
     }
 
-    /* ============================================================
-     | PAYMENTS (ROLE BASED + META)
-     * ============================================================ */
+    /* -----------------------------------------------------------------
+     | Payment notifications
+     * ----------------------------------------------------------------- */
 
     public function paymentCreated(BookingPayment $payment, Booking $booking, ?User $actor = null): void
     {
-        $link  = route('bookings.show', $booking) . '#payments';
-        $role  = $this->actorRole($actor);
+        $link = $this->bookingLink($booking, '#payments');
         $owner = $this->bookingOwner($booking);
+        $amount = number_format((float) ($payment->amount ?? 0), 2);
+        $method = trim((string) ($payment->payment_method ?? $payment->payment_gateway ?? 'payment')) ?: 'payment';
 
-        $meta  = $this->metaForBooking($booking, $actor);
-        $label = $this->bookingLabel($booking);
-
-        $message = sprintf(
-            '%s Payment added on booking #%d (%s): %0.2f via %s.',
-            $meta,
-            $booking->id,
-            $label,
-            $payment->amount,
-            $payment->payment_method ?: 'payment'
-        );
-
-        // client/guest -> admins + managers
-        if (in_array($role, ['client', 'guest'], true)) {
-            $recipients = $this->adminRecipients(null)
-                ->merge($this->managerRecipients(null))
-                ->unique('id')
-                ->values();
-
-            $this->notifyMany($recipients, 'payment_created', 'New payment recorded', $message, $link);
-            return;
+        if ($owner && (! $actor || (int) $owner->id !== (int) $actor->id || $this->actorRole($actor) !== 'client')) {
+            $this->createNotification(
+                $owner,
+                'payment_created',
+                'Payment recorded on your booking',
+                sprintf('A payment entry of ₱%s via %s was recorded on your booking.', $amount, $method),
+                $link,
+                $this->clientOptions($actor, $booking, 'payment.created.client', 'info', ['payment_id' => $payment->id])
+            );
         }
-
-        // staff/manager/admin -> owner + audit
-        if ($owner && (! $actor || $owner->id !== $actor->id)) {
-            $this->createNotification($owner, 'payment_created', 'Payment recorded on your booking', $message, $link);
-        }
-
-        $auditRecipients = match ($role) {
-            'manager' => $this->adminRecipients(null),
-            'staff'   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-            'admin'   => $this->adminRecipients($actor)->merge($this->managerRecipients(null)),
-            default   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-        };
 
         $this->notifyMany(
-            $auditRecipients->unique('id')->values(),
+            $this->operationsRecipients($actor),
             'payment_created',
-            'Payment recorded',
-            $message,
-            $link
+            'Payment submitted for review',
+            sprintf('%s Payment of ₱%s was submitted on booking #%d by %s.', $this->meta($actor), $amount, $booking->id, $this->bookingLabel($booking)),
+            $link,
+            $this->adminOptions($actor, $booking, 'payment.created.admin', 'warning', ['payment_id' => $payment->id])
         );
     }
 
     public function paymentUpdated(BookingPayment $payment, Booking $booking, ?User $actor, array $changes): void
     {
         unset($changes['updated_at']);
-        if (empty($changes)) return;
-
-        $link  = route('bookings.show', $booking) . '#payments';
-        $role  = $this->actorRole($actor);
-        $owner = $this->bookingOwner($booking);
-
-        $meta  = $this->metaForBooking($booking, $actor);
-        $label = $this->bookingLabel($booking);
-
-        $parts = [];
-        foreach ($changes as $field => $pair) {
-            if (! is_array($pair) || count($pair) !== 2) continue;
-            [$old, $new] = $pair;
-
-            if ($field === 'status') {
-                $parts[] = sprintf(
-                    'Status: %s → %s.',
-                    ucfirst((string) ($old ?? '—')),
-                    ucfirst((string) ($new ?? '—'))
-                );
-            } else {
-                $parts[] = sprintf(
-                    '%s: %s → %s.',
-                    $this->humanField($field),
-                    $this->stringify($old),
-                    $this->stringify($new)
-                );
-            }
-        }
-
-        $summary = trim(implode(' ', $parts));
-
-        $message = sprintf(
-            '%s Payment updated on booking #%d (%s). %s',
-            $meta,
-            $booking->id,
-            $label,
-            $summary
-        );
-
-        // client -> admins + managers
-        if (in_array($role, ['client', 'guest'], true)) {
-            $recipients = $this->adminRecipients(null)
-                ->merge($this->managerRecipients(null))
-                ->unique('id')
-                ->values();
-
-            $this->notifyMany($recipients, 'payment_updated', 'Payment updated by client', $message, $link);
+        if (empty($changes)) {
             return;
         }
 
-        // staff/manager/admin -> owner + audit
-        if ($owner && (! $actor || $owner->id !== $actor->id)) {
-            $this->createNotification($owner, 'payment_updated', 'Payment on your booking was updated', $message, $link);
+        $summary = $this->summarizeChanges($changes);
+        $link = $this->bookingLink($booking, '#payments');
+        $owner = $this->bookingOwner($booking);
+
+        if ($owner && (! $actor || (int) $owner->id !== (int) $actor->id || $this->actorRole($actor) !== 'client')) {
+            $this->createNotification(
+                $owner,
+                'payment_updated',
+                'Payment on your booking was updated',
+                $summary ?: 'A payment entry on your booking was updated.',
+                $link,
+                $this->clientOptions($actor, $booking, 'payment.updated.client', 'info', ['payment_id' => $payment->id])
+            );
         }
 
-        $auditRecipients = match ($role) {
-            'manager' => $this->adminRecipients(null),
-            'staff'   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-            'admin'   => $this->adminRecipients($actor)->merge($this->managerRecipients(null)),
-            default   => $this->adminRecipients(null)->merge($this->managerRecipients(null)),
-        };
-
         $this->notifyMany(
-            $auditRecipients->unique('id')->values(),
+            $this->operationsRecipients($actor),
             'payment_updated',
             'Payment updated',
-            $message,
-            $link
+            sprintf('%s Payment #%d on booking #%d was updated. %s', $this->meta($actor), $payment->id, $booking->id, $summary ?: 'Details updated.'),
+            $link,
+            $this->adminOptions($actor, $booking, 'payment.updated.admin', 'info', ['payment_id' => $payment->id, 'changes' => $changes])
         );
     }
 
-    /* ============================================================
-     | SERVICES / SERVICE TYPES / CALENDAR BLOCKS (meta-upgraded)
-     * ============================================================ */
+    public function paymentReviewed(BookingPayment $payment, Booking $booking, ?User $actor, string $decision, ?string $remarks = null): void
+    {
+        $decision = strtolower(trim($decision));
+        $approved = $decision === 'approved';
+        $link = $this->bookingLink($booking, '#payments');
+        $owner = $this->bookingOwner($booking);
+
+        if ($owner) {
+            $this->createNotification(
+                $owner,
+                $approved ? 'payment_approved' : 'payment_rejected',
+                $approved ? 'Your payment proof was approved' : 'Your payment proof was rejected',
+                $approved
+                    ? 'BCCC approved your payment proof. Open your booking details to review your updated balance/status.'
+                    : ('BCCC rejected your payment proof.' . ($remarks ? ' Remarks: ' . $remarks : ' Please open your booking details for next steps.')),
+                $link,
+                $this->clientOptions($actor, $booking, $approved ? 'payment.approved.client' : 'payment.rejected.client', $approved ? 'success' : 'danger', ['payment_id' => $payment->id, 'remarks' => $remarks])
+            );
+        }
+
+        $this->notifyMany(
+            $this->operationsRecipients($actor),
+            $approved ? 'payment_approved' : 'payment_rejected',
+            $approved ? 'Payment proof approved' : 'Payment proof rejected',
+            sprintf('%s Payment #%d for booking #%d was %s.%s', $this->meta($actor), $payment->id, $booking->id, $approved ? 'approved' : 'rejected', $remarks ? ' Remarks: ' . $remarks : ''),
+            $link,
+            $this->adminOptions($actor, $booking, $approved ? 'payment.approved.admin' : 'payment.rejected.admin', $approved ? 'success' : 'warning', ['payment_id' => $payment->id, 'remarks' => $remarks])
+        );
+    }
+
+    /* -----------------------------------------------------------------
+     | Calendar, service, venue/rental notifications
+     * ----------------------------------------------------------------- */
 
     public function serviceCreated(Service $service, User $actor): void
     {
-        $meta = $this->meta($actor);
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'service_created',
-            'Service created',
-            sprintf('%s Service "%s" (ID %d) was created.', $meta, $service->name, $service->id),
-            $this->safeRouteAny(['services.index'], '/services')
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'service_created', 'Rental option created', sprintf('%s Rental option "%s" was created.', $this->meta($actor), $service->name), $this->safeRouteAny(['services.index'], '/services'), $this->adminOptions($actor, $service, 'service.created.admin', 'success'));
     }
 
     public function serviceUpdated(Service $service, User $actor, array $changes): void
     {
         if (empty($changes)) return;
-
-        $meta = $this->meta($actor);
-        $summary = $this->summarizeChanges($changes);
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'service_updated',
-            'Service updated',
-            sprintf('%s Service "%s" (ID %d) was updated.%s', $meta, $service->name, $service->id, $summary ? (' ' . $summary) : ''),
-            $this->safeRouteAny(['services.index'], '/services')
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'service_updated', 'Rental option updated', sprintf('%s Rental option "%s" was updated. %s', $this->meta($actor), $service->name, $this->summarizeChanges($changes)), $this->safeRouteAny(['services.index'], '/services'), $this->adminOptions($actor, $service, 'service.updated.admin', 'info', ['changes' => $changes]));
     }
 
     public function serviceDeleted(Service $service, User $actor): void
     {
-        $meta = $this->meta($actor);
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'service_deleted',
-            'Service deleted',
-            sprintf('%s Service "%s" (ID %d) was deleted.', $meta, $service->name, $service->id),
-            $this->safeRouteAny(['services.index'], '/services')
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'service_deleted', 'Rental option deleted', sprintf('%s Rental option "%s" was deleted.', $this->meta($actor), $service->name), $this->safeRouteAny(['services.index'], '/services'), $this->adminOptions($actor, $service, 'service.deleted.admin', 'warning'));
     }
 
     public function serviceTypeCreated(ServiceType $serviceType, User $actor): void
     {
-        $meta = $this->meta($actor);
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'service_type_created',
-            'Service type created',
-            sprintf('%s Service type "%s" (ID %d) was created.', $meta, $serviceType->name, $serviceType->id),
-            $this->safeRouteAny(['service-types.index', 'service_types.index'], '/service-types')
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'service_type_created', 'Venue area created', sprintf('%s Venue area "%s" was created.', $this->meta($actor), $serviceType->name), $this->safeRouteAny(['service-types.index', 'service_types.index'], '/service-types'), $this->adminOptions($actor, $serviceType, 'service_type.created.admin', 'success'));
     }
 
     public function serviceTypeUpdated(ServiceType $serviceType, User $actor, array $changes): void
     {
         if (empty($changes)) return;
-
-        $meta = $this->meta($actor);
-        $summary = $this->summarizeChanges($changes);
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'service_type_updated',
-            'Service type updated',
-            sprintf('%s Service type "%s" (ID %d) was updated.%s', $meta, $serviceType->name, $serviceType->id, $summary ? (' ' . $summary) : ''),
-            $this->safeRouteAny(['service-types.index', 'service_types.index'], '/service-types')
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'service_type_updated', 'Venue area updated', sprintf('%s Venue area "%s" was updated. %s', $this->meta($actor), $serviceType->name, $this->summarizeChanges($changes)), $this->safeRouteAny(['service-types.index', 'service_types.index'], '/service-types'), $this->adminOptions($actor, $serviceType, 'service_type.updated.admin', 'info', ['changes' => $changes]));
     }
 
     public function serviceTypeDeleted(ServiceType $serviceType, User $actor): void
     {
-        $meta = $this->meta($actor);
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'service_type_deleted',
-            'Service type deleted',
-            sprintf('%s Service type "%s" (ID %d) was deleted.', $meta, $serviceType->name, $serviceType->id),
-            $this->safeRouteAny(['service-types.index', 'service_types.index'], '/service-types')
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'service_type_deleted', 'Venue area deleted', sprintf('%s Venue area "%s" was deleted.', $this->meta($actor), $serviceType->name), $this->safeRouteAny(['service-types.index', 'service_types.index'], '/service-types'), $this->adminOptions($actor, $serviceType, 'service_type.deleted.admin', 'warning'));
     }
 
     public function calendarBlockCreated(CalendarBlock $block, User $actor): void
     {
-        $meta = $this->meta($actor);
+        $this->notifyMany($this->adminAuditRecipients($actor), 'calendar_block_created', 'Calendar block created', sprintf('%s Calendar block "%s" was created for %s to %s (%s).', $this->meta($actor), $block->title, optional($block->date_from)->format('M d, Y'), optional($block->date_to)->format('M d, Y'), strtoupper((string) $block->block)), $this->safeRouteAny(['dashboard'], '/dashboard'), $this->adminOptions($actor, $block, 'calendar_block.created.admin', 'warning'));
+    }
 
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'calendar_block_created',
-            'Calendar block created',
-            sprintf('%s Calendar block "%s" was created.', $meta, $block->title),
-            $this->safeRouteAny(['dashboard'], '/dashboard')
-        );
+    public function calendarBlocksBulkCreated(Collection $blocks, User $actor): void
+    {
+        if ($blocks->isEmpty()) return;
+        $first = $blocks->first();
+        if (! $first instanceof CalendarBlock) return;
+        $this->notifyMany($this->adminAuditRecipients($actor), 'calendar_block_bulk_created', 'Bulk calendar blocks created', sprintf('%s Bulk calendar blocking created %d block%s. First block: "%s".', $this->meta($actor), $blocks->count(), $blocks->count() === 1 ? '' : 's', $first->title), $this->safeRouteAny(['dashboard'], '/dashboard'), $this->adminOptions($actor, $first, 'calendar_block.bulk_created.admin', 'warning', ['created_count' => $blocks->count()]));
+    }
+
+    public function calendarBlockUpdated(CalendarBlock $block, User $actor, array $changes = []): void
+    {
+        $this->notifyMany($this->adminAuditRecipients($actor), 'calendar_block_updated', 'Calendar block updated', sprintf('%s Calendar block "%s" was updated. %s', $this->meta($actor), $block->title, $this->summarizeChanges($changes) ?: 'Details updated.'), $this->safeRouteAny(['dashboard'], '/dashboard'), $this->adminOptions($actor, $block, 'calendar_block.updated.admin', 'info', ['changes' => $changes]));
     }
 
     public function calendarBlockDeleted(CalendarBlock $block, User $actor): void
     {
-        $meta = $this->meta($actor);
+        $this->notifyMany($this->adminAuditRecipients($actor), 'calendar_block_deleted', 'Calendar block deleted', sprintf('%s Calendar block "%s" was deleted.', $this->meta($actor), $block->title), $this->safeRouteAny(['dashboard'], '/dashboard'), $this->adminOptions($actor, $block, 'calendar_block.deleted.admin', 'warning'));
+    }
 
+    /* -----------------------------------------------------------------
+     | Inquiry, MICE, content and account notifications
+     * ----------------------------------------------------------------- */
+
+    public function publicInquiryCreated(Inquiry $inquiry): void
+    {
+        $this->notifyMany($this->adminAuditRecipients(null), 'public_inquiry_created', 'New public inquiry submitted', sprintf('A public inquiry was submitted by %s (%s). Subject: %s.', $inquiry->name, $inquiry->email, $inquiry->subject), $this->safeRouteAny(['inquiries.index'], '/inquiries'), $this->adminOptions(null, $inquiry, 'inquiry.created.admin', 'warning'));
+    }
+
+    public function publicInquiryUpdated(Inquiry $inquiry, User $actor, array $changes = []): void
+    {
+        $this->notifyMany($this->adminAuditRecipients($actor), 'public_inquiry_updated', 'Public inquiry updated', sprintf('%s Inquiry from %s was updated. %s', $this->meta($actor), $inquiry->name, $this->summarizeChanges($changes) ?: 'Status/details updated.'), $this->safeRouteAny(['inquiries.index'], '/inquiries'), $this->adminOptions($actor, $inquiry, 'inquiry.updated.admin', 'info', ['changes' => $changes]));
+    }
+
+    public function publicInquiryDeleted(Inquiry $inquiry, User $actor): void
+    {
+        $this->notifyMany($this->adminAuditRecipients($actor), 'public_inquiry_deleted', 'Public inquiry deleted', sprintf('%s Inquiry from %s (%s) was deleted.', $this->meta($actor), $inquiry->name, $inquiry->email), $this->safeRouteAny(['inquiries.index'], '/inquiries'), $this->adminOptions($actor, $inquiry, 'inquiry.deleted.admin', 'warning'));
+    }
+
+    public function miceRecordSaved(MiceRecord $record, ?User $actor = null, bool $created = false): void
+    {
+        $title = $created ? 'MICE registry entry created' : 'MICE registry entry updated';
+        $this->notifyMany($this->adminAuditRecipients($actor), $created ? 'mice_record_created' : 'mice_record_updated', $title, sprintf('%s %s for "%s".', $this->meta($actor), $title, $record->event_name ?: ('Record #' . $record->id)), $this->safeRouteAny(['reports.mice-registry'], '/reports/mice-registry'), $this->adminOptions($actor, $record, $created ? 'mice.created.admin' : 'mice.updated.admin', $created ? 'success' : 'info'));
+    }
+
+    public function miceRecordDeleted(MiceRecord $record, ?User $actor = null): void
+    {
+        $this->notifyMany($this->adminAuditRecipients($actor), 'mice_record_deleted', 'MICE registry entry deleted', sprintf('%s MICE record "%s" was deleted.', $this->meta($actor), $record->event_name ?: ('Record #' . $record->id)), $this->safeRouteAny(['reports.mice-registry'], '/reports/mice-registry'), $this->adminOptions($actor, $record, 'mice.deleted.admin', 'warning'));
+    }
+
+    public function contentUpdated(string $section, ?User $actor = null, array $data = []): void
+    {
+        $dummy = new class extends Model {
+            protected $table = 'user_notifications';
+        };
+        $dummy->id = null;
+
+        $this->notifyMany($this->adminAuditRecipients($actor), 'content_updated', 'Public content updated', sprintf('%s Public content section "%s" was updated.', $this->meta($actor), $section), $this->safeRouteAny(['content', 'content.index'], '/content'), [
+            'actor_user_id' => $actor?->id,
+            'action_key' => 'content.updated.admin',
+            'severity' => 'info',
+            'audience' => 'admin',
+            'privacy_scope' => 'monitoring',
+            'subject_type' => 'content',
+            'subject_id' => null,
+            'data' => $data,
+        ]);
+    }
+
+    public function userSelfRegistered(User $user): void
+    {
         $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'calendar_block_deleted',
-            'Calendar block deleted',
-            sprintf('%s Calendar block "%s" was deleted.', $meta, $block->title),
-            $this->safeRouteAny(['dashboard'], '/dashboard')
+            $this->adminAuditRecipients(null),
+            'user_registered',
+            'New client account created',
+            sprintf('A new client account was created: %s (%s).', $user->name ?: 'Client', $user->email ?: 'no email'),
+            $this->safeRouteAny(['users.index', 'admin.users.index'], '/users'),
+            $this->adminOptions(null, $user, 'user.registered.admin', 'success')
         );
-    }
-        public function bookingLifecycleMaintenanceReport(array $summary): void
-{
-    $changed = (int) ($summary['changed_count'] ?? 0);
-    $deleted = (int) ($summary['deleted_count'] ?? 0);
 
-    if ($changed < 1 && $deleted < 1) {
-        return;
-    }
-
-    $title = 'Booking lifecycle maintenance completed';
-
-    $parts = [];
-
-    if ($changed > 0) {
-        $parts[] = sprintf(
-            '%d booking%s had automatic status updates.',
-            $changed,
-            $changed === 1 ? '' : 's'
+        $this->createNotification(
+            $user,
+            'account_created',
+            'Welcome to BCCC EASE',
+            'Your account was created successfully. System messages about your booking, payment, and account updates will appear here privately.',
+            $this->safeRouteAny(['dashboard'], '/dashboard'),
+            $this->clientOptions(null, $user, 'account.created.client', 'success')
         );
     }
 
-    if ($deleted > 0) {
-        $parts[] = sprintf(
-            '%d declined/cancelled booking%s were automatically deleted after the cleanup window.',
-            $deleted,
-            $deleted === 1 ? '' : 's'
-        );
-    }
-
-    $syncPreview = collect($summary['synced'] ?? [])
-        ->take(3)
-        ->map(function (array $item) {
-            return sprintf(
-                '#%d %s: %s → %s',
-                (int) ($item['booking_id'] ?? 0),
-                (string) ($item['title'] ?? 'Booking'),
-                ucfirst((string) ($item['from_status'] ?? '—')),
-                ucfirst((string) ($item['to_status'] ?? '—')),
-            );
-        })
-        ->implode('; ');
-
-    $deletePreview = collect($summary['deleted'] ?? [])
-        ->take(3)
-        ->map(function (array $item) {
-            return sprintf(
-                '#%d %s (%s)',
-                (int) ($item['booking_id'] ?? 0),
-                (string) ($item['title'] ?? 'Booking'),
-                ucfirst((string) ($item['status'] ?? '—')),
-            );
-        })
-        ->implode('; ');
-
-    $message = trim(implode(' ', $parts));
-
-    if ($syncPreview !== '') {
-        $message .= ' Updated: ' . $syncPreview . '.';
-    }
-
-    if ($deletePreview !== '') {
-        $message .= ' Deleted: ' . $deletePreview . '.';
-    }
-
-    $recipients = $this->adminRecipients(null)
-        ->merge($this->managerRecipients(null))
-        ->unique('id')
-        ->values();
-
-    $this->notifyMany(
-        $recipients,
-        'booking_lifecycle_maintenance',
-        $title,
-        $message,
-        $this->safeRouteAny(['bookings.index', 'dashboard'], '/dashboard')
-    );
-}
-
-
-    /* ============================================================
-     | ✅ USERS / ROLES (FIXED)
-     * ============================================================ */
-
-    /**
-     * Safely read a user's roles. Works even if roles are not yet loaded.
-     * You can also pass $assignedRoles from your controller after syncRoles().
-     */
     protected function userRoleNames(User $user, ?array $assignedRoles = null): array
     {
         if (is_array($assignedRoles)) {
-            return array_values(array_filter(array_map(
-                fn ($r) => is_string($r) ? trim($r) : (is_object($r) && isset($r->name) ? trim((string) $r->name) : ''),
-                $assignedRoles
-            ), fn ($r) => $r !== ''));
+            return collect($assignedRoles)->map(fn ($role) => is_object($role) && isset($role->name) ? (string) $role->name : (string) $role)->filter()->values()->all();
         }
 
         try {
-            return $user->roles()->pluck('name')->map(fn ($x) => (string) $x)->values()->all();
-        } catch (\Throwable $e) {
+            return $user->roles()->pluck('name')->map(fn ($role) => (string) $role)->values()->all();
+        } catch (\Throwable) {
             return [];
         }
     }
 
-    /**
-     * ✅ FIX:
-     * - does NOT crash if routes differ (safeRouteAny)
-     * - admin gets notified even if they are the only admin (adminAuditRecipients)
-     * - includes roles in the message (when available)
-     */
     public function userCreated(User $user, ?User $actor = null, ?array $assignedRoles = null): void
     {
-        $meta = $this->meta($actor);
         $roles = $this->userRoleNames($user, $assignedRoles);
-        $rolesStr = $roles ? implode(', ', $roles) : '—';
+        $rolesText = $roles ? implode(', ', $roles) : '—';
+        $link = $this->safeRouteAny(['users.index', 'admin.users.index'], '/users');
 
-        // ✅ Make link safe (prevents "Route [users.index] not defined" breaking user creation)
-        $link = $this->safeRouteAny(
-            ['users.index', 'admin.users.index', 'users.list', 'admin.users.list'],
-            '/users'
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'user_created', 'User created', sprintf('%s Created user %s (%s). Roles: %s.', $this->meta($actor), $user->name, $user->email, $rolesText), $link, $this->adminOptions($actor, $user, 'user.created.admin', 'success', ['roles' => $roles]));
 
-        $title = 'User created';
-        $message = sprintf(
-            '%s Created user %s (%s). Roles: %s.',
-            $meta,
-            (string) ($user->name ?? '—'),
-            (string) ($user->email ?? '—'),
-            $rolesStr
-        );
-
-        // ✅ Audit to admins (exclude actor if possible; include actor if they are the only admin)
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'user_created',
-            $title,
-            $message,
-            $link
-        );
-
-        /**
-         * Optional (safe and useful):
-         * Notify the new user (they’ll see it after login).
-         * Comment out if you don’t want it.
-         */
-        if ($user->id && (! $actor || (int) $user->id !== (int) $actor->id)) {
-            $this->createNotification(
-                $user,
-                'user_created',
-                'Welcome to the system',
-                sprintf('%s Your account was created. Roles: %s.', $meta, $rolesStr),
-                $this->safeRouteAny(['dashboard'], '/dashboard')
-            );
+        if (! $actor || (int) $actor->id !== (int) $user->id) {
+            $this->createNotification($user, 'account_created', 'Your account was created', 'Your BCCC EASE account was created. Roles: ' . $rolesText . '.', $this->safeRouteAny(['dashboard'], '/dashboard'), $this->clientOptions($actor, $user, 'account.created.by_admin.client', 'success', ['roles' => $roles]));
         }
     }
 
@@ -953,97 +719,59 @@ class NotificationService
         unset($changes['updated_at'], $changes['remember_token'], $changes['password']);
         if (empty($changes)) return;
 
-        $meta = $this->meta($actor);
         $summary = $this->summarizeChanges($changes);
+        $link = $this->safeRouteAny(['users.index', 'admin.users.index'], '/users');
 
-        $link = $this->safeRouteAny(
-            ['users.index', 'admin.users.index', 'users.list', 'admin.users.list'],
-            '/users'
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'user_updated', 'User account updated', sprintf('%s Updated user %s (%s). %s', $this->meta($actor), $user->name, $user->email, $summary ?: 'Details updated.'), $link, $this->adminOptions($actor, $user, 'user.updated.admin', 'info', ['changes' => $changes]));
 
-        $title = 'User updated';
-        $message = sprintf(
-            '%s Updated user %s (%s). %s',
-            $meta,
-            (string) ($user->name ?? '—'),
-            (string) ($user->email ?? '—'),
-            $summary ?: 'Details updated.'
-        );
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'user_updated',
-            $title,
-            $message,
-            $link
-        );
+        if (! $actor || (int) $actor->id !== (int) $user->id || ! $this->userHasAnyRole($actor, ['admin', 'manager', 'staff'])) {
+            $this->createNotification($user, 'account_updated', 'Your account was updated', $summary ?: 'Your account details were updated.', $this->safeRouteAny(['profile.edit', 'dashboard'], '/dashboard'), $this->clientOptions($actor, $user, 'account.updated.client', 'info', ['changes' => array_keys($changes)]));
+        }
     }
 
     public function userDeleted(User $user, ?User $actor = null): void
     {
-        $meta = $this->meta($actor);
-
-        $link = $this->safeRouteAny(
-            ['users.index', 'admin.users.index', 'users.list', 'admin.users.list'],
-            '/users'
-        );
-
-        $title = 'User deleted';
-        $message = sprintf(
-            '%s Deleted user %s (%s).',
-            $meta,
-            (string) ($user->name ?? '—'),
-            (string) ($user->email ?? '—')
-        );
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'user_deleted',
-            $title,
-            $message,
-            $link
-        );
+        $this->notifyMany($this->adminAuditRecipients($actor), 'user_deleted', 'User deleted', sprintf('%s Deleted user %s (%s).', $this->meta($actor), $user->name, $user->email), $this->safeRouteAny(['users.index', 'admin.users.index'], '/users'), $this->adminOptions($actor, $user, 'user.deleted.admin', 'warning'));
     }
 
     public function userRolesUpdated(User $target, ?User $actor = null, array $oldRoles = [], array $newRoles = []): void
     {
-        $meta = $this->meta($actor);
+        $oldText = implode(', ', array_filter(array_map('strval', $oldRoles))) ?: '—';
+        $newText = implode(', ', array_filter(array_map('strval', $newRoles))) ?: '—';
+        $link = $this->safeRouteAny(['users.roles.index', 'admin.users.roles.index', 'users.index', 'admin.users.index'], '/users');
 
-        $oldStr = implode(', ', array_values(array_filter(array_map('strval', $oldRoles))));
-        $newStr = implode(', ', array_values(array_filter(array_map('strval', $newRoles))));
+        $this->notifyMany($this->adminAuditRecipients($actor), 'user_roles_updated', 'User roles updated', sprintf('%s Updated roles for %s (%s): [%s] → [%s].', $this->meta($actor), $target->name, $target->email, $oldText, $newText), $link, $this->adminOptions($actor, $target, 'user.roles_updated.admin', 'info', ['old_roles' => $oldRoles, 'new_roles' => $newRoles]));
 
-        $link = $this->safeRouteAny(
-            ['users.roles.index', 'admin.users.roles.index', 'users.index', 'admin.users.index'],
-            '/users'
-        );
-
-        $title = 'User roles updated';
-        $message = sprintf(
-            '%s Updated roles for %s (%s): [%s] → [%s].',
-            $meta,
-            (string) ($target->name ?? '—'),
-            (string) ($target->email ?? '—'),
-            $oldStr !== '' ? $oldStr : '—',
-            $newStr !== '' ? $newStr : '—'
-        );
-
-        $this->notifyMany(
-            $this->adminAuditRecipients($actor),
-            'user_roles_updated',
-            $title,
-            $message,
-            $link
-        );
-
-        // Optional: notify the target user too
-        if ($target->id && (! $actor || (int) $target->id !== (int) $actor->id)) {
-            $this->createNotification(
-                $target,
-                'user_roles_updated',
-                'Your roles were updated',
-                $message,
-                $this->safeRouteAny(['dashboard'], '/dashboard')
-            );
+        if (! $actor || (int) $target->id !== (int) $actor->id) {
+            $this->createNotification($target, 'account_roles_updated', 'Your account role was updated', sprintf('Your account roles were updated: [%s] → [%s].', $oldText, $newText), $this->safeRouteAny(['dashboard'], '/dashboard'), $this->clientOptions($actor, $target, 'account.roles_updated.client', 'info', ['old_roles' => $oldRoles, 'new_roles' => $newRoles]));
         }
+    }
+
+    public function bookingLifecycleMaintenanceReport(array $summary): void
+    {
+        $changed = (int) ($summary['changed_count'] ?? 0);
+        $deleted = (int) ($summary['deleted_count'] ?? 0);
+
+        if ($changed < 1 && $deleted < 1) {
+            return;
+        }
+
+        $parts = [];
+        if ($changed > 0) {
+            $parts[] = $changed . ' booking' . ($changed === 1 ? '' : 's') . ' had automatic status updates.';
+        }
+        if ($deleted > 0) {
+            $parts[] = $deleted . ' declined/cancelled booking' . ($deleted === 1 ? '' : 's') . ' were automatically deleted after the cleanup window.';
+        }
+
+        $this->notifyMany($this->operationsRecipients(null), 'booking_lifecycle_maintenance', 'Booking lifecycle maintenance completed', implode(' ', $parts), $this->safeRouteAny(['bookings.index', 'dashboard'], '/dashboard'), [
+            'action_key' => 'booking.lifecycle_maintenance.admin',
+            'severity' => 'warning',
+            'audience' => 'admin',
+            'privacy_scope' => 'monitoring',
+            'subject_type' => 'booking_lifecycle',
+            'subject_id' => null,
+            'data' => $summary,
+        ]);
     }
 }

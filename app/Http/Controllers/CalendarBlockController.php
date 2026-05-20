@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\BulkCalendarBlockRequest;
 use App\Http\Requests\StoreCalendarBlockRequest;
 use App\Models\CalendarBlock;
+use App\Services\NotificationService;
 use App\Support\WorkspaceAccess;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -12,6 +13,10 @@ use Illuminate\Http\Request;
 
 class CalendarBlockController extends Controller
 {
+    public function __construct(private readonly NotificationService $notifications)
+    {
+    }
+
     public function store(StoreCalendarBlockRequest $request): JsonResponse
     {
         $this->ensureManageAccess($request);
@@ -20,6 +25,8 @@ class CalendarBlockController extends Controller
         $payload['created_by_user_id'] = $request->user()?->id;
 
         $calendarBlock = CalendarBlock::query()->create($payload);
+
+        $this->notifications->calendarBlockCreated($calendarBlock->fresh(), $request->user());
 
         return response()->json([
             'message' => 'Calendar block created successfully.',
@@ -72,6 +79,8 @@ class CalendarBlockController extends Controller
             }
         }
 
+        $this->notifications->calendarBlocksBulkCreated($created, $request->user());
+
         return response()->json([
             'message' => $created->count() === 1
                 ? 'Bulk calendar action created 1 block.'
@@ -88,7 +97,10 @@ class CalendarBlockController extends Controller
     {
         $this->ensureManageAccess($request);
 
+        $original = $calendarBlock->getOriginal();
         $calendarBlock->update($this->payload($request));
+
+        $this->notifications->calendarBlockUpdated($calendarBlock->fresh(), $request->user(), $this->changedFields($original, $calendarBlock->getAttributes()));
 
         return response()->json([
             'message' => 'Calendar block updated successfully.',
@@ -101,12 +113,30 @@ class CalendarBlockController extends Controller
         $this->ensureManageAccess($request);
 
         $id = $calendarBlock->id;
+        $this->notifications->calendarBlockDeleted($calendarBlock, $request->user());
         $calendarBlock->delete();
 
         return response()->json([
             'message' => 'Calendar block deleted successfully.',
             'id' => $id,
         ]);
+    }
+
+
+    protected function changedFields(array $before, array $after): array
+    {
+        $changes = [];
+
+        foreach (['title', 'area', 'notes', 'block', 'public_status', 'date_from', 'date_to'] as $field) {
+            $old = $before[$field] ?? null;
+            $new = $after[$field] ?? null;
+
+            if ((string) $old !== (string) $new) {
+                $changes[$field] = [$old, $new];
+            }
+        }
+
+        return $changes;
     }
 
     protected function payload(StoreCalendarBlockRequest $request): array

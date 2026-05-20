@@ -29,6 +29,7 @@ class BcccFinalDeploymentCheckCommand extends Command
         $this->checkStorageAndCachePaths();
         $this->checkBuildFiles();
         $this->checkCaseSensitiveClassFiles();
+        $this->checkDuplicateClassFiles();
         $this->checkRequiredRoutes();
         $this->checkDatabaseShape();
         $this->checkMarketingAssets();
@@ -231,6 +232,20 @@ class BcccFinalDeploymentCheckCommand extends Command
                 $this->add('error', 'Class filename '.$class, $relative.' is missing.');
             }
         }
+    }
+
+
+    private function checkDuplicateClassFiles(): void
+    {
+        $legacyBookingResource = base_path('app/Http/Requests/BookingResource.php');
+
+        $this->add(
+            ! File::exists($legacyBookingResource) ? 'ok' : 'error',
+            'Duplicate BookingResource class',
+            ! File::exists($legacyBookingResource)
+                ? 'Only app/Http/Resources/BookingResource.php exists.'
+                : 'Remove app/Http/Requests/BookingResource.php because it declares App\\Http\\Resources\\BookingResource and breaks optimized autoloading.',
+        );
     }
 
     private function checkRequiredRoutes(): void

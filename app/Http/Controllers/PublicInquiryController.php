@@ -3,11 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Inquiry;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class PublicInquiryController extends Controller
 {
+    public function __construct(private readonly NotificationService $notifications)
+    {
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
@@ -22,7 +27,7 @@ class PublicInquiryController extends Controller
             'message' => ['required', 'string', 'max:5000'],
         ]);
 
-        Inquiry::create([
+        $inquiry = Inquiry::create([
             'name' => trim((string) $data['name']),
             'email' => strtolower(trim((string) $data['email'])),
             'phone' => isset($data['phone']) ? trim((string) $data['phone']) : null,
@@ -33,6 +38,8 @@ class PublicInquiryController extends Controller
             'guest_count' => $data['guest_count'] ?? null,
             'message' => trim((string) $data['message']),
         ]);
+
+        $this->notifications->publicInquiryCreated($inquiry);
 
         return back()->with('success', 'Your inquiry has been submitted successfully.');
     }

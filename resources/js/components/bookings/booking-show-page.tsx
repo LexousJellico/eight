@@ -400,7 +400,7 @@ export function BookingShowPage() {
             description={
                 isUser
                     ? 'Review your booking request, complete requirements, submit payment proof, and monitor your deadline status.'
-                    : 'Review booking details, client information, schedule, survey proof, payment proof, deadline status, and internal actions.'
+                    : 'Review booking details, client information, schedule, MICE report, payment proof, deadline status, and internal actions.'
             }
             actions={
                 <div className="flex flex-wrap gap-2">
@@ -716,7 +716,7 @@ export function BookingShowPage() {
                         <SectionCard eyebrow="MICE Report" title="Required report status">
                             <div className="rounded-[1.2rem] border border-[#eadcc2]/80 bg-[#fffaf0]/76 p-4 dark:border-white/10 dark:bg-white/[0.035]">
                                 <p className="text-sm leading-7 text-[#6e604c] dark:text-white/56">
-                                    The legacy survey proof upload has been replaced by the built-in MICE report. Clients must complete the MICE report before submitting payment proof.
+                                    The booking now opens directly to this details page after submission. The built-in MICE report remains available here, while payment proof and the 10-working-day deadline can be monitored from the same record.
                                 </p>
                                 <Link
                                     href={bookingSurveyPath(role, booking.id)}

@@ -8,7 +8,6 @@ import {
     FileBarChart,
     FileClock,
     Globe2,
-    Home,
     LayoutDashboard,
     LayoutPanelTop,
     MessagesSquare,
@@ -252,9 +251,9 @@ export function backendNavSections(role: BackendRole): BackendNavSection[] {
     if (role === 'admin') {
         return [
             {
-                key: 'overview',
-                title: 'Overview',
-                description: 'Dashboard and home workspace',
+                key: 'dashboard',
+                title: 'Dashboard',
+                description: 'Admin command center and monitoring workspace',
                 icon: LayoutDashboard,
                 defaultOpen: true,
                 items: [
@@ -264,14 +263,7 @@ export function backendNavSections(role: BackendRole): BackendNavSection[] {
                         icon: LayoutDashboard,
                         exact: true,
                         permission: 'dashboard.view',
-                        description: 'Metrics and operational overview',
-                    },
-                    {
-                        title: 'Home',
-                        href: '/admin/home',
-                        icon: Home,
-                        permission: 'dashboard.view',
-                        description: 'Admin landing workspace',
+                        description: 'Metrics, monitoring, reports, and operational command center',
                     },
                 ],
             },
@@ -328,7 +320,7 @@ export function backendNavSections(role: BackendRole): BackendNavSection[] {
                     },
                     {
                         title: 'Analytics',
-                        href: '/admin/bookings/analytics',
+                        href: '/admin/analytics',
                         icon: BarChart3,
                         permission: 'bookings.view',
                         description: 'Booking and revenue insights',

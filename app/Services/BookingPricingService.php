@@ -8,6 +8,7 @@ use App\Support\ActiveVenueCatalog;
 use App\Support\BookingScheduleCatalog;
 use App\Support\VenuePackageCatalog;
 use Carbon\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class BookingPricingService
 {
@@ -66,7 +67,7 @@ class BookingPricingService
                     'amount_label' => ActiveVenueCatalog::money($amount),
                 ];
 
-                $additionalHours = max(0, min(6, (int) ($segment['additional_hours'] ?? 0)));
+                $additionalHours = BookingScheduleCatalog::normalizeAdditionalHours($baseBlock, (int) ($segment['additional_hours'] ?? 0));
 
                 if ($additionalHours > 0) {
                     $hourRate = ActiveVenueCatalog::amount($key, ActiveVenueCatalog::DURATION_ADDITIONAL_HOUR);
@@ -203,11 +204,13 @@ class BookingPricingService
     {
         if ($segments !== []) {
             return collect($segments)->map(function (array $segment, int $index) use ($areaKeys): array {
+                $baseBlock = BookingScheduleCatalog::normalizeBaseBlock((string) ($segment['base_block'] ?? BookingScheduleCatalog::BLOCK_WHOLE_DAY));
+
                 return [
                     'date' => (string) ($segment['date'] ?? Carbon::parse($segment['starts_at'] ?? now())->toDateString()),
                     'segment_role' => BookingScheduleCatalog::normalizeRole((string) ($segment['segment_role'] ?? $segment['role'] ?? BookingScheduleCatalog::ROLE_EVENT)),
-                    'base_block' => BookingScheduleCatalog::normalizeBaseBlock((string) ($segment['base_block'] ?? BookingScheduleCatalog::BLOCK_WHOLE_DAY)),
-                    'additional_hours' => max(0, min(6, (int) ($segment['additional_hours'] ?? 0))),
+                    'base_block' => $baseBlock,
+                    'additional_hours' => BookingScheduleCatalog::normalizeAdditionalHours($baseBlock, (int) ($segment['additional_hours'] ?? 0)),
                     'area_keys' => ActiveVenueCatalog::sanitizeKeys($segment['area_keys'] ?? $areaKeys) ?: $areaKeys,
                     'sort_order' => (int) ($segment['sort_order'] ?? ($index + 1)),
                 ];
@@ -238,7 +241,7 @@ class BookingPricingService
             'date' => $from->toDateString(),
             'segment_role' => BookingScheduleCatalog::ROLE_EVENT,
             'base_block' => $baseBlock,
-            'additional_hours' => max(0, min(6, $additionalHours)),
+            'additional_hours' => BookingScheduleCatalog::normalizeAdditionalHours($baseBlock, $additionalHours),
             'area_keys' => $areaKeys,
             'sort_order' => 1,
         ]];

@@ -9,6 +9,11 @@ final class VenuePackageCatalog
         return ActiveVenueCatalog::packages();
     }
 
+    public static function officialCodes(): array
+    {
+        return collect(self::defaults())->pluck('code')->values()->all();
+    }
+
     public static function normalizeCode(?string $code): ?string
     {
         $code = strtoupper(trim((string) $code));
@@ -20,29 +25,66 @@ final class VenuePackageCatalog
         }
 
         $aliases = [
-            'FULL_HALL' => 'FULL_HALL_ONLY',
-            'FULL_HALL_PACKAGE' => 'FULL_HALL_ONLY',
-            'MAIN_HALL' => 'MAIN_HALL_ONLY',
-            'MAIN_HALL_PACKAGE' => 'MAIN_HALL_ONLY',
-            'LED_WALL' => 'LED_WALL_ONLY',
-            'LED' => 'LED_WALL_ONLY',
-            'LOUNGE' => 'VIP_LOUNGE_ONLY',
-            'VIP_LOUNGE' => 'VIP_LOUNGE_ONLY',
-            'BOARDROOM' => 'BOARD_ROOM_ONLY',
-            'BOARD_ROOM' => 'BOARD_ROOM_ONLY',
-            'MAIN_HALL_BOARDROOM' => 'MAIN_BOARD',
-            'MAIN_BOARDROOM' => 'MAIN_BOARD',
-            'MAIN_HALL_BOARD_ROOM' => 'MAIN_BOARD',
-            'MAIN_HALL_LOUNGE' => 'MAIN_LOUNGE',
-            'MAIN_HALL_LED_WALL' => 'MAIN_LED',
-            'MAIN_LED_WALL' => 'MAIN_LED',
-            'FULL_HALL_LED_WALL' => 'FULL_LED',
-            'FULL_LED_WALL' => 'FULL_LED',
-            'FULL_HALL_LOUNGE' => 'FULL_LOUNGE',
-            'FULL_HALL_BOARDROOM' => 'FULL_BOARD',
-            'FULL_HALL_BOARD_ROOM' => 'FULL_BOARD',
-            'LOUNGE_BOARDROOM' => 'LOUNGE_BOARD',
-            'LOUNGE_BOARD_ROOM' => 'LOUNGE_BOARD',
+            'GRAND_CONVENTION' => 'GRAND_CONVENTION_PACKAGE',
+            'GRAND_CONVENTION_PACKAGE' => 'GRAND_CONVENTION_PACKAGE',
+            'PREMIUM_CONFERENCE' => 'PREMIUM_CONFERENCE_PACKAGE',
+            'PREMIUM_CONFERENCE_PACKAGE' => 'PREMIUM_CONFERENCE_PACKAGE',
+            'CORPORATE_FORUM' => 'CORPORATE_FORUM_PACKAGE',
+            'CORPORATE_FORUM_PACKAGE' => 'CORPORATE_FORUM_PACKAGE',
+            'CEREMONY_AWARDS' => 'CEREMONY_AWARDS_PACKAGE',
+            'CEREMONY_AND_AWARDS' => 'CEREMONY_AWARDS_PACKAGE',
+            'CEREMONY_AWARDS_PACKAGE' => 'CEREMONY_AWARDS_PACKAGE',
+            'TRAINING_WORKSHOP' => 'TRAINING_WORKSHOP_PACKAGE',
+            'TRAINING_AND_WORKSHOP' => 'TRAINING_WORKSHOP_PACKAGE',
+            'TRAINING_WORKSHOP_PACKAGE' => 'TRAINING_WORKSHOP_PACKAGE',
+            'EXECUTIVE_MEETING' => 'EXECUTIVE_MEETING_PACKAGE',
+            'EXECUTIVE_MEETING_PACKAGE' => 'EXECUTIVE_MEETING_PACKAGE',
+            'EXHIBIT_TRADE_FAIR_GRAND' => 'EXHIBIT_TRADE_FAIR_GRAND_PACKAGE',
+            'EXHIBIT_AND_TRADE_FAIR_GRAND' => 'EXHIBIT_TRADE_FAIR_GRAND_PACKAGE',
+            'EXHIBIT_TRADE_FAIR_GRAND_PACKAGE' => 'EXHIBIT_TRADE_FAIR_GRAND_PACKAGE',
+            'EXHIBIT_TRADE_FAIR_STANDARD' => 'EXHIBIT_TRADE_FAIR_STANDARD_PACKAGE',
+            'EXHIBIT_AND_TRADE_FAIR_STANDARD' => 'EXHIBIT_TRADE_FAIR_STANDARD_PACKAGE',
+            'EXHIBIT_TRADE_FAIR_STANDARD_PACKAGE' => 'EXHIBIT_TRADE_FAIR_STANDARD_PACKAGE',
+
+            // Legacy package codes mapped to the closest new official package so old drafts/links do not crash.
+            'FULL_HALL' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_HALL_ONLY' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_HALL_PACKAGE' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_LED' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_LED_WALL' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_LOUNGE' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_BOARD' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_LED_LOUNGE' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_LED_BOARD' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_LOUNGE_BOARD' => 'GRAND_CONVENTION_PACKAGE',
+            'FULL_LED_LOUNGE_BOARD' => 'GRAND_CONVENTION_PACKAGE',
+            'MAIN_HALL' => 'CORPORATE_FORUM_PACKAGE',
+            'MAIN_HALL_ONLY' => 'CORPORATE_FORUM_PACKAGE',
+            'MAIN_HALL_PACKAGE' => 'CORPORATE_FORUM_PACKAGE',
+            'MAIN_LED' => 'CORPORATE_FORUM_PACKAGE',
+            'MAIN_LED_WALL' => 'CORPORATE_FORUM_PACKAGE',
+            'MAIN_BOARD' => 'TRAINING_WORKSHOP_PACKAGE',
+            'MAIN_HALL_BOARDROOM' => 'TRAINING_WORKSHOP_PACKAGE',
+            'MAIN_BOARDROOM' => 'TRAINING_WORKSHOP_PACKAGE',
+            'MAIN_HALL_BOARD_ROOM' => 'TRAINING_WORKSHOP_PACKAGE',
+            'MAIN_LOUNGE' => 'CEREMONY_AWARDS_PACKAGE',
+            'MAIN_HALL_LOUNGE' => 'CEREMONY_AWARDS_PACKAGE',
+            'MAIN_LOUNGE_BOARD' => 'PREMIUM_CONFERENCE_PACKAGE',
+            'LED_WALL' => 'CORPORATE_FORUM_PACKAGE',
+            'LED_WALL_ONLY' => 'CORPORATE_FORUM_PACKAGE',
+            'LED' => 'CORPORATE_FORUM_PACKAGE',
+            'LOUNGE' => 'EXECUTIVE_MEETING_PACKAGE',
+            'VIP_LOUNGE' => 'EXECUTIVE_MEETING_PACKAGE',
+            'VIP_LOUNGE_ONLY' => 'EXECUTIVE_MEETING_PACKAGE',
+            'BOARDROOM' => 'EXECUTIVE_MEETING_PACKAGE',
+            'BOARD_ROOM' => 'EXECUTIVE_MEETING_PACKAGE',
+            'BOARD_ROOM_ONLY' => 'EXECUTIVE_MEETING_PACKAGE',
+            'LOUNGE_BOARD' => 'EXECUTIVE_MEETING_PACKAGE',
+            'LOUNGE_BOARDROOM' => 'EXECUTIVE_MEETING_PACKAGE',
+            'LOUNGE_BOARD_ROOM' => 'EXECUTIVE_MEETING_PACKAGE',
+            'LED_LOUNGE' => 'CORPORATE_FORUM_PACKAGE',
+            'LED_BOARD' => 'CORPORATE_FORUM_PACKAGE',
+            'LED_LOUNGE_BOARD' => 'CORPORATE_FORUM_PACKAGE',
         ];
 
         return $aliases[$code] ?? $code;
@@ -92,6 +134,9 @@ final class VenuePackageCatalog
                     'label' => $package['name'],
                     'subtitle' => $package['subtitle'] ?? null,
                     'description' => $package['description'] ?? null,
+                    'notice' => $package['notice'] ?? null,
+                    'capacity_min' => $package['capacity_min'] ?? null,
+                    'capacity_max' => $package['capacity_max'] ?? null,
                     'area_keys' => $areaKeys,
                     'area_labels' => VenueAreaCatalog::displayNames($areaKeys),
                     'rates' => self::rateSummary($areaKeys),

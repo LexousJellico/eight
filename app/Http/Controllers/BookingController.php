@@ -169,8 +169,8 @@ class BookingController extends Controller
         $booking = $this->bookings->create($data);
 
         return redirect()
-            ->route(WorkspacePage::routeName($request, 'bookings.survey'), $booking->id)
-            ->with('success', 'Booking details saved. Complete the required MICE report.');
+            ->route(WorkspacePage::routeName($request, 'bookings.show'), $booking->id)
+            ->with('success', 'Reservation submitted successfully. You can now review the full booking details, MICE draft, and payment deadline.');
     }
 
     public function survey(Request $request, Booking $booking): Response
@@ -976,40 +976,11 @@ class BookingController extends Controller
 
     private function venuePackageOptions(): array
     {
-        $fallback = VenuePackageCatalog::options();
-
-        if (! class_exists(VenuePackageTemplate::class)) {
-            return $fallback;
-        }
-
-        try {
-            $query = VenuePackageTemplate::query()
-                ->where('is_public', true)
-                ->orderBy('sort_order')
-                ->orderBy('name');
-
-            $packages = $query->get();
-
-            if ($packages->isEmpty()) {
-                return $fallback;
-            }
-
-            return $packages->map(fn (VenuePackageTemplate $package) => [
-                'code' => $package->code,
-                'name' => $package->name,
-                'label' => $package->name,
-                'subtitle' => $package->subtitle,
-                'description' => $package->description,
-                'area_keys' => VenueAreaCatalog::canonicalKeys($package->area_keys ?? []),
-                'area_labels' => VenueAreaCatalog::displayNames($package->area_keys ?? []),
-                'image_path' => $package->image_path,
-                'is_public' => (bool) $package->is_public,
-                'is_featured' => (bool) $package->is_featured,
-                'sort_order' => (int) $package->sort_order,
-            ])->values()->all();
-        } catch (\Throwable) {
-            return $fallback;
-        }
+        // The active booking UI must use the official 8 BCCC package catalog.
+        // Database package templates are intentionally bypassed here because old
+        // template rows can still contain legacy combinations and make the form
+        // show more than the approved 8 choices.
+        return VenuePackageCatalog::options();
     }
 
     private function extractInitialPackageCode(Request $request): ?string

@@ -3,6 +3,8 @@
 namespace App\Http\Resources;
 
 use App\Models\MiceRecord;
+use App\Services\BookingBillingService;
+use App\Services\BookingDeadlineService;
 use App\Support\VenueAreaCatalog;
 use App\Support\WorkspacePage;
 use Illuminate\Http\Request;
@@ -55,6 +57,8 @@ class BookingResource extends JsonResource
 
         $miceReportStatus = $this->miceReportStatus();
         $financialSummary = $this->financial_summary ?? [];
+        $billingSummary = app(BookingBillingService::class)->summarize($this->resource);
+        $deadline = app(BookingDeadlineService::class)->deadlinePayload($this->resource);
 
         return [
             'id' => $this->id,
@@ -129,6 +133,18 @@ class BookingResource extends JsonResource
             'booking_status' => $this->booking_status,
             'payment_status' => $this->payment_status,
 
+            'expired_at' => optional($this->expired_at)->toIso8601String(),
+            'payment_balance_due_at' => optional($this->payment_balance_due_at)->toIso8601String(),
+            'auto_declined_at' => optional($this->auto_declined_at)->toIso8601String(),
+            'auto_decline_reason' => $this->auto_decline_reason,
+            'deadline_at' => $deadline['deadline_at'] ?? null,
+            'deadline_state' => $deadline['deadline_state'] ?? 'none',
+            'deadline_label' => $deadline['deadline_label'] ?? null,
+            'deadline_seconds_remaining' => $deadline['deadline_seconds_remaining'] ?? null,
+            'deadline_is_expired' => $deadline['deadline_is_expired'] ?? false,
+            'deadline_is_due_soon' => $deadline['deadline_is_due_soon'] ?? false,
+            'deadline_policy' => $deadline['deadline_policy'] ?? '10 working days',
+
             'is_public_calendar_visible' => (bool) $this->is_public_calendar_visible,
             'public_calendar_title' => $this->public_calendar_title,
 
@@ -151,6 +167,8 @@ class BookingResource extends JsonResource
             'payments' => $payments,
             'lifecycle_events' => $lifecycleEvents,
             'financial_summary' => $financialSummary,
+            'billing_summary' => $billingSummary,
+            'post_event_charges' => $this->postEventChargesPayload(),
 
             'totals' => [
                 'items_total' => round((float) ($financialSummary['total'] ?? $itemsTotal), 2),
@@ -160,6 +178,43 @@ class BookingResource extends JsonResource
                 'remaining_balance' => round((float) ($financialSummary['balance'] ?? max(0, (float) $itemsTotal - (float) $confirmedPaymentsTotal)), 2),
             ],
         ];
+    }
+
+
+    protected function postEventChargesPayload(): array
+    {
+        $charges = $this->relationLoaded('postEventCharges')
+            ? $this->postEventCharges
+            : $this->resource->postEventCharges()
+                ->with('assessedBy')
+                ->latest('assessed_at')
+                ->latest('id')
+                ->get();
+
+        return $charges
+            ->map(function ($charge) {
+                $assessor = $charge->relationLoaded('assessedBy') ? $charge->assessedBy : null;
+
+                return [
+                    'id' => $charge->id,
+                    'category' => $charge->category,
+                    'label' => $charge->label,
+                    'amount' => round((float) ($charge->amount ?? 0), 2),
+                    'status' => $charge->status,
+                    'notes' => $charge->notes,
+                    'assessed_at' => optional($charge->assessed_at)->toIso8601String(),
+                    'settled_at' => optional($charge->settled_at)->toIso8601String(),
+                    'created_at' => optional($charge->created_at)->toIso8601String(),
+                    'updated_at' => optional($charge->updated_at)->toIso8601String(),
+                    'assessed_by' => $assessor ? [
+                        'id' => $assessor->id,
+                        'name' => $assessor->name,
+                        'email' => $assessor->email,
+                    ] : null,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     protected function scheduleSegmentsPayload(): array

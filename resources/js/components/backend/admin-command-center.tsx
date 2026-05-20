@@ -1,0 +1,588 @@
+import { ResourceActionLink } from '@/components/admin-resource/resource-page-shell';
+import AppLayout from '@/layouts/app-layout';
+import type { BreadcrumbItem } from '@/types';
+import { Head, Link } from '@inertiajs/react';
+import {
+    Activity,
+    AlertTriangle,
+    BarChart3,
+    Building2,
+    CalendarClock,
+    CalendarDays,
+    CheckCircle2,
+    CircleDollarSign,
+    ClipboardList,
+    CreditCard,
+    ExternalLink,
+    FileBarChart,
+    Gauge,
+    Globe2,
+    Inbox,
+    LayoutDashboard,
+    LineChart,
+    PieChart,
+    ReceiptText,
+    ShieldCheck,
+    Sparkles,
+    TimerReset,
+    TrendingUp,
+    UsersRound,
+} from 'lucide-react';
+import { useMemo } from 'react';
+import type { ReactNode } from 'react';
+
+type CommandMetric = {
+    label: string;
+    value: string | number;
+    helper?: string | null;
+    href?: string | null;
+    tone?: 'neutral' | 'good' | 'warn' | 'danger' | 'info';
+};
+
+type BreakdownRow = {
+    label: string;
+    value: number;
+    helper?: string | null;
+};
+
+type TrendRow = {
+    label: string;
+    value: number;
+};
+
+type ActivityRow = {
+    id: number | string;
+    title: string;
+    message?: string | null;
+    type?: string | null;
+    severity?: string | null;
+    actor?: string | null;
+    created_at?: string | null;
+    link?: string | null;
+};
+
+type PaymentSummary = {
+    pending_review?: number;
+    approved_amount?: number;
+    submitted_amount?: number;
+    rejected_amount?: number;
+    overdue_bookings?: number;
+    due_soon_bookings?: number;
+};
+
+type WebsiteSummary = {
+    visits_today?: number;
+    visits_month?: number;
+    unique_visitors_month?: number;
+    inquiries_open?: number;
+    conversion_hint?: string | null;
+};
+
+type SystemHealth = {
+    label: string;
+    value: string | number;
+    helper?: string | null;
+    state?: 'good' | 'warn' | 'danger' | 'neutral';
+};
+
+type AdminCommandCenterPayload = {
+    headlineMetrics?: CommandMetric[];
+    bookingStatus?: BreakdownRow[];
+    bookingTrend?: TrendRow[];
+    packageUsage?: BreakdownRow[];
+    scheduleMix?: BreakdownRow[];
+    paymentSummary?: PaymentSummary;
+    miceSummary?: CommandMetric[];
+    websiteSummary?: WebsiteSummary;
+    systemHealth?: SystemHealth[];
+    recentActivity?: ActivityRow[];
+};
+
+type WorkspaceStats = Record<string, number | string | null | undefined>;
+
+type AdminCommandCenterProps = {
+    workspaceStats?: WorkspaceStats;
+    adminCommandCenter?: AdminCommandCenterPayload;
+};
+
+const breadcrumbs: BreadcrumbItem[] = [
+    { title: 'Admin', href: '/admin/dashboard' },
+    { title: 'Dashboard', href: '/admin/dashboard' },
+];
+
+function numberValue(value: unknown): number {
+    const parsed = Number(value ?? 0);
+
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function money(value: unknown): string {
+    const parsed = Number(value ?? 0);
+
+    return new Intl.NumberFormat('en-PH', {
+        style: 'currency',
+        currency: 'PHP',
+        maximumFractionDigits: 0,
+    }).format(Number.isFinite(parsed) ? parsed : 0);
+}
+
+function cleanLabel(value?: string | null): string {
+    return String(value || 'Not set')
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatDateTime(value?: string | null): string {
+    if (!value) return 'Just now';
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat('en-PH', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(date);
+}
+
+function toneClass(tone?: CommandMetric['tone'] | SystemHealth['state']) {
+    if (tone === 'good') {
+        return 'border-emerald-300/35 bg-emerald-400/10 text-emerald-700 dark:text-emerald-200';
+    }
+
+    if (tone === 'warn') {
+        return 'border-amber-300/40 bg-amber-400/10 text-amber-700 dark:text-amber-200';
+    }
+
+    if (tone === 'danger') {
+        return 'border-rose-300/40 bg-rose-400/10 text-rose-700 dark:text-rose-200';
+    }
+
+    if (tone === 'info') {
+        return 'border-sky-300/40 bg-sky-400/10 text-sky-700 dark:text-sky-200';
+    }
+
+    return 'border-[#d9c7a6]/70 bg-white/74 text-[#2f2517] dark:border-white/10 dark:bg-white/[0.055] dark:text-white';
+}
+
+function maxOf(rows: Array<{ value: number }>): number {
+    return Math.max(1, ...rows.map((row) => numberValue(row.value)));
+}
+
+function CommandMetricCard({ metric, index }: { metric: CommandMetric; index: number }) {
+    const content = (
+        <article className={`group relative min-h-[10.5rem] overflow-hidden rounded-[1.4rem] border p-5 shadow-[0_18px_54px_rgba(47,37,23,0.08)] transition duration-300 hover:-translate-y-1 ${toneClass(metric.tone)}`}>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(216,181,109,0.18),transparent_42%)] opacity-70" />
+            <div className="relative flex h-full flex-col justify-between gap-5">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] opacity-70">
+                            {metric.label}
+                        </p>
+                        <p className="mt-3 text-4xl font-semibold tracking-[-0.075em] lg:text-5xl">
+                            {metric.value}
+                        </p>
+                    </div>
+
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-current/15 bg-white/45 dark:bg-white/10">
+                        {index === 0 ? <ClipboardList className="h-5 w-5" /> : null}
+                        {index === 1 ? <Clock3Icon /> : null}
+                        {index === 2 ? <CreditCard className="h-5 w-5" /> : null}
+                        {index > 2 ? <Activity className="h-5 w-5" /> : null}
+                    </span>
+                </div>
+
+                <div className="flex items-end justify-between gap-3 border-t border-current/10 pt-3">
+                    <p className="text-sm leading-6 opacity-75">{metric.helper || 'Live system metric'}</p>
+                    {metric.href ? <ExternalLink className="h-4 w-4 shrink-0 opacity-55" /> : null}
+                </div>
+            </div>
+        </article>
+    );
+
+    if (metric.href) {
+        return (
+            <Link href={metric.href} className="block">
+                {content}
+            </Link>
+        );
+    }
+
+    return content;
+}
+
+function Clock3Icon() {
+    return <CalendarClock className="h-5 w-5" />;
+}
+
+function ProgressRow({ row, max }: { row: BreakdownRow; max: number }) {
+    const percent = max > 0 ? Math.min(100, Math.round((numberValue(row.value) / max) * 100)) : 0;
+
+    return (
+        <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                    <p className="truncate font-semibold text-[#2f2517] dark:text-white">{row.label}</p>
+                    {row.helper ? <p className="text-xs text-[#6e604c] dark:text-white/50">{row.helper}</p> : null}
+                </div>
+                <span className="font-black text-[#9d7b3d] dark:text-[#f1d89b]">{row.value}</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[#efe4cf] dark:bg-white/10">
+                <div
+                    className="h-full rounded-full bg-[#2f2517] transition-all duration-700 dark:bg-[#f1d89b]"
+                    style={{ width: `${percent}%` }}
+                />
+            </div>
+        </div>
+    );
+}
+
+function Panel({
+    title,
+    eyebrow,
+    icon: Icon,
+    children,
+    actions,
+}: {
+    title: string;
+    eyebrow?: string;
+    icon: typeof LayoutDashboard;
+    children: ReactNode;
+    actions?: ReactNode;
+}) {
+    return (
+        <section className="rounded-[1.65rem] border border-[#d9c7a6]/70 bg-white/84 p-5 shadow-[0_22px_70px_rgba(47,37,23,0.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055]">
+            <div className="mb-5 flex flex-col gap-3 border-b border-[#d9c7a6]/60 pb-4 dark:border-white/10 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-[#9d7b3d] dark:text-[#f1d89b]">
+                        <Icon className="h-3.5 w-3.5" />
+                        {eyebrow || 'Command Center'}
+                    </p>
+                    <h2 className="mt-2 text-2xl font-semibold tracking-[-0.055em] text-[#21180d] dark:text-white">
+                        {title}
+                    </h2>
+                </div>
+                {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+function TrendBars({ rows }: { rows: TrendRow[] }) {
+    const max = maxOf(rows);
+
+    if (!rows.length) {
+        return <p className="text-sm text-[#6e604c] dark:text-white/55">No trend data yet.</p>;
+    }
+
+    return (
+        <div className="flex min-h-[15rem] items-end gap-3 pt-4">
+            {rows.map((row) => {
+                const height = max > 0 ? Math.max(8, Math.round((row.value / max) * 100)) : 8;
+
+                return (
+                    <div key={row.label} className="flex min-w-0 flex-1 flex-col items-center gap-3">
+                        <div className="flex h-44 w-full items-end rounded-full bg-[#f4ead8] p-1 dark:bg-white/10">
+                            <div
+                                className="w-full rounded-full bg-[#2f2517] transition-all duration-700 dark:bg-[#f1d89b]"
+                                style={{ height: `${height}%` }}
+                                title={`${row.label}: ${row.value}`}
+                            />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs font-black text-[#21180d] dark:text-white">{row.value}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#8a7a63] dark:text-white/42">{row.label}</p>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function DonutSummary({ rows }: { rows: BreakdownRow[] }) {
+    const total = rows.reduce((sum, row) => sum + numberValue(row.value), 0);
+    const first = rows[0]?.value ?? 0;
+    const firstPercent = total > 0 ? Math.round((numberValue(first) / total) * 100) : 0;
+
+    return (
+        <div className="grid gap-5 lg:grid-cols-[13rem_1fr] lg:items-center">
+            <div className="relative mx-auto grid h-48 w-48 place-items-center rounded-full bg-[conic-gradient(#2f2517_var(--value),#efe4cf_0)] dark:bg-[conic-gradient(#f1d89b_var(--value),rgba(255,255,255,.12)_0)]" style={{ ['--value' as string]: `${firstPercent}%` }}>
+                <div className="grid h-32 w-32 place-items-center rounded-full bg-white text-center shadow-inner dark:bg-[#17120b]">
+                    <div>
+                        <p className="text-4xl font-semibold tracking-[-0.07em] text-[#21180d] dark:text-white">{total}</p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">Total</p>
+                    </div>
+                </div>
+            </div>
+            <div className="space-y-4">
+                {rows.map((row) => (
+                    <ProgressRow key={row.label} row={row} max={Math.max(1, total)} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCenter = {} }: AdminCommandCenterProps) {
+    const headlineMetrics = useMemo<CommandMetric[]>(() => {
+        if (adminCommandCenter.headlineMetrics?.length) {
+            return adminCommandCenter.headlineMetrics;
+        }
+
+        return [
+            {
+                label: 'Total Bookings',
+                value: numberValue(workspaceStats.total_bookings),
+                helper: 'All tracked reservation records.',
+                href: '/admin/bookings',
+                tone: 'neutral',
+            },
+            {
+                label: 'Pending Review',
+                value: numberValue(workspaceStats.pending),
+                helper: 'Pencil-booked or review-stage reservations.',
+                href: '/admin/bookings?status=pending',
+                tone: 'warn',
+            },
+            {
+                label: 'Payment Queue',
+                value: numberValue(workspaceStats.payments_pending),
+                helper: 'Proofs and balances needing review.',
+                href: '/admin/payments/review',
+                tone: 'info',
+            },
+            {
+                label: 'Today Active',
+                value: numberValue(workspaceStats.today_bookings),
+                helper: 'Bookings scheduled for today.',
+                href: '/admin/calendar',
+                tone: 'good',
+            },
+        ];
+    }, [adminCommandCenter.headlineMetrics, workspaceStats]);
+
+    const bookingStatus = adminCommandCenter.bookingStatus ?? [
+        { label: 'Pending', value: numberValue(workspaceStats.pending) },
+        { label: 'Confirmed', value: numberValue(workspaceStats.confirmed) },
+        { label: 'Active', value: numberValue(workspaceStats.active) },
+        { label: 'Completed', value: numberValue(workspaceStats.completed) },
+        { label: 'Declined', value: numberValue(workspaceStats.declined) },
+    ];
+    const bookingStatusMax = maxOf(bookingStatus);
+    const packageUsage = adminCommandCenter.packageUsage ?? [];
+    const packageMax = maxOf(packageUsage);
+    const scheduleMix = adminCommandCenter.scheduleMix ?? [];
+    const paymentSummary = adminCommandCenter.paymentSummary ?? {};
+    const websiteSummary = adminCommandCenter.websiteSummary ?? {};
+    const systemHealth = adminCommandCenter.systemHealth ?? [];
+    const recentActivity = adminCommandCenter.recentActivity ?? [];
+
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Admin Dashboard" />
+
+            <div className="space-y-5">
+                <section className="relative overflow-hidden rounded-[1.85rem] border border-[#d9c7a6]/70 bg-[#fffaf0]/92 p-5 shadow-[0_28px_90px_rgba(47,37,23,0.12)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.055] lg:p-6">
+                    <div className="pointer-events-none absolute inset-0">
+                        <div className="absolute right-[-8rem] top-[-10rem] h-96 w-96 rounded-full bg-[#d8b56d]/22 blur-3xl dark:bg-[#d8b56d]/10" />
+                        <div className="absolute left-[-9rem] bottom-[-10rem] h-72 w-72 rounded-full bg-[#2f2517]/8 blur-3xl dark:bg-white/5" />
+                    </div>
+
+                    <div className="relative grid gap-6 xl:grid-cols-[1fr_auto] xl:items-end">
+                        <div>
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white/72 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#9d7b3d] dark:border-white/10 dark:bg-white/7 dark:text-[#f1d89b]">
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                Executive Control Center
+                            </div>
+
+                            <h1 className="mt-4 max-w-5xl text-4xl font-semibold tracking-[-0.075em] text-[#21180d] dark:text-white lg:text-6xl">
+                                Admin Dashboard
+                            </h1>
+
+                            <p className="mt-4 max-w-4xl text-sm leading-7 text-[#6e604c] dark:text-white/60">
+                                Monitor reservations, payment deadlines, MICE reporting, website activity, public inquiries, venue setup, and staff actions from one operational command center.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 xl:justify-end">
+                            <ResourceActionLink href="/admin/content" variant="secondary">
+                                Manage Content
+                            </ResourceActionLink>
+                            <ResourceActionLink href="/admin/bookings/create">
+                                New Booking
+                            </ResourceActionLink>
+                        </div>
+                    </div>
+                </section>
+
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {headlineMetrics.map((metric, index) => (
+                        <CommandMetricCard key={`${metric.label}-${index}`} metric={metric} index={index} />
+                    ))}
+                </div>
+
+                <section className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+                    <Panel title="Booking Operations" eyebrow="Reservations" icon={ClipboardList} actions={<Link href="/admin/bookings" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Open records</Link>}>
+                        <div className="grid gap-5 lg:grid-cols-[1fr_1.1fr]">
+                            <DonutSummary rows={bookingStatus} />
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-black uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">Status pressure</h3>
+                                {bookingStatus.map((row) => (
+                                    <ProgressRow key={row.label} row={row} max={bookingStatusMax} />
+                                ))}
+                            </div>
+                        </div>
+                    </Panel>
+
+                    <Panel title="Payment Compliance" eyebrow="Finance Review" icon={CircleDollarSign} actions={<Link href="/admin/payments/review" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Review payments</Link>}>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <MiniMetric label="Pending Review" value={paymentSummary.pending_review ?? 0} icon={CreditCard} tone="warn" />
+                            <MiniMetric label="Approved Amount" value={money(paymentSummary.approved_amount)} icon={CheckCircle2} tone="good" />
+                            <MiniMetric label="Submitted Amount" value={money(paymentSummary.submitted_amount)} icon={ReceiptText} tone="info" />
+                            <MiniMetric label="Overdue Bookings" value={paymentSummary.overdue_bookings ?? 0} icon={AlertTriangle} tone="danger" />
+                        </div>
+
+                        <div className="mt-5 rounded-[1.25rem] border border-[#d9c7a6]/60 bg-[#fffaf0]/70 p-4 dark:border-white/10 dark:bg-white/[0.035]">
+                            <ProgressRow
+                                row={{ label: 'Due soon reservations', value: numberValue(paymentSummary.due_soon_bookings), helper: 'Payment deadline close to expiration.' }}
+                                max={Math.max(1, numberValue(paymentSummary.due_soon_bookings) + numberValue(paymentSummary.overdue_bookings))}
+                            />
+                        </div>
+                    </Panel>
+                </section>
+
+                <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+                    <Panel title="Booking Trend" eyebrow="Monthly Activity" icon={LineChart}>
+                        <TrendBars rows={adminCommandCenter.bookingTrend ?? []} />
+                    </Panel>
+
+                    <Panel title="Package and Schedule Mix" eyebrow="Catalog Usage" icon={PieChart}>
+                        <div className="grid gap-6 lg:grid-cols-2">
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-black uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">Top Packages</h3>
+                                {packageUsage.length ? (
+                                    packageUsage.map((row) => <ProgressRow key={row.label} row={row} max={packageMax} />)
+                                ) : (
+                                    <p className="text-sm text-[#6e604c] dark:text-white/55">No package usage yet.</p>
+                                )}
+                            </div>
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-black uppercase tracking-[0.22em] text-[#9d7b3d] dark:text-[#f1d89b]">Schedule Blocks</h3>
+                                {scheduleMix.length ? (
+                                    scheduleMix.map((row) => <ProgressRow key={row.label} row={row} max={maxOf(scheduleMix)} />)
+                                ) : (
+                                    <p className="text-sm text-[#6e604c] dark:text-white/55">Schedule segment data will appear after new bookings are saved.</p>
+                                )}
+                            </div>
+                        </div>
+                    </Panel>
+                </section>
+
+                <section className="grid gap-5 xl:grid-cols-3">
+                    <Panel title="MICE Reporting" eyebrow="Registry" icon={FileBarChart} actions={<Link href="/admin/reports/mice-registry" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Open registry</Link>}>
+                        <div className="space-y-3">
+                            {(adminCommandCenter.miceSummary ?? []).map((metric) => (
+                                <MiniMetric key={metric.label} label={metric.label} value={metric.value} icon={FileBarChart} tone={metric.tone ?? 'neutral'} />
+                            ))}
+                        </div>
+                    </Panel>
+
+                    <Panel title="Website Monitoring" eyebrow="Public Site" icon={Globe2} actions={<Link href="/admin/content" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Content</Link>}>
+                        <div className="grid gap-3">
+                            <MiniMetric label="Visits Today" value={websiteSummary.visits_today ?? 0} icon={TrendingUp} tone="info" />
+                            <MiniMetric label="Visits This Month" value={websiteSummary.visits_month ?? 0} icon={Globe2} tone="neutral" />
+                            <MiniMetric label="Unique Visitors" value={websiteSummary.unique_visitors_month ?? 0} icon={UsersRound} tone="good" />
+                            <MiniMetric label="Open Inquiries" value={websiteSummary.inquiries_open ?? 0} icon={Inbox} tone="warn" />
+                        </div>
+                        {websiteSummary.conversion_hint ? <p className="mt-4 text-sm leading-6 text-[#6e604c] dark:text-white/56">{websiteSummary.conversion_hint}</p> : null}
+                    </Panel>
+
+                    <Panel title="System Health" eyebrow="Readiness" icon={Gauge}>
+                        <div className="space-y-3">
+                            {systemHealth.map((item) => (
+                                <div key={item.label} className={`rounded-[1.15rem] border p-4 ${toneClass(item.state)}`}>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.22em] opacity-70">{item.label}</p>
+                                            <p className="mt-1 text-2xl font-semibold tracking-[-0.05em]">{item.value}</p>
+                                        </div>
+                                        {item.state === 'good' ? <CheckCircle2 className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+                                    </div>
+                                    {item.helper ? <p className="mt-2 text-sm leading-6 opacity-75">{item.helper}</p> : null}
+                                </div>
+                            ))}
+                        </div>
+                    </Panel>
+                </section>
+
+                <Panel title="Recent System Activity" eyebrow="Admin Monitoring" icon={Activity} actions={<Link href="/notifications" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Notification center</Link>}>
+                    {recentActivity.length ? (
+                        <div className="divide-y divide-[#d9c7a6]/60 overflow-hidden rounded-[1.25rem] border border-[#d9c7a6]/60 bg-[#fffaf0]/60 dark:divide-white/10 dark:border-white/10 dark:bg-white/[0.035]">
+                            {recentActivity.map((item) => {
+                                const row = (
+                                    <div className="grid gap-3 p-4 transition hover:bg-white/70 dark:hover:bg-white/[0.045] lg:grid-cols-[1fr_auto] lg:items-center">
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${toneClass(item.severity === 'critical' ? 'danger' : item.severity === 'warning' ? 'warn' : 'info')}`}>
+                                                    {cleanLabel(item.type || item.severity || 'activity')}
+                                                </span>
+                                                {item.actor ? <span className="text-xs font-semibold text-[#6e604c] dark:text-white/50">by {item.actor}</span> : null}
+                                            </div>
+                                            <p className="mt-2 font-semibold text-[#21180d] dark:text-white">{item.title}</p>
+                                            {item.message ? <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#6e604c] dark:text-white/55">{item.message}</p> : null}
+                                        </div>
+                                        <p className="text-xs font-semibold text-[#8a7a63] dark:text-white/40">{formatDateTime(item.created_at)}</p>
+                                    </div>
+                                );
+
+                                return item.link ? (
+                                    <Link key={item.id} href={item.link} className="block">
+                                        {row}
+                                    </Link>
+                                ) : (
+                                    <div key={item.id}>{row}</div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="rounded-[1.35rem] border border-dashed border-[#d9c7a6]/80 bg-[#fffaf0]/58 p-8 text-center dark:border-white/10 dark:bg-white/[0.035]">
+                            <Activity className="mx-auto h-9 w-9 text-[#9d7b3d] dark:text-[#f1d89b]" />
+                            <p className="mt-3 text-lg font-semibold tracking-[-0.035em] text-[#21180d] dark:text-white">No activity yet</p>
+                            <p className="mx-auto mt-2 max-w-xl text-sm leading-7 text-[#6e604c] dark:text-white/55">Monitoring events will appear after staff, manager, booking, payment, content, and system actions are recorded.</p>
+                        </div>
+                    )}
+                </Panel>
+            </div>
+        </AppLayout>
+    );
+}
+
+function MiniMetric({
+    label,
+    value,
+    icon: Icon,
+    tone = 'neutral',
+}: {
+    label: string;
+    value: string | number;
+    icon: typeof LayoutDashboard;
+    tone?: CommandMetric['tone'];
+}) {
+    return (
+        <div className={`rounded-[1.2rem] border p-4 ${toneClass(tone)}`}>
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] opacity-70">{label}</p>
+                    <p className="mt-2 text-2xl font-semibold tracking-[-0.055em]">{value}</p>
+                </div>
+                <Icon className="h-5 w-5 shrink-0" />
+            </div>
+        </div>
+    );
+}

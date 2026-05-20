@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\PublicInquiry;
+use App\Services\NotificationService;
 use App\Support\WorkspacePage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,10 @@ use Inertia\Response;
 class AdminInquiryController extends Controller
 {
     private string $table = 'inquiries';
+
+    public function __construct(private readonly NotificationService $notifications)
+    {
+    }
 
     public function index(Request $request): Response
     {
@@ -74,13 +79,20 @@ class AdminInquiryController extends Controller
             $data['read_at'] = now();
         }
 
+        $oldStatus = $inquiry->status ?? null;
         $inquiry->forceFill($data)->save();
+
+        $this->notifications->publicInquiryUpdated($inquiry->fresh(), $request->user(), [
+            'status' => [$oldStatus, $validated['status']],
+        ]);
 
         return back()->with('success', 'Inquiry status updated.');
     }
 
     public function destroy(Request $request, PublicInquiry $inquiry): RedirectResponse
     {
+        $this->notifications->publicInquiryDeleted($inquiry, $request->user());
+
         $inquiry->delete();
 
         return back()->with('success', 'Inquiry deleted.');

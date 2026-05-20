@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\BookingPayment;
+use App\Services\NotificationService;
 use App\Services\PaymentReviewService;
 use App\Support\WorkspacePage;
 use Illuminate\Http\RedirectResponse;
@@ -13,6 +14,10 @@ use Inertia\Response;
 
 class PaymentReviewController extends Controller
 {
+    public function __construct(private readonly NotificationService $notifications)
+    {
+    }
+
     public function index(Request $request, PaymentReviewService $service): Response
     {
         $query = BookingPayment::query()
@@ -120,16 +125,20 @@ class PaymentReviewController extends Controller
         ]);
 
         if ($validated['status'] === 'approved') {
-            $service->approve($payment, $request->user()?->id);
+$reviewed = $service->approve($payment, $request->user()?->id);
+            $reviewed->loadMissing('booking');
+            $this->notifications->paymentReviewed($reviewed, $reviewed->booking, $request->user(), 'approved');
 
             return back()->with('success', 'Payment proof approved successfully.');
         }
 
-        $service->reject(
+        $reviewed = $service->reject(
             payment: $payment,
             userId: $request->user()?->id,
             remarks: $validated['remarks'] ?? null
         );
+        $reviewed->loadMissing('booking');
+        $this->notifications->paymentReviewed($reviewed, $reviewed->booking, $request->user(), 'rejected', $validated['remarks'] ?? null);
 
         return back()->with('success', 'Payment proof rejected successfully.');
     }
@@ -139,7 +148,9 @@ class PaymentReviewController extends Controller
         BookingPayment $payment,
         PaymentReviewService $service
     ): RedirectResponse {
-        $service->approve($payment, $request->user()?->id);
+        $reviewed = $service->approve($payment, $request->user()?->id);
+        $reviewed->loadMissing('booking');
+        $this->notifications->paymentReviewed($reviewed, $reviewed->booking, $request->user(), 'approved');
 
         return back()->with('success', 'Payment proof approved successfully.');
     }
@@ -153,11 +164,13 @@ class PaymentReviewController extends Controller
             'remarks' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $service->reject(
+        $reviewed = $service->reject(
             payment: $payment,
             userId: $request->user()?->id,
             remarks: $validated['remarks'] ?? null
         );
+        $reviewed->loadMissing('booking');
+        $this->notifications->paymentReviewed($reviewed, $reviewed->booking, $request->user(), 'rejected', $validated['remarks'] ?? null);
 
         return back()->with('success', 'Payment proof rejected successfully.');
     }

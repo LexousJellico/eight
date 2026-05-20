@@ -5,6 +5,11 @@ namespace App\Support;
 final class VenueAreaCatalog
 {
     public const BLOCKING_BOOKING_STATUSES = [
+        'pending',
+        'pencil_booked',
+        'for_review',
+        'awaiting_downpayment',
+        'awaiting_balance',
         'accepted',
         'approved',
         'active',

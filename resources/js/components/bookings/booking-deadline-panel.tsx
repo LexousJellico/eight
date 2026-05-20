@@ -65,7 +65,7 @@ export default function BookingDeadlinePanel({ booking }: BookingDeadlinePanelPr
                     </h2>
 
                     <p className="mt-2 max-w-3xl text-sm leading-7 text-[#6e604c] dark:text-white/58">
-                        Pencil bookings and payment submissions are monitored automatically. If the deadline passes without settlement or review, the system can auto-decline the booking.
+                        Payment compliance is monitored automatically using a 10-working-day deadline. If the deadline passes without settlement, the system can auto-decline the booking.
                     </p>
                 </div>
 
@@ -75,7 +75,7 @@ export default function BookingDeadlinePanel({ booking }: BookingDeadlinePanelPr
             <div className="mt-5 grid gap-3 md:grid-cols-3">
                 <InfoCard
                     icon={Clock3}
-                    label="Initial Deadline"
+                    label="Payment Deadline"
                     value={formatDateTime(booking?.expired_at)}
                 />
 

@@ -292,61 +292,26 @@ protected function spacesPayload(): Collection
 
     protected function venuePackagesPayload(): Collection
     {
-        try {
-            $packages = VenuePackageTemplate::query()
-                ->where('is_public', true)
-                ->orderByDesc('is_featured')
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get();
-
-            if ($packages->isNotEmpty()) {
-                return $packages->map(function (VenuePackageTemplate $package) {
-                    $areaKeys = VenueAreaCatalog::canonicalKeys($package->area_keys ?? []);
-                    $image = $package->image_path ?: '/marketing/images/events/default.png';
-
-                    return [
-                        'id' => $package->id,
-                        'code' => $package->code,
-                        'title' => $package->name,
-                        'name' => $package->name,
-                        'subtitle' => $package->subtitle,
-                        'description' => $package->description,
-                        'areaKeys' => $areaKeys,
-                        'area_keys' => $areaKeys,
-                        'areaLabels' => VenueAreaCatalog::displayNames($areaKeys),
-                        'area_labels' => VenueAreaCatalog::displayNames($areaKeys),
-                        'image' => $image,
-                        'lightImage' => $image,
-                        'darkImage' => $image,
-                        'buttonLabel' => 'Reserve This Package',
-                        'href' => '/book?package=' . urlencode((string) $package->code),
-                        'featured' => (bool) $package->is_featured,
-                        'homepageVisible' => (bool) $package->is_public,
-                        'sortOrder' => (int) $package->sort_order,
-                    ];
-                })->values();
-            }
-        } catch (\Throwable) {
-            // Table may not exist before Batch 1 migration is applied.
-        }
-
         return collect(VenuePackageCatalog::options())
             ->filter(fn (array $package) => (bool) ($package['is_public'] ?? true))
             ->map(function (array $package, int $index) {
                 $image = $package['image_path'] ?? '/marketing/images/events/default.png';
+                $areaKeys = VenueAreaCatalog::canonicalKeys($package['area_keys'] ?? []);
 
                 return [
                     'id' => 'catalog-' . ($package['code'] ?? $index),
-                    'code' => $package['code'],
-                    'title' => $package['name'],
-                    'name' => $package['name'],
+                    'code' => $package['code'] ?? 'PACKAGE_' . $index,
+                    'title' => $package['name'] ?? $package['label'] ?? 'Venue package',
+                    'name' => $package['name'] ?? $package['label'] ?? 'Venue package',
                     'subtitle' => $package['subtitle'] ?? null,
                     'description' => $package['description'] ?? null,
-                    'areaKeys' => $package['area_keys'] ?? [],
-                    'area_keys' => $package['area_keys'] ?? [],
-                    'areaLabels' => $package['area_labels'] ?? [],
-                    'area_labels' => $package['area_labels'] ?? [],
+                    'notice' => $package['notice'] ?? null,
+                    'capacityMin' => $package['capacity_min'] ?? null,
+                    'capacityMax' => $package['capacity_max'] ?? null,
+                    'areaKeys' => $areaKeys,
+                    'area_keys' => $areaKeys,
+                    'areaLabels' => VenueAreaCatalog::displayNames($areaKeys),
+                    'area_labels' => VenueAreaCatalog::displayNames($areaKeys),
                     'image' => $image,
                     'lightImage' => $image,
                     'darkImage' => $image,
@@ -354,7 +319,7 @@ protected function spacesPayload(): Collection
                     'href' => '/book?package=' . urlencode((string) ($package['code'] ?? '')),
                     'featured' => (bool) ($package['is_featured'] ?? false),
                     'homepageVisible' => (bool) ($package['is_public'] ?? true),
-                    'sortOrder' => (int) ($package['sort_order'] ?? 0),
+                    'sortOrder' => (int) ($package['sort_order'] ?? $index),
                 ];
             })
             ->values();

@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,6 +26,10 @@ class NotificationController extends Controller
         }
 
         $base = $user->notifications();
+
+        if ($this->isClientNotificationCenter($request)) {
+            $base = $this->applyClientNotificationScope($base);
+        }
 
         $unread = (clone $base)
             ->whereNull('read_at')
@@ -158,48 +163,55 @@ class NotificationController extends Controller
 
     protected function clientKinds(): array
     {
-        return ['all', 'bookings', 'payments', 'mice', 'deadline', 'system'];
+        return ['all', 'bookings', 'payments', 'mice', 'deadline', 'account', 'system'];
     }
 
     protected function staffKinds(): array
     {
-        return ['all', 'automation', 'bookings', 'payments', 'calendar', 'services', 'users', 'system'];
+        return ['all', 'automation', 'bookings', 'payments', 'calendar', 'services', 'users', 'inquiries', 'mice', 'content', 'deadline', 'system'];
     }
 
     protected function applyClientNotificationScope(Builder|Relation $query): Builder|Relation
     {
-        return $query
-            ->where(function (Builder $inner) {
-                $inner->where(function (Builder $type) {
-                    $type->whereNull('type')
-                        ->orWhere('type', '')
-                        ->orWhere('type', 'like', 'booking%')
-                        ->orWhere('type', 'like', 'payment%')
-                        ->orWhere('type', 'like', 'mice%')
-                        ->orWhere('type', 'like', 'survey%')
-                        ->orWhere('type', 'like', 'deadline%')
-                        ->orWhere('type', 'like', 'booking_auto_%');
-                })
-                    ->orWhere('title', 'like', '%booking%')
-                    ->orWhere('title', 'like', '%payment%')
-                    ->orWhere('title', 'like', '%MICE%')
-                    ->orWhere('title', 'like', '%survey%')
-                    ->orWhere('title', 'like', '%deadline%');
-            })
-            ->where(function (Builder $inner) {
-                $inner->whereNull('type')
-                    ->orWhere(function (Builder $blocked) {
-                        $blocked->where('type', 'not like', '%inquiry%')
-                            ->where('type', 'not like', 'public_inquiry%')
-                            ->where('type', 'not like', 'calendar_block%')
-                            ->where('type', 'not like', 'service_%')
-                            ->where('type', 'not like', 'service_type_%')
-                            ->where('type', 'not like', 'user_%')
-                            ->where('type', 'not like', '%roles%');
+        if (Schema::hasColumn('user_notifications', 'audience') && Schema::hasColumn('user_notifications', 'privacy_scope')) {
+            return $query->where(function (Builder $inner): void {
+                $inner->whereIn('audience', ['client', 'user'])
+                    ->orWhere(function (Builder $legacy): void {
+                        $legacy->whereNull('audience')
+                            ->where(function (Builder $type): void {
+                                $this->applyLegacyClientTypeScope($type);
+                            });
                     });
-            })
-            ->where('title', 'not like', '%Public Inquir%')
-            ->where('message', 'not like', '%Public Inquir%');
+            })->where(function (Builder $inner): void {
+                $inner->where('privacy_scope', 'private')
+                    ->orWhereNull('privacy_scope');
+            });
+        }
+
+        return $query->where(function (Builder $inner): void {
+            $this->applyLegacyClientTypeScope($inner);
+        });
+    }
+
+    protected function applyLegacyClientTypeScope(Builder $query): void
+    {
+        $query->where(function (Builder $type): void {
+            $type->whereNull('type')
+                ->orWhere('type', '')
+                ->orWhere('type', 'like', 'booking%')
+                ->orWhere('type', 'like', 'payment%')
+                ->orWhere('type', 'like', 'mice%')
+                ->orWhere('type', 'like', 'survey%')
+                ->orWhere('type', 'like', 'deadline%')
+                ->orWhere('type', 'like', 'account%')
+                ->orWhere('type', 'like', 'booking_auto_%');
+        })
+            ->where('type', 'not like', '%inquiry%')
+            ->where('type', 'not like', 'calendar_block%')
+            ->where('type', 'not like', 'service_%')
+            ->where('type', 'not like', 'service_type_%')
+            ->where('type', 'not like', 'user_%')
+            ->where('type', 'not like', '%roles%');
     }
 
     protected function applyFilters(Builder|Relation $query, array $filters): Builder|Relation
@@ -269,9 +281,11 @@ class NotificationController extends Controller
                 $query->where(function (Builder $inner) {
                     $inner->where('type', 'like', 'deadline%')
                         ->orWhere('type', 'like', 'booking_auto_%')
+                        ->orWhere('type', 'like', '%auto_decline%')
+                        ->orWhere('type', 'like', '%lifecycle%')
                         ->orWhere('title', 'like', '%deadline%')
                         ->orWhere('message', 'like', '%deadline%')
-                        ->orWhere('message', 'like', '%24 hours%');
+                        ->orWhere('message', 'like', '%working day%');
                 });
                 break;
 
@@ -289,7 +303,30 @@ class NotificationController extends Controller
             case 'users':
                 $query->where(function (Builder $inner) {
                     $inner->where('type', 'like', 'user_%')
-                        ->orWhere('type', 'like', '%roles%');
+                        ->orWhere('type', 'like', '%roles%')
+                        ->orWhere('type', 'like', 'account%');
+                });
+                break;
+
+            case 'account':
+                $query->where(function (Builder $inner) {
+                    $inner->where('type', 'like', 'account%')
+                        ->orWhere('type', 'like', 'user_%')
+                        ->orWhere('title', 'like', '%account%');
+                });
+                break;
+
+            case 'inquiries':
+                $query->where(function (Builder $inner) {
+                    $inner->where('type', 'like', '%inquiry%')
+                        ->orWhere('title', 'like', '%inquiry%');
+                });
+                break;
+
+            case 'content':
+                $query->where(function (Builder $inner) {
+                    $inner->where('type', 'like', 'content%')
+                        ->orWhere('title', 'like', '%content%');
                 });
                 break;
 

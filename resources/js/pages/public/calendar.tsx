@@ -78,7 +78,8 @@ function DayButton({
     const key = dateKey(day);
     const inMonth = key.startsWith(month);
     const isToday = key === todayKey();
-    const status = deriveDayStatus(entry);
+    const isPast = key < todayKey();
+    const status = isPast ? 'past_unavailable' : deriveDayStatus(entry);
     const count = eventCount(entry);
 
     return (
@@ -89,16 +90,18 @@ function DayButton({
                 'group relative mx-auto grid h-9 w-9 place-items-center rounded-full text-sm font-semibold transition duration-300 focus:outline-none focus:ring-4 focus:ring-[#176456]/18',
                 selected
                     ? 'bg-[#176456] text-white shadow-[0_12px_28px_rgba(23,100,86,0.25)]'
-                    : count > 1
-                      ? 'bg-[#f59e0b] text-white hover:-translate-y-0.5'
-                      : count === 1
-                        ? 'bg-[#fde7bf] text-[#1f3e38] hover:-translate-y-0.5'
-                        : isToday
+                    : isPast
+                      ? 'bg-slate-100 text-slate-400 opacity-70'
+                      : count > 1
+                        ? 'bg-[#f59e0b] text-white hover:-translate-y-0.5'
+                        : count === 1
+                          ? 'bg-[#fde7bf] text-[#1f3e38] hover:-translate-y-0.5'
+                          : isToday
                           ? 'bg-[#176456]/14 text-[#176456] dark:bg-white/12 dark:text-white'
                           : 'text-[#284b67] hover:bg-[#eef4f2] dark:text-white/70 dark:hover:bg-white/10',
                 !inMonth && 'opacity-40',
             )}
-            aria-label={`${key} ${statusLabel(status)}`}
+            aria-label={`${key} ${isPast ? 'Unavailable past date' : statusLabel(status)}`}
         >
             {day.getDate()}
             {count > 0 ? (
@@ -203,7 +206,7 @@ function SelectedPanel({ day }: { day: PublicDayStatus | null }) {
                                         <p className="text-xs text-[#65758b] dark:text-white/46">{block.from} – {block.to}</p>
                                     </div>
                                     <span className={cx('rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em]', block.is_available === false ? 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-100' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-100')}>
-                                        {block.is_available === false ? 'Busy' : 'Open'}
+                                        {block.is_available === false ? 'Unavailable' : 'Open'}
                                     </span>
                                 </div>
                             ))
@@ -371,6 +374,7 @@ export default function PublicCalendar({ venueOptions = [] }: Props) {
                                 <div className="flex flex-wrap gap-4 border-t border-slate-200 px-5 py-4 dark:border-white/10">
                                     <LegendItem className="border-[#fde7bf] bg-[#fde7bf]" label="1 event" />
                                     <LegendItem className="border-[#f59e0b] bg-[#f59e0b]" label="2+ events" />
+                                    <LegendItem className="border-slate-200 bg-slate-100" label="Past unavailable" />
                                     <span className="inline-flex items-center gap-2 text-xs font-medium text-[#425466] dark:text-white/60">
                                         <span className={cx('h-3.5 w-3.5 rounded-full', statusDot('available'))} />
                                         Available

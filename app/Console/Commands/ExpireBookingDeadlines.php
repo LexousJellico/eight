@@ -26,10 +26,10 @@ class ExpireBookingDeadlines extends Command
         $this->table(
             ['Metric', 'Count'],
             [
-                ['Seeded initial deadlines', $result['seeded_initial_deadlines'] ?? 0],
-                ['Expired initial deadlines', $result['expired_initial_deadlines'] ?? 0],
-                ['Seeded balance deadlines', $result['seeded_balance_deadlines'] ?? 0],
-                ['Expired balance deadlines', $result['expired_balance_deadlines'] ?? 0],
+                ['Seeded 10-working-day payment deadlines', $result['seeded_initial_deadlines'] ?? 0],
+                ['Auto-declined expired payment deadlines', $result['expired_initial_deadlines'] ?? 0],
+                ['Seeded 10-working-day balance deadlines', $result['seeded_balance_deadlines'] ?? 0],
+                ['Auto-declined expired balance deadlines', $result['expired_balance_deadlines'] ?? 0],
             ],
         );
 

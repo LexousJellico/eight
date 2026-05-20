@@ -39,12 +39,15 @@ class BookingApprovalWorkflowService
             'payment_status' => 'unpaid',
         ];
 
+        $deadlineService = app(BookingDeadlineService::class);
+        $deadline = $booking->expired_at ?: $deadlineService->addWorkingDays(now(), BookingDeadlineService::PAYMENT_DEADLINE_WORKING_DAYS);
+
         if (Schema::hasColumn('bookings', 'down_payment_due_at')) {
-            $payload['down_payment_due_at'] = $booking->down_payment_due_at ?: now()->addHours(24);
+            $payload['down_payment_due_at'] = $booking->down_payment_due_at ?: $deadline;
         }
 
         if (Schema::hasColumn('bookings', 'expired_at')) {
-            $payload['expired_at'] = $booking->expired_at ?: now()->addHours(24);
+            $payload['expired_at'] = $booking->expired_at ?: $deadline;
         }
 
         return $this->transition(

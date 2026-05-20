@@ -249,6 +249,16 @@ function submittedPaymentTotal(booking: BookingLike): number {
   return numberValue(totalValue(booking, 'submitted_payments_total') ?? 0);
 }
 
+function bookingDeadlineDate(booking: BookingLike): string | null {
+  return String(
+    booking.deadline_at ??
+      booking.deadlineAt ??
+      booking.payment_balance_due_at ??
+      booking.expired_at ??
+      '',
+  ) || null;
+}
+
 function bookingTotal(booking: BookingLike): number {
   return numberValue(totalValue(booking, 'items_total') ?? 0);
 }
@@ -426,6 +436,7 @@ function BookingCard({
           <DetailMini label="Start" value={formatDateTime(booking.booking_date_from)} icon={CalendarDays} />
           <DetailMini label="End" value={formatDateTime(booking.booking_date_to)} icon={Clock3} />
           <DetailMini label="Guests" value={text(booking.number_of_guests, '—')} icon={Users} />
+          <DetailMini label="Payment Deadline" value={bookingDeadlineDate(booking) ? formatDateTime(bookingDeadlineDate(booking)) : 'Not set'} icon={Clock3} />
           <DetailMini label="Remaining" value={formatMoney(remainingBalance(booking))} icon={WalletCards} />
         </div>
 

@@ -69,7 +69,7 @@ export default function BackendNotificationBell() {
                     label: 'Booking updates',
                     description: 'Status changes, schedule notes, payment reminders, and next steps for your booking.',
                     value: count(summary.totalUnread) || count(summary.pendingBookings),
-                    href: '/my-bookings',
+                    href: '/notifications',
                     icon: CalendarClock,
                 },
                 {
@@ -143,7 +143,7 @@ export default function BackendNotificationBell() {
                                 <div>
                                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#1f7465] dark:text-[#7dd7c6]">Notifications</p>
                                     <p className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">
-                                        {role === 'user' ? 'Your booking notification center' : total > 0 ? `${total} item${total === 1 ? '' : 's'} need attention` : 'No urgent notifications'}
+                                        {role === 'user' ? 'Your private system messages' : total > 0 ? `${total} item${total === 1 ? '' : 's'} need attention` : 'No urgent notifications'}
                                     </p>
                                 </div>
                                 <ChevronDown className="h-4 w-4 text-slate-400 dark:text-white/42" />

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,100..900;1,100..900&display=swap');
 @import 'tailwindcss';
 @import './public-display-system.css';
 
@@ -10,7 +11,7 @@
 
 @theme {
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Public Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 
@@ -10500,4 +10501,20 @@ body:has(.bccc-availability-dock) main {
     .bccc-availability-dock-panel {
         border-radius: 1rem 1rem 0 0 !important;
     }
+}
+
+
+/* Batch 6 public header typography lock */
+.bccc-public-header,
+.bccc-public-header * {
+    font-family: 'Public Sans', sans-serif;
+    font-style: normal;
+}
+
+.bccc-public-header nav a,
+.bccc-public-header nav button,
+.bccc-public-header .bccc-public-header-link {
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 24px;
 }

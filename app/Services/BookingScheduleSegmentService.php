@@ -128,15 +128,22 @@ class BookingScheduleSegmentService
 
         $baseBlock = BookingScheduleCatalog::normalizeBaseBlock($baseBlock);
         $role = BookingScheduleCatalog::normalizeRole($role);
-        $additionalHours = max(0, min(6, $additionalHours));
 
-        if ($baseBlock === BookingScheduleCatalog::BLOCK_AM && $additionalHours > 0) {
+        if (! BookingScheduleCatalog::allowsAdditionalHours($baseBlock) && $additionalHours > 0) {
             throw ValidationException::withMessages([
                 'schedule_segments' => 'Additional hours are allowed only after PM or Whole Day schedules.',
             ]);
         }
 
+        $additionalHours = BookingScheduleCatalog::normalizeAdditionalHours($baseBlock, $additionalHours);
+
         [$startsAt, $endsAt, $additionalStartsAt, $additionalEndsAt] = BookingScheduleCatalog::intervalForDate($date, $baseBlock, $additionalHours);
+
+        if (BookingScheduleCatalog::isWithinLeadTime($startsAt)) {
+            throw ValidationException::withMessages([
+                'schedule_segments' => BookingScheduleCatalog::leadTimeMessage($baseBlock),
+            ]);
+        }
 
         if ($endsAt->lte($startsAt)) {
             throw ValidationException::withMessages([

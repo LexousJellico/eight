@@ -10,6 +10,7 @@ use App\Models\PublicEvent;
 use App\Models\Service;
 use App\Services\Contracts\BookingServiceInterface;
 use App\Support\ActiveVenueCatalog;
+use App\Support\BookingScheduleCatalog;
 use App\Support\BookingStatusCatalog;
 use App\Support\DressingRoomCatalog;
 use App\Support\VenuePackageCatalog;
@@ -294,7 +295,7 @@ class BookingService implements BookingServiceInterface
             }
 
             if ($user && ! WorkspaceAccess::isStaffLike(request())) {
-                $bookingData['client_email'] = strtolower(trim((string) $user->email));
+                $bookingData['client_email'] = strtolower(trim((string) ($bookingData['client_email'] ?? $user->email)));
                 $bookingData['booking_status'] = 'pending';
                 $bookingData['payment_status'] = 'unpaid';
             }
@@ -346,6 +347,8 @@ class BookingService implements BookingServiceInterface
             $this->applyPricingMeta($bookingData, $data, $items, $scheduleSegments ?? []);
 
             $booking = Booking::query()->create($bookingData);
+
+            app(BookingDeadlineService::class)->assignInitialDeadline($booking, $booking->created_at ?: now());
 
             $this->syncItems($booking, $items);
             if (! empty($scheduleSegments)) {
@@ -421,7 +424,7 @@ class BookingService implements BookingServiceInterface
                 ];
 
                 $bookingData = array_intersect_key($bookingData, array_flip($allowed));
-                $bookingData['client_email'] = strtolower(trim((string) $user->email));
+                $bookingData['client_email'] = strtolower(trim((string) ($bookingData['client_email'] ?? $user->email)));
 
                 $items = null;
                 $itemsWasSubmitted = false;
@@ -1339,8 +1342,8 @@ class BookingService implements BookingServiceInterface
             'confirmed_total' => $confirmedTotal,
             'submitted_total' => $submittedTotal,
             'down_required' => $downRequired,
-            'down_deadline_at' => $createdAt->copy()->addHours(24),
-            'final_deadline_at' => $createdAt->copy()->addHours(48),
+            'down_deadline_at' => $booking->expired_at ?: app(BookingDeadlineService::class)->addWorkingDays($createdAt, BookingDeadlineService::PAYMENT_DEADLINE_WORKING_DAYS),
+            'final_deadline_at' => $booking->payment_balance_due_at ?: app(BookingDeadlineService::class)->addWorkingDays($createdAt, BookingDeadlineService::PAYMENT_DEADLINE_WORKING_DAYS),
             'has_met_down_payment' => $itemsTotal <= 0 || ($confirmedTotal + 0.00001 >= $downRequired),
             'has_met_full_payment' => $itemsTotal <= 0 || ($confirmedTotal + 0.00001 >= $itemsTotal),
             'has_pending_review_payment' => $submittedTotal > $confirmedTotal,
@@ -1716,8 +1719,8 @@ class BookingService implements BookingServiceInterface
         return match ($block) {
             'AM' => [$day->copy()->setTime(6, 0), $day->copy()->setTime(12, 0)],
             'PM' => [$day->copy()->setTime(12, 0), $day->copy()->setTime(18, 0)],
-            'EVE' => [$day->copy()->setTime(18, 0), $day->copy()->addDay()->startOfDay()],
-            default => [$day->copy()->setTime(6, 0), $day->copy()->addDay()->startOfDay()],
+            'EVE' => [$day->copy()->setTime(18, 0), $day->copy()->setTime(23, 59)],
+            default => [$day->copy()->setTime(6, 0), $day->copy()->setTime(23, 59)],
         };
     }
 
@@ -1773,6 +1776,11 @@ class BookingService implements BookingServiceInterface
                 if ($reason !== '') {
                     $reasons[] = $reason;
                 }
+            }
+
+            if (BookingScheduleCatalog::isWithinLeadTime($block['start'])) {
+                $blocked = true;
+                $reasons[] = 'This time block is no longer bookable because reservations need at least ' . BookingScheduleCatalog::MINIMUM_LEAD_HOURS . ' hours lead time.';
             }
 
             unset($blocks[$key]['start'], $blocks[$key]['end']);
@@ -1899,7 +1907,7 @@ class BookingService implements BookingServiceInterface
         $intervals = [];
 
         $bookings = Booking::query()
-            ->with(['bookingServices.service.serviceType', 'service.serviceType'])
+            ->with(['bookingServices.service.serviceType', 'service.serviceType', 'scheduleSegments'])
             ->whereIn('booking_status', $this->blockingBookingStatuses())
             ->when($excludeBookingId, fn (Builder $query) => $query->where('id', '!=', $excludeBookingId))
             ->where('booking_date_from', '<', $dayEnd)
@@ -1911,6 +1919,41 @@ class BookingService implements BookingServiceInterface
             ->values();
 
         foreach ($bookings as $booking) {
+            $bookingReason = trim((string) ($booking->public_calendar_title ?: $booking->type_of_event ?: $booking->company_name ?: 'Reserved by booking'));
+
+            if ($booking->scheduleSegments->isNotEmpty()) {
+                foreach ($booking->scheduleSegments as $segment) {
+                    if ($segment->date && Carbon::parse($segment->date)->toDateString() !== $day->toDateString()) {
+                        continue;
+                    }
+
+                    if ($area && ! $this->scheduleSegmentMatchesArea($segment->area_keys ?? [], $booking, $area)) {
+                        continue;
+                    }
+
+                    $start = Carbon::parse($segment->starts_at);
+                    $end = $this->endForOverlap(Carbon::parse($segment->ends_at));
+
+                    if ($end->lte($dayStart) || $start->gte($dayEnd)) {
+                        continue;
+                    }
+
+                    $from = $start->gt($dayStart) ? $start : $dayStart->copy();
+                    $to = $end->lt($dayEnd) ? $end : $dayEnd->copy();
+
+                    if ($to->gt($from)) {
+                        $intervals[] = [
+                            'from' => $from,
+                            'to' => $to,
+                            'source' => 'booking',
+                            'reason' => $bookingReason,
+                        ];
+                    }
+                }
+
+                continue;
+            }
+
             $start = Carbon::parse($booking->booking_date_from);
             $end = $this->endForOverlap(Carbon::parse($booking->booking_date_to));
 
@@ -1926,7 +1969,7 @@ class BookingService implements BookingServiceInterface
                     'from' => $from,
                     'to' => $to,
                     'source' => 'booking',
-                    'reason' => trim((string) ($booking->public_calendar_title ?: $booking->type_of_event ?: $booking->company_name ?: 'Reserved by booking')),
+                    'reason' => $bookingReason,
                 ];
             }
         }
@@ -2585,6 +2628,23 @@ class BookingService implements BookingServiceInterface
         if ($booking->service) {
             return $this->areasOverlap((string) ($booking->service->name ?? ''), $area)
                 || $this->areasOverlap((string) ($booking->service->serviceType?->name ?? ''), $area);
+        }
+
+        return false;
+    }
+
+    private function scheduleSegmentMatchesArea(mixed $segmentAreaKeys, Booking $booking, string $area): bool
+    {
+        $keys = ActiveVenueCatalog::sanitizeKeys($segmentAreaKeys);
+
+        if ($keys === []) {
+            return $this->bookingMatchesArea($booking, $area);
+        }
+
+        foreach ($keys as $key) {
+            if ($this->areasOverlap($key, $area)) {
+                return true;
+            }
         }
 
         return false;

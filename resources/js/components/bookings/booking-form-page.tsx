@@ -67,6 +67,9 @@ type VenuePackageOption = {
   is_public?: boolean | number | null;
   is_featured?: boolean | number | null;
   sort_order?: number | null;
+  notice?: string | null;
+  capacity_min?: number | string | null;
+  capacity_max?: number | string | null;
 };
 
 type BookingFormOptions = {
@@ -174,6 +177,9 @@ type ActivePackage = {
   areaKeys: ActiveVenueKey[];
   image: string;
   featured?: boolean;
+  notice?: string | null;
+  capacityMin?: number | null;
+  capacityMax?: number | null;
 };
 
 type ScheduleSelection = {
@@ -393,41 +399,88 @@ const ACTIVE_VENUES: ActiveVenue[] = [
 
 const FALLBACK_PACKAGES: ActivePackage[] = [
   {
-    code: 'FULL_HALL_ONLY',
-    label: 'Full Hall',
-    subtitle: 'Full Hall with lobby included',
-    areaKeys: ['FULL_HALL'],
-    image: '/marketing/images/facilities/darkmain.JPG',
+    code: 'GRAND_CONVENTION_PACKAGE',
+    label: 'Grand Convention Package',
+    subtitle: 'Full Hall flagship convention setup',
+    areaKeys: ['FULL_HALL', 'LED_WALL', 'LOUNGE', 'BOARDROOM'],
+    image: '/marketing/images/events/darkmain.JPG',
     featured: true,
+    capacityMin: 801,
+    capacityMax: 2000,
+    notice: 'FULL HALL maximum capacity is 2,000. Lobby and grounds/parking support are included; Main Hall cannot be added separately because it is already occupied by Full Hall use.',
   },
   {
-    code: 'MAIN_BOARD',
-    label: 'Main Hall + Boardroom',
-    subtitle: '₱66,000 whole day active combination',
-    areaKeys: ['MAIN_HALL', 'BOARDROOM'],
-    image: '/marketing/images/facilities/darkmain.JPG',
+    code: 'PREMIUM_CONFERENCE_PACKAGE',
+    label: 'Premium Conference Package',
+    subtitle: 'Main Hall with VIP and display support',
+    areaKeys: ['MAIN_HALL', 'LED_WALL', 'LOUNGE', 'BOARDROOM'],
+    image: '/marketing/images/hero/noon2.jpg',
     featured: true,
+    capacityMin: 301,
+    capacityMax: 800,
+    notice: 'MAIN HALL maximum capacity is 800 and has fewer collapsible chairs than FULL HALL.',
   },
   {
-    code: 'MAIN_LOUNGE',
-    label: 'Main Hall + Lounge',
-    subtitle: 'Main hall with VIP support space',
-    areaKeys: ['MAIN_HALL', 'LOUNGE'],
-    image: '/marketing/images/facilities/darkvip.JPG',
-  },
-  {
-    code: 'MAIN_LED',
-    label: 'Main Hall + LED Wall',
-    subtitle: 'Program-ready hall with visual display',
+    code: 'CORPORATE_FORUM_PACKAGE',
+    label: 'Corporate Forum Package',
+    subtitle: 'Main Hall with LED Wall for formal forums',
     areaKeys: ['MAIN_HALL', 'LED_WALL'],
-    image: '/marketing/images/facilities/ledwall.jpg',
+    image: '/marketing/images/events/darkmain.JPG',
+    featured: true,
+    capacityMin: 101,
+    capacityMax: 800,
+    notice: 'MAIN HALL maximum capacity is 800 and has fewer collapsible chairs than FULL HALL.',
   },
   {
-    code: 'LOUNGE_BOARDROOM',
-    label: 'Lounge + Boardroom',
-    subtitle: 'Executive rooms only',
+    code: 'CEREMONY_AWARDS_PACKAGE',
+    label: 'Ceremony & Awards Package',
+    subtitle: 'Formal ceremony layout with VIP support',
+    areaKeys: ['MAIN_HALL', 'LOUNGE', 'LED_WALL'],
+    image: '/marketing/images/facilities/darkvip.JPG',
+    featured: true,
+    capacityMin: 101,
+    capacityMax: 800,
+    notice: 'MAIN HALL maximum capacity is 800 and has fewer collapsible chairs than FULL HALL.',
+  },
+  {
+    code: 'TRAINING_WORKSHOP_PACKAGE',
+    label: 'Training & Workshop Package',
+    subtitle: 'Workshop-ready Main Hall with coordination room',
+    areaKeys: ['MAIN_HALL', 'BOARDROOM'],
+    image: '/marketing/images/hero/noon2.jpg',
+    capacityMin: 50,
+    capacityMax: 800,
+    notice: 'MAIN HALL maximum capacity is 800 and has fewer collapsible chairs than FULL HALL.',
+  },
+  {
+    code: 'EXECUTIVE_MEETING_PACKAGE',
+    label: 'Executive Meeting Package',
+    subtitle: 'Lounge and Boardroom executive setup',
     areaKeys: ['LOUNGE', 'BOARDROOM'],
     image: '/marketing/images/facilities/boardroom.jpg',
+    capacityMin: 1,
+    capacityMax: 80,
+    notice: 'Designed for compact executive use. Main Hall and Full Hall are not included in this package.',
+  },
+  {
+    code: 'EXHIBIT_TRADE_FAIR_GRAND_PACKAGE',
+    label: 'Exhibit & Trade Fair Package - Grand',
+    subtitle: 'Full Hall exhibit setup with display support',
+    areaKeys: ['FULL_HALL', 'LED_WALL', 'LOUNGE', 'BOARDROOM'],
+    image: '/marketing/images/events/darkmain.JPG',
+    capacityMin: 801,
+    capacityMax: 2000,
+    notice: 'FULL HALL maximum capacity is 2,000. Lobby and grounds/parking support are included with Full Hall.',
+  },
+  {
+    code: 'EXHIBIT_TRADE_FAIR_STANDARD_PACKAGE',
+    label: 'Exhibit & Trade Fair Package - Standard',
+    subtitle: 'Main Hall exhibit and trade-fair setup',
+    areaKeys: ['MAIN_HALL', 'LED_WALL'],
+    image: '/marketing/images/facilities/ledwall.jpg',
+    capacityMin: 50,
+    capacityMax: 800,
+    notice: 'MAIN HALL maximum capacity is 800 and has fewer collapsible chairs than FULL HALL.',
   },
 ];
 
@@ -465,7 +518,7 @@ const PRIVATE_EVENT_OPTIONS: SelectOption[] = [
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const PUBLIC_EVENT_CENTER = 'BAGUIO CONVENTION AND CULTURAL CENTER';
-const MAX_ADDITIONAL_HOURS = 6;
+const MAX_ADDITIONAL_HOURS = 5;
 const REQUIRED_BOND = 10000;
 
 const BCCC_POLICY_NOTICE = [
@@ -669,6 +722,10 @@ function addDays(date: string, days: number): string {
 
 function compareDate(a: string, b: string): number {
   return a.localeCompare(b);
+}
+
+function isPastDate(date: string): boolean {
+  return compareDate(date, todayDate()) < 0;
 }
 
 function dateRange(start: string, end: string): string[] {
@@ -926,6 +983,9 @@ function packageFromBackend(option: VenuePackageOption): ActivePackage | null {
     areaKeys,
     image: option.image_path || selectedVenueByKey(areaKeys[0]).image,
     featured: Boolean(option.is_featured),
+    notice: option.notice ?? null,
+    capacityMin: option.capacity_min === null || option.capacity_min === undefined ? null : Number(option.capacity_min),
+    capacityMax: option.capacity_max === null || option.capacity_max === undefined ? null : Number(option.capacity_max),
   };
 }
 
@@ -969,6 +1029,21 @@ function emptyDayAvailability(date: string, status = 'unverified', note = 'Avail
     am: availabilityBlockFallback('AM'),
     pm: availabilityBlockFallback('PM'),
     eve: availabilityBlockFallback('EVE'),
+    sourceCount: 0,
+  };
+}
+
+function pastDateAvailability(date: string): DayAvailabilitySummary {
+  const reason = 'Past date is unavailable for new reservations. Completed past events remain visible in calendar records.';
+  return {
+    date,
+    status: 'past_unavailable',
+    title: 'Past date unavailable',
+    note: reason,
+    canProceed: false,
+    am: { ...availabilityBlockFallback('AM'), available: false, reason },
+    pm: { ...availabilityBlockFallback('PM'), available: false, reason },
+    eve: { ...availabilityBlockFallback('EVE'), available: false, reason },
     sourceCount: 0,
   };
 }
@@ -1081,7 +1156,7 @@ function availabilityPillClasses(available: boolean | null, selected: boolean): 
 
 function availabilityPillText(available: boolean | null): string {
   if (available === null) return 'Check';
-  return available ? 'Open' : 'Booked';
+  return available ? 'Open' : 'Unavailable';
 }
 
 function coveredMonthFromDate(date: string): string {
@@ -1257,12 +1332,13 @@ function SectionShell({ kicker, title, description, icon, children }: { kicker: 
 export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   const page = usePage();
   const props = pagePropsWithFallback(rawProps, page.props as Record<string, unknown>);
-  const role = statusRole(props.workspaceRole ?? ((page.props.auth as { user?: { role?: string } } | undefined)?.user?.role ?? 'user'));
+  const authUser = (page.props.auth as { user?: { role?: string; email?: string | null } } | undefined)?.user;
+  const role = statusRole(props.workspaceRole ?? (authUser?.role ?? 'user'));
   const booking = props.booking;
   const editing = Boolean(booking?.id);
   const services = useMemo(() => flattenServices(props.serviceTypes, props.services), [props.serviceTypes, props.services]);
   const backendPackages = useMemo(() => (props.venuePackages ?? props.bookingFormOptions?.venuePackages ?? []).map(packageFromBackend).filter((item): item is ActivePackage => Boolean(item)), [props.venuePackages, props.bookingFormOptions?.venuePackages]);
-  const packages = useMemo(() => uniquePackages([...backendPackages, ...FALLBACK_PACKAGES]), [backendPackages]);
+  const packages = useMemo(() => uniquePackages([...FALLBACK_PACKAGES, ...backendPackages]).slice(0, 8), [backendPackages]);
   const classificationOptions = props.bookingFormOptions?.mice?.classificationOptions?.length ? props.bookingFormOptions.mice.classificationOptions : CLASSIFICATION_OPTIONS;
   const miceTypeOptions = props.bookingFormOptions?.mice?.typeOptions?.length ? props.bookingFormOptions.mice.typeOptions : MICE_TYPE_OPTIONS;
   const privateTypeOptions = props.bookingFormOptions?.mice?.privateEventOptions?.length ? props.bookingFormOptions.mice.privateEventOptions : PRIVATE_EVENT_OPTIONS;
@@ -1286,7 +1362,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   const [rangeAnchor, setRangeAnchor] = useState<string | null>(null);
   const [scheduleSelections, setScheduleSelections] = useState<ScheduleSelection[]>(initialSelections);
   const [packageMode, setPackageMode] = useState<PackageMode>(() => (packageInitial ? 'packages' : 'manual'));
-  const [selectedPackageCode, setSelectedPackageCode] = useState(packageInitial?.code ?? 'FULL_HALL_ONLY');
+  const [selectedPackageCode, setSelectedPackageCode] = useState(packageInitial?.code ?? 'GRAND_CONVENTION_PACKAGE');
   const [selectedAreaKeys, setSelectedAreaKeys] = useState<ActiveVenueKey[]>(defaultAreaKeys);
   const [ingressPrep, setIngressPrep] = useState(false);
   const [showPolicyModal, setShowPolicyModal] = useState(false);
@@ -1304,7 +1380,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     service_id: firstValue(booking?.service_id, booking?.service?.id, initialServiceIds[0]),
     items: initialServiceIds.map((service_id) => ({ service_id, quantity: 1 })),
     payment_meta: initialMeta,
-    selected_package_code: packageInitial?.code ?? 'FULL_HALL_ONLY',
+    selected_package_code: packageInitial?.code ?? 'GRAND_CONVENTION_PACKAGE',
     selected_area_keys: defaultAreaKeys,
     schedule_version: 'segments_v1',
     schedule_meta: {},
@@ -1316,7 +1392,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     company_name: upper(firstValue(booking?.company_name)),
     client_name: upper(firstValue(booking?.client_name)),
     client_contact_number: firstValue(booking?.client_contact_number),
-    client_email: firstValue(booking?.client_email),
+    client_email: firstValue(booking?.client_email, authUser?.email).toLowerCase(),
     client_address: upper(firstValue(booking?.client_address, booking?.client_street_address)),
     client_region: firstValue(booking?.client_region, 'CAR'),
     client_province: firstValue(booking?.client_province, 'Benguet'),
@@ -1495,8 +1571,13 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     };
   }, [calendarCursor, selectedAreaSignature]);
 
+  function normalizeSelection(row: ScheduleSelection): ScheduleSelection {
+    const additionalHours = row.block === 'am' ? 0 : Math.max(0, Math.min(MAX_ADDITIONAL_HOURS, Number(row.additionalHours || 0)));
+    return { ...row, additionalHours };
+  }
+
   function patchSelection(date: string, patch: Partial<ScheduleSelection>) {
-    setScheduleSelections((current) => current.map((row) => (row.date === date ? { ...row, ...patch } : row)));
+    setScheduleSelections((current) => current.map((row) => (row.date === date ? normalizeSelection({ ...row, ...patch }) : row)));
   }
 
   function selectCalendarDate(date: string) {
@@ -1556,7 +1637,8 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
     if (step === 0) {
       if (scheduleSelections.length < 1) nextErrors.schedule = 'Select at least one reservation date.';
       scheduleSelections.forEach((row) => {
-        if (row.additionalHours > MAX_ADDITIONAL_HOURS) nextErrors.schedule = 'Additional hours must not exceed 6 hours.';
+        if (row.additionalHours > MAX_ADDITIONAL_HOURS) nextErrors.schedule = 'Additional hours must not exceed 5 hours.';
+        if (row.block === 'am' && Number(row.additionalHours || 0) > 0) nextErrors.schedule = 'Additional hours are available only for PM or Whole Day reservations.';
         const availabilityProblem = selectionAvailabilityProblem(row, calendarAvailability[row.date]);
         if (availabilityProblem) nextErrors.schedule = availabilityProblem;
       });
@@ -1638,7 +1720,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
       date: row.date,
       segment_role: ingressPrep && index === 0 ? 'ingress' as const : ingressPrep && index === scheduleSelections.length - 1 ? 'egress' as const : 'event' as const,
       base_block: row.block,
-      additional_hours: row.additionalHours,
+      additional_hours: row.block === 'am' ? 0 : row.additionalHours,
       area_keys: selectedAreaKeys,
     }));
     const scheduleMeta = {
@@ -1676,6 +1758,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
       head_of_organization: upper(current.head_of_organization),
       type_of_event: upper(current.type_of_event),
       client_contact_number: current.client_contact_number.replace(/\D/g, ''),
+      client_email: current.client_email.toLowerCase().trim(),
       comments_feedback: current.comments_feedback.trim() || 'N/A',
       has_exhibitions: current.event_nature === 'private' ? '-' : current.has_exhibitions,
       exhibitors_count: current.event_nature === 'private' ? '-' : current.has_exhibitions === 'Yes' ? current.exhibitors_count : '0',
@@ -1732,6 +1815,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
 
   function openFinalPolicyModal() {
     if (!validateStep(3)) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setPolicyModalChecked(false);
     setShowPolicyModal(true);
   }
@@ -1754,6 +1838,8 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
   function renderScheduleStep() {
     const monthDays = daysForMonth(calendarCursor);
     const selectedDates = new Set(scheduleSelections.map((row) => row.date));
+    const firstSelectedDate = scheduleSelections[0]?.date ?? null;
+    const lastSelectedDate = scheduleSelections[scheduleSelections.length - 1]?.date ?? null;
     const today = todayDate();
     const monthAvailabilityNote = calendarAvailabilityLoading
       ? `Checking AM / PM availability for ${availabilityScopeLabel || 'selected service scope'}...`
@@ -1780,21 +1866,30 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                 const isSelected = selectedDates.has(day.date);
                 const isToday = day.date === today;
                 const isAnchor = rangeAnchor === day.date;
-                const dayAvailability = calendarAvailabilityLoading
-                  ? emptyDayAvailability(day.date, 'loading', 'Checking AM / PM availability...')
-                  : calendarAvailability[day.date] ?? emptyDayAvailability(day.date);
+                const dayIsPast = isPastDate(day.date);
+                const dayAvailability = dayIsPast
+                  ? pastDateAvailability(day.date)
+                  : calendarAvailabilityLoading
+                    ? emptyDayAvailability(day.date, 'loading', 'Checking AM / PM availability...')
+                    : calendarAvailability[day.date] ?? emptyDayAvailability(day.date);
+                const showIngressBadge = ingressPrep && isSelected && firstSelectedDate === day.date;
+                const showEgressBadge = ingressPrep && isSelected && lastSelectedDate === day.date;
                 return (
                   <button
                     key={day.date}
                     type="button"
-                    onClick={() => selectCalendarDate(day.date)}
+                    onClick={() => !dayIsPast && selectCalendarDate(day.date)}
+                    disabled={dayIsPast}
                     className={cx(
                       'group relative min-h-[122px] border-b border-r border-slate-200 p-2 text-left transition duration-300 hover:bg-[#fff7df]',
                       !day.inMonth && 'bg-slate-50 text-slate-300',
-                      isSelected && 'bg-[#164734] text-white hover:bg-[#164734]',
+                      dayIsPast && 'cursor-not-allowed bg-slate-100 text-slate-400 opacity-60 hover:bg-slate-100',
+                      isSelected && !dayIsPast && 'bg-[#164734] text-white hover:bg-[#164734]',
                       isAnchor && 'ring-2 ring-inset ring-[#d6b56d]',
                     )}
                   >
+                    {showIngressBadge ? <span className="absolute left-1.5 top-1.5 z-10 border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-emerald-700 shadow-sm">Ingress</span> : null}
+                    {showEgressBadge ? <span className="absolute right-1.5 top-1.5 z-10 border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-700 shadow-sm">Egress</span> : null}
                     <span className={cx('grid h-8 w-8 place-items-center rounded-full text-sm font-semibold', isToday && !isSelected ? 'bg-[#d6b56d] text-[#164734]' : '')}>{Number(day.date.slice(-2))}</span>
                     <div className="mt-3 grid gap-1.5">
                       {[
@@ -1853,11 +1948,18 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                       <option value="pm">PM</option>
                       <option value="whole_day">WHOLE DAY</option>
                     </select>
-                    <select value={selection.additionalHours} onChange={(event) => patchSelection(selection.date, { additionalHours: Number(event.target.value) })} className={inputClass()} aria-label="Additional hours">
-                      {Array.from({ length: MAX_ADDITIONAL_HOURS + 1 }, (_, hour) => <option key={hour} value={hour}>{hour}h</option>)}
+                    <select
+                      value={selection.block === 'am' ? 0 : selection.additionalHours}
+                      onChange={(event) => patchSelection(selection.date, { additionalHours: Number(event.target.value) })}
+                      disabled={selection.block === 'am'}
+                      className={cx(inputClass(), selection.block === 'am' && 'cursor-not-allowed bg-slate-100 text-slate-400 opacity-70')}
+                      aria-label="Additional hours"
+                      title={selection.block === 'am' ? 'Additional hours are only available for PM or Whole Day reservations.' : 'Additional hours'}
+                    >
+                      {(selection.block === 'am' ? [0] : Array.from({ length: MAX_ADDITIONAL_HOURS + 1 }, (_, hour) => hour)).map((hour) => <option key={hour} value={hour}>{hour}h</option>)}
                     </select>
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">{blockLabel(selection.block)} · {blockBaseHours(selection.block)} base hour(s) + {selection.additionalHours} additional hour(s)</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">{blockLabel(selection.block)} · {blockBaseHours(selection.block)} base hour(s) + {selection.block === 'am' ? 0 : selection.additionalHours} additional hour(s)</p>
                 </div>
               ))}
             </div>
@@ -1901,6 +2003,8 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
                             <strong className="block text-2xl font-semibold uppercase tracking-[0.08em]">{pkg.label}</strong>
                             <small className="mt-1 block max-w-2xl text-sm leading-5 text-white/75">{pkg.subtitle}</small>
                             <small className="mt-2 block text-xs uppercase tracking-[0.2em] text-[#f2d58b]">{pkg.areaKeys.map((key) => selectedVenueByKey(key).shortLabel).join(' + ')}</small>
+                            {pkg.capacityMax ? <small className="mt-1 block text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">Capacity up to {pkg.capacityMax.toLocaleString()} guests</small> : null}
+                            {pkg.notice ? <small className="mt-2 block max-w-3xl border-l-2 border-[#f2d58b] pl-3 text-xs leading-5 text-white/85">{pkg.notice}</small> : null}
                           </span>
                         </span>
                         <span className="hidden min-w-[230px] text-right lg:block">
@@ -1955,6 +2059,7 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
 
   function renderContactStep() {
     const isPublic = data.event_nature === 'public';
+    const autoMiceClass = cx(inputClass(), 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-500 shadow-inner opacity-70');
     return (
       <SectionShell kicker="Step 03 · Contact Details" title="Complete organizer, event, and MICE information" description="Public events collect MICE statistical fields. Private/personal events skip the MICE tourism statistics and store skipped values as dashes." icon={<UserRound className="h-4 w-4" />}>
         <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,4fr)_minmax(300px,1fr)]">
@@ -2042,14 +2147,14 @@ export function BookingFormPage(rawProps: BookingFormPageProps = {}) {
             </div>
 
             <div className="grid gap-4 border border-slate-200 bg-white p-4 lg:grid-cols-2">
-              <div className="lg:col-span-2"><p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">MICE Report Fields</p></div>
-              <Field label="Name of Event Center"><input value={PUBLIC_EVENT_CENTER} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
-              <Field label="Covered Month"><input value={data.covered_month} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
-              <Field label="Date Event Started"><input value={displayDate(scheduleSelections[0]?.date ?? '')} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
-              <Field label="Date Event Finished"><input value={displayDate(scheduleSelections[scheduleSelections.length - 1]?.date ?? '')} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
-              <Field label="No. of Function Halls"><input value={isPublic ? '1' : '-'} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
-              <Field label="Function Hall Capacity"><input value={isPublic ? '4000' : '-'} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
-              <Field label="Number of Hours"><input value={String(scheduleTotalHours)} readOnly className={cx(inputClass(), 'bg-slate-50')} /></Field>
+              <div className="lg:col-span-2"><p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#a88633]">MICE Report Fields</p><div className="mt-2 border border-dashed border-slate-300 bg-slate-50 p-3 text-xs leading-5 text-slate-500"><strong className="block text-slate-700">Auto-filled by the system</strong> The faded fields below are generated from your selected schedule and event setup. They are shown for transparency but are not editable here.</div></div>
+              <Field label="Name of Event Center"><input value={PUBLIC_EVENT_CENTER} readOnly className={autoMiceClass} /></Field>
+              <Field label="Covered Month"><input value={data.covered_month} readOnly className={autoMiceClass} /></Field>
+              <Field label="Date Event Started"><input value={displayDate(scheduleSelections[0]?.date ?? '')} readOnly className={autoMiceClass} /></Field>
+              <Field label="Date Event Finished"><input value={displayDate(scheduleSelections[scheduleSelections.length - 1]?.date ?? '')} readOnly className={autoMiceClass} /></Field>
+              <Field label="No. of Function Halls"><input value={isPublic ? '1' : '-'} readOnly className={autoMiceClass} /></Field>
+              <Field label="Function Hall Capacity"><input value={isPublic ? '4000' : '-'} readOnly className={autoMiceClass} /></Field>
+              <Field label="Number of Hours"><input value={String(scheduleTotalHours)} readOnly className={autoMiceClass} /></Field>
               {isPublic ? (
                 <>
                   <div className="lg:col-span-2 border border-[#d6b56d]/60 bg-[#fff8e6] p-4 text-sm leading-6 text-slate-700">
@@ -2306,9 +2411,15 @@ function ReviewLineItemsTable({ rows, areaKeys, ingressPrep }: { rows: ScheduleS
 }
 
 function FinalPolicyModal({ checked, setChecked, onClose, onConfirm, processing }: { checked: boolean; setChecked: (value: boolean) => void; onClose: () => void; onConfirm: () => void; processing: boolean }) {
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    requestAnimationFrame(() => modalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  }, []);
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden border border-white/20 bg-white shadow-2xl">
+      <div ref={modalRef} className="max-h-[90vh] w-full max-w-3xl overflow-hidden border border-white/20 bg-white shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-6 duration-300">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 bg-[#164734] p-5 text-white">
           <div>
             <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#f2d58b]"><ScrollText className="h-4 w-4" /> Final confirmation</p>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\MiceRecord;
+use App\Services\NotificationService;
 use App\Support\WorkspaceAccess;
 use App\Support\WorkspacePage;
 use Carbon\Carbon;
@@ -18,6 +19,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MiceRegistryController extends Controller
 {
+    public function __construct(private readonly NotificationService $notifications)
+    {
+    }
+
     public function index(Request $request): InertiaResponse
     {
         return Inertia::render(
@@ -50,13 +55,17 @@ class MiceRegistryController extends Controller
         $payload = $this->validatedPayload($request);
 
         if (! empty($payload['booking_id'])) {
-            MiceRecord::query()->updateOrCreate(
+            $record = MiceRecord::query()->updateOrCreate(
                 ['booking_id' => $payload['booking_id']],
                 $payload,
             );
+            $created = $record->wasRecentlyCreated;
         } else {
-            MiceRecord::query()->create($payload);
+            $record = MiceRecord::query()->create($payload);
+            $created = true;
         }
+
+        $this->notifications->miceRecordSaved($record->fresh(), $request->user(), $created);
 
         return redirect()
             ->route(WorkspacePage::routeName($request, 'reports.mice-registry'))
@@ -85,6 +94,8 @@ class MiceRegistryController extends Controller
 
         $miceRecord->update($payload);
 
+        $this->notifications->miceRecordSaved($miceRecord->fresh(), $request->user(), false);
+
         return redirect()
             ->route(WorkspacePage::routeName($request, 'reports.mice-registry'))
             ->with('success', 'MICE registry entry updated successfully.');
@@ -93,6 +104,8 @@ class MiceRegistryController extends Controller
     public function destroy(Request $request, MiceRecord $miceRecord): RedirectResponse
     {
         abort_unless($this->canManage($request), 403);
+
+        $this->notifications->miceRecordDeleted($miceRecord, $request->user());
 
         $miceRecord->delete();
 
