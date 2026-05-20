@@ -1,34 +1,18 @@
-import BackendNotificationBell from '@/components/backend/backend-notification-bell';
+import SafeImage from '@/components/system/safe-image';
 import {
-    backendBookingCreateHref,
-    backendCalendarHref,
+    backendHomeHref,
     backendNavSections,
     backendRoleLabel,
     filterBackendSectionsByPermission,
     getBackendRole,
     isBackendActive,
     sectionIsActive,
-    userHasPermission,
     type BackendNavItem,
     type BackendNavSection,
 } from '@/lib/backend-navigation';
-import { useAppearance } from '@/hooks/use-appearance';
-import type { BreadcrumbItem } from '@/types';
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-    BookOpenCheck,
-    CalendarDays,
-    ChevronDown,
-    Globe2,
-    LogOut,
-    Menu,
-    Moon,
-    PanelLeftClose,
-    PanelLeftOpen,
-    Sun,
-    X,
-} from 'lucide-react';
+import { ChevronDown, Circle, KeyRound, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -47,8 +31,7 @@ type SharedProps = {
     };
 };
 
-type AppSidebarHeaderProps = {
-    breadcrumbs?: BreadcrumbItem[];
+type SidebarProps = {
     collapsed?: boolean;
     onCollapsedChange?: (value: boolean) => void;
 };
@@ -59,401 +42,171 @@ function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
 }
 
-function resolveTitle(breadcrumbs: BreadcrumbItem[]) {
-    return breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1]?.title ?? 'Workspace' : 'Workspace';
-}
-
 function initials(name?: string | null) {
-    if (!name) {
-        return 'BA';
-    }
-
-    const parts = name.trim().split(/\s+/).slice(0, 2);
-
+    const parts = String(name || 'BCCC EASE').trim().split(/\s+/).slice(0, 2);
     return parts.map((part) => part.charAt(0).toUpperCase()).join('') || 'BA';
 }
 
-function ThemeToggleButton() {
-    const { appearance, updateAppearance } = useAppearance();
-    const [systemDark, setSystemDark] = useState(false);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        const sync = () => {
-            setSystemDark(mediaQuery.matches);
-            setMounted(true);
-        };
-
-        sync();
-        mediaQuery.addEventListener('change', sync);
-
-        return () => mediaQuery.removeEventListener('change', sync);
-    }, []);
-
-    const isDark = appearance === 'dark' || (appearance === 'system' && systemDark);
-
-    return (
-        <button
-            type="button"
-            onClick={() => updateAppearance(isDark ? 'light' : 'dark')}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200/80 bg-white/78 text-slate-900 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:border-[#d6b05c]/50 hover:bg-white dark:border-white/10 dark:bg-white/[0.055] dark:text-white dark:hover:bg-white/[0.09]"
-            aria-label="Toggle backend theme"
-        >
-            {!mounted ? <span className="h-4 w-4 rounded-full border border-current opacity-40" /> : isDark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-        </button>
-    );
-}
-
-function MobileLeaf({
-    item,
-    currentUrl,
-    permissions,
-    onClick,
-}: {
-    item: BackendNavItem;
-    currentUrl: string;
-    permissions: string[];
-    onClick: () => void;
-}) {
-    if (!userHasPermission(permissions, item.permission)) {
-        return null;
-    }
-
+function SidebarLeaf({ item, currentUrl, collapsed }: { item: BackendNavItem; currentUrl: string; collapsed: boolean }) {
     const Icon = item.icon as LucideIcon | undefined;
     const active = isBackendActive(currentUrl, item.href, item.exact);
 
     return (
         <Link
             href={item.href}
-            onClick={onClick}
+            title={collapsed ? item.title : undefined}
             className={cx(
-                'flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-semibold transition',
-                active ? 'bg-white text-[#0b0f14]' : 'text-white/68 hover:bg-white/[0.075] hover:text-white',
+                'group relative flex min-h-[2.75rem] items-center gap-2.5 rounded-xl px-2.5 py-2 text-[13px] font-semibold transition duration-200',
+                collapsed && 'justify-center px-2',
+                active ? 'bg-white text-slate-950 shadow-[0_14px_34px_rgba(0,0,0,0.20)] dark:bg-white dark:text-[#0b0f14]' : 'text-white/66 hover:bg-white/[0.075] hover:text-white',
             )}
         >
-            <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-lg', active ? 'bg-[#efe4c8] text-[#7a5520]' : 'bg-white/[0.055] text-[#f4d894]')}>
-                {Icon ? <Icon className="h-4 w-4" /> : null}
+            <span className={cx('absolute inset-y-2 left-0 w-1 rounded-r-full transition', active ? 'bg-[#7dd7c6] opacity-100' : 'bg-white/0 opacity-0 group-hover:bg-white/18 group-hover:opacity-100')} />
+            <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition', active ? 'border-slate-950/8 bg-[#e7f2f0] text-[#176456]' : 'border-white/8 bg-white/[0.055] text-[#7dd7c6] group-hover:border-white/12 group-hover:bg-white/[0.09]')}>
+                {Icon ? <Icon className="h-4 w-4" /> : <Circle className="h-3 w-3" />}
             </span>
-            <span className="min-w-0 flex-1 truncate">{item.title}</span>
+            {!collapsed ? (
+                <span className="min-w-0 flex-1">
+                    <span className="block truncate">{item.title}</span>
+                    {item.description ? <span className={cx('mt-0.5 block truncate text-[10px] font-medium', active ? 'text-slate-500' : 'text-white/32')}>{item.description}</span> : null}
+                </span>
+            ) : null}
         </Link>
     );
 }
 
-function MobileSection({
-    section,
-    currentUrl,
-    permissions,
-    open,
-    onToggle,
-    onClose,
-}: {
-    section: BackendNavSection;
-    currentUrl: string;
-    permissions: string[];
-    open: boolean;
-    onToggle: () => void;
-    onClose: () => void;
-}) {
+function SidebarSection({ section, currentUrl, open, onToggle, collapsed }: { section: BackendNavSection; currentUrl: string; open: boolean; onToggle: () => void; collapsed: boolean }) {
     const Icon = section.icon as LucideIcon | undefined;
     const active = sectionIsActive(currentUrl, section);
 
+    if (collapsed) {
+        return (
+            <section className="grid gap-1 rounded-2xl border border-white/8 bg-white/[0.035] p-1.5">
+                <button type="button" onClick={onToggle} title={section.title} className={cx('grid h-10 place-items-center rounded-xl transition', active ? 'bg-white/[0.12] text-[#7dd7c6]' : 'text-white/48 hover:bg-white/[0.075] hover:text-white')}>
+                    {Icon ? <Icon className="h-4 w-4" /> : <Circle className="h-3 w-3" />}
+                </button>
+                {section.items.slice(0, 5).map((item) => <SidebarLeaf key={`${section.key}-${item.href}`} item={item} currentUrl={currentUrl} collapsed />)}
+            </section>
+        );
+    }
+
     return (
-        <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-1.5">
+        <section className="rounded-2xl border border-white/8 bg-white/[0.035] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
             <button
                 type="button"
                 onClick={onToggle}
-                className={cx(
-                    'flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition',
-                    active || open ? 'bg-white/[0.075] text-white' : 'text-white/68 hover:bg-white/[0.055] hover:text-white',
-                )}
+                className={cx('flex min-h-[2.85rem] w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition duration-200', active || open ? 'bg-white/[0.075] text-white' : 'text-white/62 hover:bg-white/[0.055] hover:text-white')}
                 aria-expanded={open}
             >
-                <span className={cx('grid h-8 w-8 place-items-center rounded-lg', active || open ? 'bg-[#d6b05c]/16 text-[#f4d894]' : 'bg-white/[0.055] text-white/48')}>
-                    {Icon ? <Icon className="h-4 w-4" /> : null}
+                <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-lg border transition', active || open ? 'border-[#7dd7c6]/30 bg-[#7dd7c6]/16 text-[#7dd7c6]' : 'border-white/8 bg-white/[0.045] text-white/48')}>
+                    {Icon ? <Icon className="h-4 w-4" /> : <Circle className="h-3 w-3" />}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-bold">{section.title}</span>
-                <ChevronDown className={cx('h-4 w-4 text-white/38 transition', open && 'rotate-180')} />
+                <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-bold">{section.title}</span>
+                    {section.description ? <span className="mt-0.5 block truncate text-[10px] font-medium text-white/34">{section.description}</span> : null}
+                </span>
+                {active && !open ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#7dd7c6]" /> : null}
+                <ChevronDown className={cx('h-4 w-4 shrink-0 text-white/38 transition', open && 'rotate-180')} />
             </button>
 
             <AnimatePresence initial={false}>
                 {open ? (
-                    <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease }}
-                        className="overflow-hidden"
-                    >
-                        <div className="mt-1 space-y-1">
-                            {section.items.map((item) => (
-                                <MobileLeaf key={`mobile-${section.key}-${item.href}`} item={item} currentUrl={currentUrl} permissions={permissions} onClick={onClose} />
-                            ))}
-                        </div>
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2, ease }} className="overflow-hidden">
+                        <div className="mt-1 space-y-1">{section.items.map((item) => <SidebarLeaf key={`${section.key}-${item.href}`} item={item} currentUrl={currentUrl} collapsed={false} />)}</div>
                     </motion.div>
                 ) : null}
             </AnimatePresence>
-        </div>
+        </section>
     );
 }
 
-export function AppSidebarHeader({ breadcrumbs = [], collapsed = false, onCollapsedChange }: AppSidebarHeaderProps) {
+export function AppSidebar({ collapsed = false, onCollapsedChange }: SidebarProps) {
     const page = usePage();
     const props = page.props as SharedProps;
     const role = getBackendRole(props.auth);
     const user = props.auth?.user;
-
-    const permissions = useMemo(
-        () => [...((props.auth?.permissions ?? []) as string[]), ...((user?.permissions ?? []) as string[])],
-        [props.auth?.permissions, user?.permissions],
-    );
-
+    const permissions = useMemo(() => [...((props.auth?.permissions ?? []) as string[]), ...((user?.permissions ?? []) as string[])], [props.auth?.permissions, user?.permissions]);
     const sections = useMemo(() => filterBackendSectionsByPermission(backendNavSections(role), permissions), [role, permissions]);
-    const [mobileOpen, setMobileOpen] = useState(false);
-    const [accountOpen, setAccountOpen] = useState(false);
+    const visibleSections = sections;
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-
-    const title = resolveTitle(breadcrumbs);
-    const bookingHref = backendBookingCreateHref(role);
-    const calendarHref = backendCalendarHref(role);
-    const breadcrumbTrail = useMemo(() => breadcrumbs.filter((item) => item.title), [breadcrumbs]);
-
-    useEffect(() => {
-        setMobileOpen(false);
-        setAccountOpen(false);
-    }, [page.url]);
 
     useEffect(() => {
         setOpenSections((current) => {
             const next = { ...current };
-
             sections.forEach((section) => {
-                if (sectionIsActive(page.url, section) || section.defaultOpen) {
-                    next[section.key] = true;
-                }
+                if (sectionIsActive(page.url, section)) next[section.key] = true;
             });
-
             return next;
         });
     }, [page.url, sections]);
 
-    useEffect(() => {
-        document.body.classList.toggle('overflow-hidden', mobileOpen);
-
-        return () => document.body.classList.remove('overflow-hidden');
-    }, [mobileOpen]);
-
-    useEffect(() => {
-        if (!mobileOpen) {
-            return undefined;
-        }
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setMobileOpen(false);
-            }
-        };
-
-        window.addEventListener('keydown', onKeyDown);
-
-        return () => window.removeEventListener('keydown', onKeyDown);
-    }, [mobileOpen]);
-
-    const logout = () => {
-        router.post('/logout');
-    };
+    const activeSection = sections.find((section) => sectionIsActive(page.url, section));
 
     return (
-        <>
-            <header className="backend-topbar backend-main-topbar fixed top-0 right-0 left-0 z-[99960] border-b border-slate-200/70 bg-white/88 shadow-[0_14px_46px_rgba(15,23,42,0.07)] backdrop-blur-2xl transition-[left] duration-300 dark:border-white/10 dark:bg-[#0a0d12]/88 dark:shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
-                <div className="backend-main-topbar-inner mx-auto flex min-h-16 w-full max-w-[1920px] items-center gap-2 px-3 py-2 sm:px-4 lg:px-5 xl:px-6">
-                    <button
-                        type="button"
-                        onClick={() => setMobileOpen(true)}
-                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200/80 bg-white/78 text-slate-900 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:bg-white dark:border-white/10 dark:bg-white/[0.055] dark:text-white lg:hidden"
-                        aria-label="Open workspace menu"
-                    >
-                        <Menu className="h-5 w-5" />
-                    </button>
+        <aside className={cx('backend-sidebar fixed inset-y-0 left-0 z-[80] hidden border-r border-white/8 bg-[#0b2421]/96 text-white shadow-[24px_0_80px_rgba(0,0,0,0.24)] backdrop-blur-2xl transition-[width] duration-300 lg:flex lg:flex-col', collapsed ? 'w-[5.25rem]' : 'w-[17.25rem]')}>
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(125,215,198,0.14),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.055),rgba(255,255,255,0.015))]" />
 
-                    <button
-                        type="button"
-                        onClick={() => onCollapsedChange?.(!collapsed)}
-                        className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200/80 bg-white/78 text-slate-900 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:border-[#d6b05c]/50 hover:bg-white dark:border-white/10 dark:bg-white/[0.055] dark:text-white dark:hover:bg-white/[0.09] lg:grid"
-                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                        aria-pressed={collapsed}
-                    >
-                        {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                    </button>
+            <div className={cx('relative flex min-h-0 flex-1 flex-col', collapsed ? 'p-2' : 'p-3')}>
+                <div className={cx('group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-[#7dd7c6]/32 hover:bg-white/[0.075]', collapsed ? 'p-2' : 'p-3')}>
+                    <div className={cx('relative flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
+                        <Link href={backendHomeHref(role)} className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/10 bg-white shadow-[0_16px_38px_rgba(0,0,0,0.22)]" title="BCCC EASE home">
+                            <SafeImage src="/marketing/images/logo/bccc-seal.png" fallbackSrc="/marketing/images/logo/bccc-seal.png" alt="BCCC EASE" className="h-full w-full object-contain p-1" wrapperClassName="h-full w-full rounded-xl border-0" />
+                        </Link>
+                        {!collapsed ? (
+                            <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-semibold tracking-tight">BCCC EASE</span>
+                                <span className="mt-0.5 block truncate text-[10px] font-bold uppercase tracking-[0.2em] text-[#7dd7c6]">{backendRoleLabel(role)}</span>
+                            </span>
+                        ) : null}
+                        <button type="button" onClick={() => onCollapsedChange?.(!collapsed)} className={cx('grid h-9 w-9 place-items-center rounded-xl border border-white/10 bg-white/[0.055] text-white/62 transition hover:bg-white/[0.1] hover:text-[#7dd7c6]', collapsed ? 'absolute -right-1 -bottom-1 h-7 w-7 rounded-lg' : '')} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+                            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                        </button>
+                    </div>
+                </div>
 
-                    <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-center gap-2">
-                            <span className="shrink-0 rounded-full border border-[#d6b05c]/30 bg-[#d6b05c]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#8a6320] dark:border-[#f4d894]/18 dark:bg-[#f4d894]/8 dark:text-[#f4d894]">
-                                {backendRoleLabel(role)}
-                            </span>
-                            <span className="hidden h-1 w-1 rounded-full bg-slate-300 dark:bg-white/20 sm:block" />
-                            <span className="hidden truncate text-[11px] font-semibold text-slate-500 dark:text-white/38 sm:block">
-                                BCCC Operations Console
-                            </span>
+                {!collapsed ? (
+                    <div className="mt-3 rounded-2xl border border-white/8 bg-black/18 px-3 py-2">
+                        <div className="flex items-center justify-between gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/34">
+                            <span>{activeSection?.title ?? 'Navigation'}</span>
+                            <span>{visibleSections.reduce((total, section) => total + section.items.length, 0)} links</span>
                         </div>
+                    </div>
+                ) : null}
 
-                        <h1 className="mt-0.5 truncate text-base font-semibold tracking-[-0.04em] text-slate-950 dark:text-white sm:text-xl">
-                            {title}
-                        </h1>
+                <div className={cx('mt-3 min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', collapsed ? 'pr-0' : 'pr-1')}>
+                    <div className="space-y-2">
+                        {visibleSections.length > 0 ? visibleSections.map((section) => (
+                            <SidebarSection key={section.key} section={section} currentUrl={page.url} collapsed={collapsed} open={openSections[section.key] === true} onToggle={() => setOpenSections((current) => ({ ...current, [section.key]: current[section.key] !== true }))} />
+                        )) : (
+                            <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-center">
+                                {!collapsed ? <p className="text-xs font-semibold text-white/62">No navigation items available</p> : null}
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-                        {breadcrumbTrail.length > 1 ? (
-                            <div className="mt-0.5 hidden min-w-0 items-center gap-1 overflow-hidden text-[11px] text-slate-500 dark:text-white/38 md:flex">
-                                {breadcrumbTrail.map((item, index) => {
-                                    const last = index === breadcrumbTrail.length - 1;
-
-                                    return (
-                                        <span key={`${item.title}-${index}`} className="inline-flex min-w-0 items-center gap-1">
-                                            {item.href && !last ? (
-                                                <Link href={item.href} className="truncate transition hover:text-[#8a6320] dark:hover:text-[#f4d894]">
-                                                    {item.title}
-                                                </Link>
-                                            ) : (
-                                                <span className={cx('truncate', last ? 'text-slate-800 dark:text-white/70' : '')}>{item.title}</span>
-                                            )}
-                                            {!last ? <span>/</span> : null}
-                                        </span>
-                                    );
-                                })}
+                <div className={cx('mt-3 rounded-2xl border border-[#7dd7c6]/18 bg-[#7dd7c6]/8', collapsed ? 'p-2' : 'p-3')}>
+                    <div className={cx('flex items-center', collapsed ? 'justify-center' : 'gap-2')}>
+                        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#7dd7c6]/16 text-[#7dd7c6]">
+                            <UserRound className="h-4 w-4" />
+                        </span>
+                        {!collapsed ? (
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-bold text-white">{user?.name || 'My Profile'}</p>
+                                <p className="mt-0.5 truncate text-[11px] leading-5 text-white/44">{user?.email || 'Manage account settings'}</p>
                             </div>
                         ) : null}
                     </div>
-
-                    <div className="hidden items-center gap-2 xl:flex">
-                        <Link
-                            href={calendarHref}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200/80 bg-white/78 px-3 text-xs font-bold uppercase tracking-[0.13em] text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.07)] transition hover:-translate-y-0.5 hover:border-[#d6b05c]/50 hover:bg-white dark:border-white/10 dark:bg-white/[0.055] dark:text-white dark:hover:bg-white/[0.09]"
-                        >
-                            <CalendarDays className="h-4 w-4" />
-                            Calendar
-                        </Link>
-
-                        <Link
-                            href={bookingHref}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-bold uppercase tracking-[0.13em] text-white shadow-[0_16px_36px_rgba(15,23,42,0.20)] transition hover:-translate-y-0.5 hover:bg-[#2d2618] dark:bg-white dark:text-[#0b0f14]"
-                        >
-                            <BookOpenCheck className="h-4 w-4" />
-                            New Booking
-                        </Link>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-2">
-                        <BackendNotificationBell />
-                        <ThemeToggleButton />
-
-                        <div className="relative">
-                            <button
-                                type="button"
-                                onClick={() => setAccountOpen((prev) => !prev)}
-                                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200/80 bg-white/78 px-2 text-slate-900 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:border-[#d6b05c]/50 hover:bg-white dark:border-white/10 dark:bg-white/[0.055] dark:text-white dark:hover:bg-white/[0.09]"
-                                aria-expanded={accountOpen}
-                                aria-label="Open account menu"
-                            >
-                                <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#efe4c8] text-[11px] font-bold text-[#7a5520] dark:bg-[#f4d894]/14 dark:text-[#f4d894]">
-                                    {initials(user?.name)}
-                                </span>
-                                <span className="hidden max-w-[9rem] truncate text-sm font-semibold lg:block">{user?.name || backendRoleLabel(role)}</span>
-                                <ChevronDown className={cx('h-4 w-4 transition', accountOpen && 'rotate-180')} />
-                            </button>
-
-                            <AnimatePresence>
-                                {accountOpen ? (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                                        transition={{ duration: 0.18, ease }}
-                                        className="absolute right-0 top-full mt-2 w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200/80 bg-white/96 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.16)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0a0d12]/96"
-                                    >
-                                        <div className="rounded-xl bg-slate-100/80 p-3 dark:bg-white/[0.055]">
-                                            <p className="truncate text-sm font-semibold text-slate-950 dark:text-white">{user?.name || backendRoleLabel(role)}</p>
-                                            <p className="truncate text-xs text-slate-500 dark:text-white/42">{user?.email || 'BCCC workspace'}</p>
-                                        </div>
-
-                                        <Link href="/" className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 dark:text-white dark:hover:bg-white/[0.055]">
-                                            <Globe2 className="h-4 w-4 text-[#9d7b3d]" />
-                                            Public Website
-                                        </Link>
-
-                                        <button
-                                            type="button"
-                                            onClick={logout}
-                                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-rose-700 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-400/10"
-                                        >
-                                            <LogOut className="h-4 w-4" />
-                                            Logout
-                                        </button>
-                                    </motion.div>
-                                ) : null}
-                            </AnimatePresence>
+                    {!collapsed ? (
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <Link href="/settings/profile" className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.055] px-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white/[0.09]"><UserRound className="h-3.5 w-3.5" /> Profile</Link>
+                            <Link href="/settings/password" className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.055] px-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-white/[0.09]"><KeyRound className="h-3.5 w-3.5" /> Password</Link>
                         </div>
-                    </div>
+                    ) : null}
                 </div>
-            </header>
 
-            <AnimatePresence>
-                {mobileOpen ? (
-                    <motion.div className="fixed inset-0 z-[99990] lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-                        <button type="button" className="absolute inset-0 bg-black/58 backdrop-blur-xl" onClick={() => setMobileOpen(false)} aria-label="Close workspace menu" />
-
-                        <motion.aside
-                            className="absolute left-2 top-2 flex max-h-[calc(100dvh-1rem)] w-[min(29rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#0a0d12]/96 text-white shadow-[0_30px_100px_rgba(0,0,0,0.42)] sm:left-3 sm:top-3 sm:max-h-[calc(100dvh-1.5rem)] sm:w-[min(29rem,calc(100vw-1.5rem))]"
-                            initial={{ x: -34, opacity: 0, filter: 'blur(10px)' }}
-                            animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
-                            exit={{ x: -34, opacity: 0, filter: 'blur(10px)' }}
-                            transition={{ duration: 0.26, ease }}
-                        >
-                            <div className="flex items-center justify-between border-b border-white/10 p-4">
-                                <div className="min-w-0">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#f4d894]">BCCC EASE</p>
-                                    <p className="mt-1 truncate text-sm font-semibold">{backendRoleLabel(role)} Workspace</p>
-                                </div>
-                                <button type="button" onClick={() => setMobileOpen(false)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.055] text-white" aria-label="Close workspace menu">
-                                    <X className="h-5 w-5" />
-                                </button>
-                            </div>
-
-                            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                                {sections.map((section) => (
-                                    <MobileSection
-                                        key={`mobile-section-${section.key}`}
-                                        section={section}
-                                        currentUrl={page.url}
-                                        permissions={permissions}
-                                        open={openSections[section.key] === true}
-                                        onToggle={() =>
-                                            setOpenSections((current) => ({
-                                                ...current,
-                                                [section.key]: current[section.key] !== true,
-                                            }))
-                                        }
-                                        onClose={() => setMobileOpen(false)}
-                                    />
-                                ))}
-                            </div>
-
-                            <div className="grid gap-2 border-t border-white/10 p-4 sm:grid-cols-2">
-                                <Link href={calendarHref} onClick={() => setMobileOpen(false)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.055] text-sm font-semibold text-white">
-                                    <CalendarDays className="h-4 w-4" />
-                                    Calendar
-                                </Link>
-                                <Link href={bookingHref} onClick={() => setMobileOpen(false)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white text-sm font-semibold text-[#0b0f14]">
-                                    <BookOpenCheck className="h-4 w-4" />
-                                    New Booking
-                                </Link>
-                                <button type="button" onClick={logout} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 text-sm font-semibold text-white/74 sm:col-span-2">
-                                    <LogOut className="h-4 w-4" />
-                                    Logout
-                                </button>
-                            </div>
-                        </motion.aside>
-                    </motion.div>
-                ) : null}
-            </AnimatePresence>
-        </>
+                <div className="mt-2 text-center text-[10px] font-bold uppercase tracking-[0.18em] text-white/28">© 2026 EASE</div>
+            </div>
+        </aside>
     );
 }

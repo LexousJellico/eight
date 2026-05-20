@@ -76,7 +76,7 @@ export default defineConfig({
                     if (id.includes('/resources/js/components/ui/')) {
                         return 'ui-components';
                     }
-
+                    
                     return undefined;
                 },
             },

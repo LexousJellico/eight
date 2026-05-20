@@ -1,1 +1,1 @@
-export { default } from '../../calendar/analytics-print';
+export { default } from '../../calendar/analytics';
