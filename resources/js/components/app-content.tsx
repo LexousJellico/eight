@@ -15,7 +15,7 @@ export function AppContent({ children, className = '', id = 'backend-main-conten
             tabIndex={tabIndex}
             {...props}
             className={cx(
-                'backend-app-content relative z-10 min-h-[calc(100dvh-4rem)] w-full px-3 pb-5 pt-[5.25rem] sm:px-4 lg:px-5 xl:px-6',
+                'backend-app-content relative z-10 min-h-[calc(100dvh-var(--bccc-backend-topbar-height,4.5rem))] w-full px-3 pb-5 pt-[calc(var(--bccc-backend-topbar-height,4.5rem)+1rem)] sm:px-4 lg:px-5 xl:px-6',
                 'motion-safe:animate-[boneyardContentIn_0.32s_cubic-bezier(0.22,1,0.36,1)_both]',
                 className,
             )}
@@ -37,7 +37,7 @@ export function AppContent({ children, className = '', id = 'backend-main-conten
                 `}
             </style>
 
-            <div className="mx-auto grid w-full max-w-[1820px] gap-4">{children}</div>
+            <div className="backend-app-content-inner mx-auto grid w-full max-w-[1820px] gap-4">{children}</div>
         </main>
     );
 }

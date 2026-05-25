@@ -9,14 +9,16 @@ import type { BreadcrumbItem } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
+    CalendarDays,
+    ClipboardList,
     Clock3,
     KeyRound,
     Mail,
     MailCheck,
     MailWarning,
     Pencil,
+    ReceiptText,
     Search,
-    ShieldCheck,
     UserCog,
     UsersRound,
     X,
@@ -29,6 +31,20 @@ type PaginationLink = {
     url?: string | null;
     label?: string | null;
     active?: boolean;
+};
+
+type LatestBooking = {
+    id?: number | string;
+    title?: string | null;
+    client?: string | null;
+    type_of_event?: string | null;
+    company_name?: string | null;
+    booking_status?: string | null;
+    payment_status?: string | null;
+    selected_package_code?: string | null;
+    booking_date_from?: string | null;
+    booking_date_to?: string | null;
+    services?: string[] | null;
 };
 
 type PaginatedUsers = {
@@ -55,6 +71,10 @@ type UserRow = {
     last_login_at?: string | null;
     google_id?: string | number | null;
     created_at?: string | null;
+    bookings_count?: number | string | null;
+    approved_bookings_count?: number | string | null;
+    pending_bookings_count?: number | string | null;
+    latest_booking?: LatestBooking | null;
 };
 
 type PageProps = {
@@ -113,6 +133,19 @@ function normalizedRole(user: UserRow) {
     return roleLabel(user).toLowerCase();
 }
 
+function numberValue(value: unknown): number {
+    const parsed = Number(value ?? 0);
+
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function cleanLabel(value?: string | null) {
+    return String(value || '—')
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function roleBadgeClass(role: string) {
     const normalized = role.toLowerCase();
 
@@ -131,12 +164,44 @@ function roleBadgeClass(role: string) {
     return 'bg-[#fff8ea] text-[#6e604c] ring-1 ring-[#d9c7a6]/70 dark:bg-white/7 dark:text-white/70 dark:ring-white/10';
 }
 
+function statusToneClass(value?: string | null) {
+    const normalized = String(value || '').toLowerCase();
+
+    if (['approved', 'confirmed', 'active', 'completed', 'paid', 'verified'].includes(normalized)) {
+        return 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-200 dark:ring-emerald-300/20';
+    }
+
+    if (['pending', 'pencil_booked', 'submitted', 'for_review', 'partial', 'unpaid', 'awaiting_downpayment', 'awaiting_balance'].includes(normalized)) {
+        return 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-200 dark:ring-amber-300/20';
+    }
+
+    if (['declined', 'cancelled', 'canceled', 'expired', 'rejected', 'failed', 'auto_declined'].includes(normalized)) {
+        return 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-400/10 dark:text-rose-200 dark:ring-rose-300/20';
+    }
+
+    return 'bg-white text-[#6e604c] ring-[#d9c7a6]/70 dark:bg-white/7 dark:text-white/56 dark:ring-white/10';
+}
+
 function formatDate(value?: string | null) {
     if (!value) {
         return '—';
     }
 
     return value;
+}
+
+function servicesLabel(booking?: LatestBooking | null) {
+    const services = booking?.services?.filter(Boolean) ?? [];
+
+    if (services.length > 0) {
+        return services.slice(0, 3).join(' + ');
+    }
+
+    return cleanLabel(booking?.selected_package_code || booking?.type_of_event || booking?.title || 'No booking yet');
+}
+
+function bookingTitle(booking?: LatestBooking | null) {
+    return booking?.title || booking?.type_of_event || booking?.company_name || 'No booking yet';
 }
 
 export default function AdminUsersIndex() {
@@ -157,6 +222,7 @@ export default function AdminUsersIndex() {
         const staffCount = users.filter((user) => normalizedRole(user).includes('staff')).length;
         const verifiedCount = users.filter((user) => Boolean(user.email_verified_at)).length;
         const unverifiedCount = users.filter((user) => !user.email_verified_at).length;
+        const loadedBookings = users.reduce((sum, user) => sum + numberValue(user.bookings_count), 0);
 
         return {
             total: safeUsers.total ?? users.length,
@@ -166,6 +232,7 @@ export default function AdminUsersIndex() {
             staff: staffCount,
             verified: verifiedCount,
             unverified: unverifiedCount,
+            loadedBookings,
         };
     }, [safeUsers.total, users]);
 
@@ -223,12 +290,8 @@ export default function AdminUsersIndex() {
             eyebrow="System Setup"
             icon={UsersRound}
             breadcrumbs={breadcrumbs}
-            subtitle="Manage administrator, manager, staff, and client accounts with email verification controls in one consistent workspace."
-            actions={
-                <ResourceActionLink href="/admin/users/create">
-                    Add User
-                </ResourceActionLink>
-            }
+            subtitle="Manage administrator, manager, staff, and client accounts with booking-count monitoring, latest reservation visibility, and email verification controls."
+            actions={<ResourceActionLink href="/admin/users/create">Add User</ResourceActionLink>}
         >
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
                 <ResourceStatCard
@@ -253,10 +316,10 @@ export default function AdminUsersIndex() {
                 />
 
                 <ResourceStatCard
-                    label="Admins"
-                    value={stats.admins}
-                    description="System control accounts."
-                    icon={ShieldCheck}
+                    label="Bookings"
+                    value={stats.loadedBookings}
+                    description="Bookings owned by loaded accounts."
+                    icon={ClipboardList}
                 />
 
                 <ResourceStatCard
@@ -269,7 +332,7 @@ export default function AdminUsersIndex() {
                 <ResourceStatCard
                     label="Staff"
                     value={stats.staff}
-                    description="Operations workspace accounts."
+                    description={`${stats.admins} admin account(s) loaded.`}
                     icon={KeyRound}
                 />
             </div>
@@ -278,7 +341,7 @@ export default function AdminUsersIndex() {
                 <ResourceSection
                     title="Account directory"
                     eyebrow="Users"
-                    description="Review accounts, check email verification status, and manually verify new users when needed."
+                    description="Review accounts, check booking activity, inspect latest reservations, and manually verify new users when needed."
                     actions={
                         <ResourceActionLink href="/admin/users/create" variant="secondary">
                             Add User
@@ -321,7 +384,7 @@ export default function AdminUsersIndex() {
                             Search
                         </button>
 
-                        {(search || (role && role !== 'all')) ? (
+                        {search || (role && role !== 'all') ? (
                             <button
                                 type="button"
                                 onClick={clearFilters}
@@ -341,10 +404,11 @@ export default function AdminUsersIndex() {
                         />
                     ) : (
                         <div className="overflow-hidden rounded-[1.25rem] border border-[#d9c7a6]/70 dark:border-white/10">
-                            <div className="hidden grid-cols-[1.05fr_1.15fr_0.8fr_0.95fr_0.75fr] gap-3 bg-[#f7f0e3] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:bg-white/7 dark:text-[#f1d89b] xl:grid">
+                            <div className="hidden grid-cols-[0.95fr_1.05fr_0.65fr_1.05fr_0.8fr_0.7fr] gap-3 bg-[#f7f0e3] px-4 py-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#9d7b3d] dark:bg-white/7 dark:text-[#f1d89b] 2xl:grid">
                                 <span>Name</span>
                                 <span>Contact</span>
                                 <span>Role</span>
+                                <span>Latest Booking</span>
                                 <span>Status</span>
                                 <span className="text-right">Actions</span>
                             </div>
@@ -354,11 +418,15 @@ export default function AdminUsersIndex() {
                                     const userRole = roleLabel(user);
                                     const verified = Boolean(user.email_verified_at);
                                     const isVerifying = verifyingId === user.id;
+                                    const latestBooking = user.latest_booking;
+                                    const bookingsCount = numberValue(user.bookings_count);
+                                    const approvedCount = numberValue(user.approved_bookings_count);
+                                    const pendingCount = numberValue(user.pending_bookings_count);
 
                                     return (
                                         <article
                                             key={user.id ?? index}
-                                            className="grid gap-3 bg-white/62 px-4 py-4 text-sm dark:bg-white/[0.035] xl:grid-cols-[1.05fr_1.15fr_0.8fr_0.95fr_0.75fr] xl:items-center"
+                                            className="grid gap-3 bg-white/62 px-4 py-4 text-sm dark:bg-white/[0.035] 2xl:grid-cols-[0.95fr_1.05fr_0.65fr_1.05fr_0.8fr_0.7fr] 2xl:items-center"
                                         >
                                             <div className="min-w-0">
                                                 <p className="truncate font-semibold text-[#21180d] dark:text-white">
@@ -368,6 +436,19 @@ export default function AdminUsersIndex() {
                                                 <p className="mt-1 text-xs text-[#7a6b55] dark:text-white/42">
                                                     ID #{user.id ?? '—'} · Created {formatDate(user.created_at)}
                                                 </p>
+
+                                                <div className="mt-2 flex flex-wrap gap-1.5">
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-[#fff8ea] px-2 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-[#7a5a24] ring-1 ring-[#d9c7a6]/70 dark:bg-white/7 dark:text-[#f1d89b] dark:ring-white/10">
+                                                        <ReceiptText className="h-3 w-3" />
+                                                        {bookingsCount} booking{bookingsCount === 1 ? '' : 's'}
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-200 dark:ring-emerald-300/20">
+                                                        {approvedCount} approved
+                                                    </span>
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.13em] text-amber-700 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-200 dark:ring-amber-300/20">
+                                                        {pendingCount} pending
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             <div className="min-w-0 space-y-1">
@@ -380,7 +461,7 @@ export default function AdminUsersIndex() {
                                                     {user.organization_name ? ` · ${user.organization_name}` : ''}
                                                 </p>
 
-                                                {(user.organization_type || user.position_title) ? (
+                                                {user.organization_type || user.position_title ? (
                                                     <p className="truncate text-xs text-[#8a7a63] dark:text-white/42">
                                                         {[user.organization_type, user.position_title].filter(Boolean).join(' · ')}
                                                     </p>
@@ -388,11 +469,32 @@ export default function AdminUsersIndex() {
                                             </div>
 
                                             <div>
-                                                <span
-                                                    className={`inline-flex min-h-8 items-center rounded-full px-3 text-xs font-bold ${roleBadgeClass(userRole)}`}
-                                                >
+                                                <span className={`inline-flex min-h-8 items-center rounded-full px-3 text-xs font-bold ${roleBadgeClass(userRole)}`}>
                                                     {userRole}
                                                 </span>
+                                            </div>
+
+                                            <div className="min-w-0 rounded-[1rem] border border-[#eadcc2]/70 bg-[#fffaf0]/70 p-3 dark:border-white/10 dark:bg-white/[0.035]">
+                                                {latestBooking ? (
+                                                    <>
+                                                        <div className="flex items-start gap-2">
+                                                            <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-[#9d7b3d] dark:text-[#f1d89b]" />
+                                                            <div className="min-w-0">
+                                                                <p className="truncate font-semibold text-[#21180d] dark:text-white">
+                                                                    {bookingTitle(latestBooking)}
+                                                                </p>
+                                                                <p className="mt-1 truncate text-xs text-[#7a6b55] dark:text-white/50">
+                                                                    {servicesLabel(latestBooking)}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <p className="mt-2 text-xs text-[#8a7a63] dark:text-white/42">
+                                                            {formatDate(latestBooking.booking_date_from)} → {formatDate(latestBooking.booking_date_to)}
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-sm text-[#8a7a63] dark:text-white/45">No booking submitted yet.</p>
+                                                )}
                                             </div>
 
                                             <div className="flex flex-wrap gap-2">
@@ -407,6 +509,18 @@ export default function AdminUsersIndex() {
                                                     {verified ? 'Verified' : 'Unverified'}
                                                 </span>
 
+                                                {latestBooking?.booking_status ? (
+                                                    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold ring-1 ${statusToneClass(latestBooking.booking_status)}`}>
+                                                        {cleanLabel(latestBooking.booking_status)}
+                                                    </span>
+                                                ) : null}
+
+                                                {latestBooking?.payment_status ? (
+                                                    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-full px-3 text-xs font-bold ring-1 ${statusToneClass(latestBooking.payment_status)}`}>
+                                                        {cleanLabel(latestBooking.payment_status)}
+                                                    </span>
+                                                ) : null}
+
                                                 {user.google_id ? (
                                                     <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[#f4ead8] px-3 text-xs font-bold text-[#7a5a24] ring-1 ring-[#d9c7a6]/70 dark:bg-white/10 dark:text-[#f1d89b] dark:ring-white/10">
                                                         <Mail className="h-3.5 w-3.5" />
@@ -420,7 +534,7 @@ export default function AdminUsersIndex() {
                                                 </span>
                                             </div>
 
-                                            <div className="flex flex-wrap justify-start gap-2 xl:justify-end">
+                                            <div className="flex flex-wrap justify-start gap-2 2xl:justify-end">
                                                 {!verified && user.id ? (
                                                     <button
                                                         type="button"
@@ -440,6 +554,16 @@ export default function AdminUsersIndex() {
                                                     >
                                                         <Pencil className="h-3.5 w-3.5" />
                                                         Edit
+                                                    </Link>
+                                                ) : null}
+
+                                                {latestBooking?.id ? (
+                                                    <Link
+                                                        href={`/admin/bookings/${latestBooking.id}`}
+                                                        className="inline-flex min-h-9 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-[#fffaf0] px-3 text-xs font-bold text-[#2f2517] transition hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                                    >
+                                                        <ClipboardList className="h-3.5 w-3.5" />
+                                                        Booking
                                                     </Link>
                                                 ) : null}
                                             </div>

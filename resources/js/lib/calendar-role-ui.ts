@@ -270,47 +270,63 @@ export function cleanCalendarLabel(value?: string | null): string {
 
 export function eventTone(event: CalendarEventItem): string {
     const kind = String(event.kind || '').toLowerCase();
-    const status = String(event.status || '').toLowerCase();
-
-    if (kind === 'block' || status === 'blocked') {
-        return 'border-red-400/25 bg-red-400/10 text-red-700 dark:text-red-100';
-    }
+    const status = String(event.status || '').toLowerCase().replace(/[\s-]+/g, '_');
 
     if (kind === 'public_event' || status === 'public_booked') {
         return 'border-sky-300/25 bg-sky-300/10 text-sky-700 dark:text-sky-100';
     }
 
-    if (status === 'confirmed' || status === 'active' || status === 'completed') {
-        return 'border-emerald-300/25 bg-emerald-300/10 text-emerald-700 dark:text-emerald-100';
+    if (status === 'private_booked') {
+        return 'border-rose-300/30 bg-rose-300/10 text-rose-700 dark:text-rose-100';
     }
 
-    if (status === 'private_booked' || status === 'pencil_booked' || status === 'for_review') {
-        return 'border-amber-300/25 bg-amber-300/10 text-amber-700 dark:text-amber-100';
+    if (kind === 'block' || status === 'blocked') {
+        return 'border-slate-300/30 bg-slate-300/10 text-slate-700 dark:text-slate-100';
+    }
+
+    if (status === 'pending' || status === 'pencil_booked' || status === 'submitted') {
+        return 'border-amber-300/30 bg-amber-300/10 text-amber-700 dark:text-amber-100';
+    }
+
+    if (status === 'for_review' || status === 'confirmed') {
+        return 'border-blue-300/30 bg-blue-300/10 text-blue-700 dark:text-blue-100';
+    }
+
+    if (status === 'approved' || status === 'active') {
+        return 'border-emerald-300/30 bg-emerald-300/10 text-emerald-700 dark:text-emerald-100';
+    }
+
+    if (status === 'completed') {
+        return 'border-slate-300/30 bg-slate-300/10 text-slate-700 dark:text-slate-100';
+    }
+
+    if (status === 'cancelled' || status === 'declined' || status === 'expired') {
+        return 'border-rose-300/25 bg-rose-300/10 text-rose-700 dark:text-rose-100';
     }
 
     return 'border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel-muted)] text-[var(--bccc-backend-text)]';
 }
 
 export function availabilityTone(day?: CalendarAvailabilityDay): string {
-    if (!day) return 'border-white/10 bg-black/[0.08]';
+    const status = String(day?.day_status || '').toLowerCase();
 
-    if (day.is_fully_booked || day.day_status === 'fully_booked') {
-        return 'border-red-300/25 bg-red-400/10';
-    }
-
-    if (day.day_status === 'partial' || day.day_status === 'partially_booked') {
-        return 'border-amber-300/25 bg-amber-400/10';
-    }
+    if (!day || status === 'blocked' || status === 'unavailable') return 'border-slate-300/25 bg-slate-400/10';
+    if (status === 'private_booked' || day.is_fully_booked || status === 'fully_booked') return 'border-rose-300/25 bg-rose-400/10';
+    if (status === 'public_booked') return 'border-sky-300/25 bg-sky-400/10';
+    if (status === 'partial' || status === 'partially_booked' || status === 'limited') return 'border-amber-300/25 bg-amber-400/10';
 
     return 'border-emerald-300/25 bg-emerald-400/10';
 }
 
 export function availabilityLabel(day?: CalendarAvailabilityDay): string {
+    const status = String(day?.day_status || '').toLowerCase();
+
     if (!day) return 'No data';
-    if (day.is_fully_booked || day.day_status === 'fully_booked')
-        return 'Fully Booked';
-    if (day.day_status === 'partial' || day.day_status === 'partially_booked')
-        return 'Partial';
+    if (status === 'blocked' || status === 'unavailable') return 'Unavailable';
+    if (status === 'private_booked' || day.is_fully_booked || status === 'fully_booked') return 'Reserved';
+    if (status === 'public_booked') return 'Public';
+    if (status === 'partial' || status === 'partially_booked' || status === 'limited') return 'Limited';
+
     return 'Available';
 }
 

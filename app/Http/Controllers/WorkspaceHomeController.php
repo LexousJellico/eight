@@ -240,6 +240,8 @@ class WorkspaceHomeController extends Controller
             'paymentSummary' => $paymentSummary,
             'miceSummary' => $miceSummary,
             'websiteSummary' => $websiteSummary,
+            'usersSummary' => $this->usersSummary(),
+            'recentUsers' => $this->recentUsers(),
             'systemHealth' => $this->systemHealth($workspaceStats, $paymentSummary, $websiteSummary),
             'recentActivity' => $this->recentActivity(),
         ];
@@ -636,6 +638,88 @@ class WorkspaceHomeController extends Controller
             'inquiries_open' => $openInquiries,
             'conversion_hint' => $conversion,
         ];
+    }
+
+    private function usersSummary(): array
+    {
+        if (! Schema::hasTable('users')) {
+            return [
+                'total' => 0,
+                'verified' => 0,
+                'unverified' => 0,
+                'new_today' => 0,
+                'operator_accounts' => 0,
+                'client_accounts' => 0,
+            ];
+        }
+
+        try {
+            $operatorCount = 0;
+            $clientCount = 0;
+
+            if (Schema::hasTable('model_has_roles') && Schema::hasTable('roles')) {
+                $operatorCount = (int) User::query()
+                    ->whereHas('roles', fn ($query) => $query->whereIn('name', ['admin', 'manager', 'staff']))
+                    ->count();
+
+                $clientCount = (int) User::query()
+                    ->whereDoesntHave('roles', fn ($query) => $query->whereIn('name', ['admin', 'manager', 'staff']))
+                    ->count();
+            }
+
+            return [
+                'total' => (int) User::query()->count(),
+                'verified' => (int) User::query()->whereNotNull('email_verified_at')->count(),
+                'unverified' => (int) User::query()->whereNull('email_verified_at')->count(),
+                'new_today' => Schema::hasColumn('users', 'created_at')
+                    ? (int) User::query()->whereDate('created_at', Carbon::today())->count()
+                    : 0,
+                'operator_accounts' => $operatorCount,
+                'client_accounts' => $clientCount,
+            ];
+        } catch (Throwable) {
+            return [
+                'total' => 0,
+                'verified' => 0,
+                'unverified' => 0,
+                'new_today' => 0,
+                'operator_accounts' => 0,
+                'client_accounts' => 0,
+            ];
+        }
+    }
+
+    private function recentUsers(): array
+    {
+        if (! Schema::hasTable('users')) {
+            return [];
+        }
+
+        try {
+            return User::query()
+                ->with('roles')
+                ->withCount([
+                    'bookingsCreated as bookings_count',
+                    'bookingsCreated as pending_bookings_count' => fn ($query) => $query->whereIn('booking_status', ['pending', 'pencil_booked', 'for_review', 'submitted', 'awaiting_downpayment', 'awaiting_balance']),
+                ])
+                ->orderByDesc(Schema::hasColumn('users', 'created_at') ? 'created_at' : 'id')
+                ->limit(5)
+                ->get()
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->display_name ?: $user->name,
+                    'email' => $user->email,
+                    'role' => $user->roles->pluck('name')->first() ?: 'client',
+                    'email_verified' => (bool) $user->email_verified_at,
+                    'bookings_count' => (int) ($user->bookings_count ?? 0),
+                    'pending_bookings_count' => (int) ($user->pending_bookings_count ?? 0),
+                    'created_at' => $this->formatDateTime($user->created_at),
+                ])
+                ->values()
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function systemHealth(array $workspaceStats, array $paymentSummary, array $websiteSummary): array

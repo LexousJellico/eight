@@ -1116,20 +1116,13 @@ class BookingService implements BookingServiceInterface
                 foreach ($records as $record) {
                     $booking = $record->booking;
 
-                    if ($booking && in_array(strtolower((string) $booking->booking_status), $this->miceDraftExpiredDeclinableStatuses(), true)) {
-                        $previousStatus = (string) ($booking->booking_status ?? '');
-
-                        $booking->forceFill([
-                            'booking_status' => 'declined',
-                        ])->saveQuietly();
-
+                    if ($booking) {
                         $this->recordLifecycleEvent(
                             $booking,
-                            'mice_draft_expired',
-                            'MICE draft expired',
-                            reason: 'The booking MICE draft remained pending beyond 15 working days.',
-                            fromStatus: $previousStatus,
-                            toStatus: 'declined',
+                            'legacy_mice_draft_removed',
+                            'Legacy MICE draft removed',
+                            reason: 'Expired MICE draft records are removed without declining the booking because booking-form drafts are now tracked separately.',
+                            toStatus: (string) ($booking->booking_status ?? ''),
                             toPaymentStatus: (string) ($booking->payment_status ?? ''),
                             meta: [
                                 'mice_record_id' => $record->id,

@@ -25,7 +25,16 @@ class UserController extends Controller
         $search = trim((string) $request->input('q', $request->input('search', '')));
         $role = trim((string) $request->input('role', ''));
 
-        $query = User::query();
+        $query = User::query()
+            ->withCount([
+                'bookingsCreated as bookings_count',
+                'bookingsCreated as approved_bookings_count' => fn ($bookingQuery) => $bookingQuery->whereIn('booking_status', ['approved', 'confirmed', 'active', 'completed']),
+                'bookingsCreated as pending_bookings_count' => fn ($bookingQuery) => $bookingQuery->whereIn('booking_status', ['pending', 'pencil_booked', 'for_review', 'submitted', 'awaiting_downpayment', 'awaiting_balance']),
+            ])
+            ->with([
+                'latestBookingCreated.service.serviceType',
+                'latestBookingCreated.bookingServices.service.serviceType',
+            ]);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -137,6 +146,12 @@ class UserController extends Controller
     public function show(Request $request, User $user): Response
     {
         $user->load('roles');
+        $user->loadCount([
+            'bookingsCreated as bookings_count',
+            'bookingsCreated as approved_bookings_count' => fn ($bookingQuery) => $bookingQuery->whereIn('booking_status', ['approved', 'confirmed', 'active', 'completed']),
+            'bookingsCreated as pending_bookings_count' => fn ($bookingQuery) => $bookingQuery->whereIn('booking_status', ['pending', 'pencil_booked', 'for_review', 'submitted', 'awaiting_downpayment', 'awaiting_balance']),
+        ]);
+        $user->load(['latestBookingCreated.service.serviceType', 'latestBookingCreated.bookingServices.service.serviceType']);
 
         return Inertia::render(WorkspacePage::resolve($request, 'users/show'), [
             'workspaceRole' => WorkspacePage::role($request),
@@ -147,6 +162,12 @@ class UserController extends Controller
     public function edit(Request $request, User $user): Response
     {
         $user->load('roles');
+        $user->loadCount([
+            'bookingsCreated as bookings_count',
+            'bookingsCreated as approved_bookings_count' => fn ($bookingQuery) => $bookingQuery->whereIn('booking_status', ['approved', 'confirmed', 'active', 'completed']),
+            'bookingsCreated as pending_bookings_count' => fn ($bookingQuery) => $bookingQuery->whereIn('booking_status', ['pending', 'pencil_booked', 'for_review', 'submitted', 'awaiting_downpayment', 'awaiting_balance']),
+        ]);
+        $user->load(['latestBookingCreated.service.serviceType', 'latestBookingCreated.bookingServices.service.serviceType']);
 
         return Inertia::render(WorkspacePage::resolve($request, 'users/edit'), [
             'workspaceRole' => WorkspacePage::role($request),
@@ -329,6 +350,48 @@ class UserController extends Controller
         ])->validate();
     }
 
+    protected function serializeLatestBooking(User $user): ?array
+    {
+        $booking = $user->latestBookingCreated;
+
+        if (! $booking) {
+            return null;
+        }
+
+        $services = $booking->bookingServices
+            ->map(function ($item) {
+                $service = $item->service;
+                $area = $service?->serviceType?->name;
+                $name = $service?->name;
+
+                return trim(implode(' · ', array_filter([$area, $name])));
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        if (empty($services) && $booking->service) {
+            $services = [trim(implode(' · ', array_filter([
+                $booking->service?->serviceType?->name,
+                $booking->service?->name,
+            ])))];
+        }
+
+        return [
+            'id' => $booking->id,
+            'title' => $booking->display_title,
+            'client' => $booking->display_client,
+            'type_of_event' => $booking->type_of_event,
+            'company_name' => $booking->company_name,
+            'booking_status' => $booking->booking_status,
+            'payment_status' => $booking->payment_status,
+            'selected_package_code' => $booking->selected_package_code,
+            'booking_date_from' => $this->formatDateTime($booking->booking_date_from),
+            'booking_date_to' => $this->formatDateTime($booking->booking_date_to),
+            'services' => $services,
+        ];
+    }
+
     protected function serializeUser(User $user, bool $detailed = false): array
     {
         $roles = $user->roles->pluck('name')->values()->all();
@@ -350,6 +413,10 @@ class UserController extends Controller
             'role' => $roles[0] ?? null,
             'roles' => $roles,
             'created_at' => $this->formatDateTime($user->created_at),
+            'bookings_count' => (int) ($user->bookings_count ?? 0),
+            'approved_bookings_count' => (int) ($user->approved_bookings_count ?? 0),
+            'pending_bookings_count' => (int) ($user->pending_bookings_count ?? 0),
+            'latest_booking' => $this->serializeLatestBooking($user),
         ];
 
         if (! $detailed) {

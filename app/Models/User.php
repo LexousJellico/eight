@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -74,9 +75,24 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Booking::class, 'created_by_user_id');
     }
 
+    public function bookings(): HasMany
+    {
+        return $this->bookingsCreated();
+    }
+
+    public function latestBookingCreated(): HasOne
+    {
+        return $this->hasOne(Booking::class, 'created_by_user_id')->latestOfMany();
+    }
+
     public function bookingViews(): HasMany
     {
         return $this->hasMany(BookingView::class, 'user_id');
+    }
+
+    public function bookingDrafts(): HasMany
+    {
+        return $this->hasMany(BookingDraft::class, 'user_id');
     }
 
     public function getDisplayNameAttribute(): string

@@ -279,16 +279,16 @@ class BookingPricingService
             ->filter(fn (array $segment) => in_array($segment['segment_role'] ?? '', [BookingScheduleCatalog::ROLE_INGRESS, BookingScheduleCatalog::ROLE_EGRESS], true))
             ->values();
 
-        if ($setupSegments->isNotEmpty() && in_array(ActiveVenueCatalog::MAIN_HALL, $areaKeys, true)) {
+        if ($setupSegments->isNotEmpty()) {
             $setupDates = $setupSegments->pluck('date')->unique()->values()->all();
             $setupBase = collect($lineItems)
-                ->filter(fn (array $line) => ($line['type'] ?? '') === 'venue' && ($line['area_key'] ?? '') === ActiveVenueCatalog::MAIN_HALL && in_array($line['date'] ?? null, $setupDates, true))
+                ->filter(fn (array $line) => ($line['type'] ?? '') === 'venue' && in_array($line['date'] ?? null, $setupDates, true))
                 ->sum(fn (array $line) => (float) ($line['amount'] ?? 0));
 
             if ($setupBase > 0) {
                 $discounts[] = [
-                    'key' => 'setup_rehearsal_30_percent',
-                    'label' => 'Setup/rehearsal discount',
+                    'key' => 'ingress_egress_preparation_30_percent',
+                    'label' => 'Ingress/egress preparation discount',
                     'rate' => 0.30,
                     'basis' => $this->roundMoney($setupBase),
                     'amount' => $this->roundMoney($setupBase * 0.30),

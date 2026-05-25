@@ -178,7 +178,7 @@ function FieldShell({
     children: ReactNode;
 }) {
     return (
-        <label className="group grid min-w-0 gap-1 rounded-[1rem] border border-[#d9c7a6]/70 bg-white/86 px-3 py-2 shadow-sm transition focus-within:border-[#b08d48] focus-within:ring-4 focus-within:ring-[#b08d48]/15 dark:border-white/10 dark:bg-white/[0.075]">
+        <label className="group grid min-w-0 gap-0.5 rounded-[0.9rem] border border-[#d9c7a6]/70 bg-white/86 px-2.5 py-1.5 shadow-sm transition focus-within:border-[#b08d48] focus-within:ring-4 focus-within:ring-[#b08d48]/15 dark:border-white/10 dark:bg-white/[0.075]">
             <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#8b672d] dark:text-[#f1d89b]">
                 {icon}
                 {label}
@@ -458,11 +458,21 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
     const [modalMessage, setModalMessage] = useState('');
     const [result, setResult] = useState<AvailabilityRangeResponse | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [collapsed, setCollapsed] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
+        setCollapsed(window.localStorage.getItem('bccc.availabilityDock.collapsed') === '1');
     }, []);
+
+    function updateCollapsed(next: boolean) {
+        setCollapsed(next);
+
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem('bccc.availabilityDock.collapsed', next ? '1' : '0');
+        }
+    }
 
     const { dockRef, footerLift } = useAvailabilityDockLayout();
 
@@ -534,129 +544,158 @@ export default function HeroAvailabilityBar({ venueOptions }: Props) {
 
     const dockMarkup = (
         <>
-            <motion.section
-    ref={dockRef}
-    className="bccc-availability-dock fixed inset-x-0 z-[8500] w-screen px-0"
-    style={{ '--bccc-dock-footer-lift': `${footerLift}px` } as CSSProperties}
-    initial={{ y: 28, opacity: 0, filter: 'blur(10px)' }}
-    animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-    transition={{ duration: 0.42, ease }}
-    aria-label="Sticky availability checker"
->
-    <div className="bccc-availability-dock-panel w-full rounded-none border-y border-[#d9c7a6]/80 bg-[#fffaf0]/96 p-2 shadow-[0_-12px_60px_rgba(47,37,23,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/96">
-    <form
-    onSubmit={handleSubmit}
-    className="bccc-availability-form mx-auto grid w-full max-w-[1800px] gap-2 px-3 sm:px-4 lg:grid-cols-[1fr_1fr_1.1fr_1.1fr_0.85fr_auto] lg:px-6"
->
-                        <FieldShell label="From" icon={<CalendarDays className="h-3.5 w-3.5" />}>
-                            <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(event) => {
-                                    const next = event.target.value;
-                                    setDateFrom(next);
-
-                                    if (!dateTo || next > dateTo) {
-                                        setDateTo(next);
-                                    }
-                                }}
-                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
-                            />
-                        </FieldShell>
-
-                        <FieldShell label="To" icon={<CalendarDays className="h-3.5 w-3.5" />}>
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(event) => setDateTo(event.target.value)}
-                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
-                            />
-                        </FieldShell>
-
-                        <FieldShell label="Event Type" icon={<Sparkles className="h-3.5 w-3.5" />}>
-                            <select
-                                value={eventType}
-                                onChange={(event) => setEventType(event.target.value)}
-                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+            <AnimatePresence initial={false}>
+                {!collapsed ? (
+                    <motion.section
+                        key="availability-dock"
+                        ref={dockRef}
+                        className="bccc-availability-dock fixed inset-x-0 z-[8500] w-screen px-0"
+                        style={{ '--bccc-dock-footer-lift': `${footerLift}px` } as CSSProperties}
+                        initial={{ y: 28, opacity: 0, filter: 'blur(10px)' }}
+                        animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+                        exit={{ y: 24, opacity: 0, filter: 'blur(8px)' }}
+                        transition={{ duration: 0.34, ease }}
+                        aria-label="Sticky availability checker"
+                    >
+                        <div className="bccc-availability-dock-panel relative w-full rounded-none border-y border-[#d9c7a6]/80 bg-[#fffaf0]/96 p-1.5 shadow-[0_-12px_60px_rgba(47,37,23,0.18)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#101419]/96">
+                            <button
+                                type="button"
+                                onClick={() => updateCollapsed(true)}
+                                className="absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full border border-[#d9c7a6]/70 bg-white/90 text-[#6e604c] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#2f2517] hover:text-white dark:border-white/10 dark:bg-white/10 dark:text-white/70 dark:hover:bg-white dark:hover:text-[#17120b]"
+                                aria-label="Hide availability checker"
                             >
-                                <option value="">Select type</option>
-                                {publicEventTypeOptions.map((item) => (
-                                    <option key={item} value={item}>
-                                        {item}
-                                    </option>
-                                ))}
-                            </select>
-                        </FieldShell>
+                                <X className="h-4 w-4" />
+                            </button>
 
-                        <FieldShell label="Area" icon={<LayoutGrid className="h-3.5 w-3.5" />}>
-                            <select
-                                value={venue}
-                                onChange={(event) => setVenue(event.target.value)}
-                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                            <form
+                                onSubmit={handleSubmit}
+                                className="bccc-availability-form mx-auto grid w-full max-w-[1800px] gap-1.5 px-3 pr-12 sm:px-4 sm:pr-14 lg:grid-cols-[1fr_1fr_1.1fr_1.1fr_0.85fr_auto] lg:px-6 lg:pr-16"
                             >
-                                <option value="">Select area</option>
-                                {options.map((item) => (
-                                    <option key={item.value} value={item.value}>
-                                        {item.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </FieldShell>
+                                <FieldShell label="From" icon={<CalendarDays className="h-3.5 w-3.5" />}>
+                                    <input
+                                        type="date"
+                                        value={dateFrom}
+                                        onChange={(event) => {
+                                            const next = event.target.value;
+                                            setDateFrom(next);
 
-                        <FieldShell label="Guests" icon={<Users className="h-3.5 w-3.5" />}>
-                            <input
-                                type="number"
-                                min="1"
-                                value={guests}
-                                onChange={(event) => setGuests(event.target.value)}
-                                placeholder="Estimated"
-                                className="h-8 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none placeholder:text-[#85755d] dark:text-white dark:placeholder:text-white/42"
-                            />
-                        </FieldShell>
+                                            if (!dateTo || next > dateTo) {
+                                                setDateTo(next);
+                                            }
+                                        }}
+                                        className="h-7 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                                    />
+                                </FieldShell>
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="inline-flex min-h-[4.1rem] items-center justify-center gap-2 rounded-[1rem] bg-[#2f2517] px-5 text-sm font-bold uppercase tracking-[0.08em] text-white shadow-[0_16px_40px_rgba(47,37,23,0.20)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] disabled:cursor-not-allowed disabled:opacity-65 dark:bg-[#f1d89b] dark:text-[#17120b]"
-                        >
-                            {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                            {loading ? 'Checking' : 'Check'}
-                        </button>
-                    </form>
+                                <FieldShell label="To" icon={<CalendarDays className="h-3.5 w-3.5" />}>
+                                    <input
+                                        type="date"
+                                        value={dateTo}
+                                        onChange={(event) => setDateTo(event.target.value)}
+                                        className="h-7 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                                    />
+                                </FieldShell>
 
-                    <div className="mx-auto mt-2 flex w-full max-w-[1800px] flex-col gap-2 px-3 sm:px-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
-                        <div className="min-w-0 text-xs leading-5 text-[#6e604c] dark:text-white/56">
-                            {selectedVenue ? (
-                                <>
-                                    <span className="font-bold text-[#2f2517] dark:text-white">{selectedVenue.label}</span>
-                                    {selectedVenue.category ? ` • ${selectedVenue.category}` : ''}
-                                    {selectedVenue.capacity ? ` • Capacity: ${selectedVenue.capacity}` : ''}
-                                </>
-                            ) : (
-                                'Select a venue area to begin checking availability.'
-                            )}
-                        </div>
+                                <FieldShell label="Event Type" icon={<Sparkles className="h-3.5 w-3.5" />}>
+                                    <select
+                                        value={eventType}
+                                        onChange={(event) => setEventType(event.target.value)}
+                                        className="h-7 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                                    >
+                                        <option value="">Select type</option>
+                                        {publicEventTypeOptions.map((item) => (
+                                            <option key={item} value={item}>
+                                                {item}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FieldShell>
 
-                        <div className="flex flex-wrap gap-1.5">
-                            {blockOrderPreview.map((item) => (
-                                <span
-                                    key={item.key}
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-[#d9c7a6]/70 bg-white/70 px-2.5 py-1 text-[11px] font-bold text-[#6e604c] dark:border-white/10 dark:bg-white/7 dark:text-white/56"
+                                <FieldShell label="Area" icon={<LayoutGrid className="h-3.5 w-3.5" />}>
+                                    <select
+                                        value={venue}
+                                        onChange={(event) => setVenue(event.target.value)}
+                                        className="h-7 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none dark:text-white"
+                                    >
+                                        <option value="">Select area</option>
+                                        {options.map((item) => (
+                                            <option key={item.value} value={item.value}>
+                                                {item.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </FieldShell>
+
+                                <FieldShell label="Guests" icon={<Users className="h-3.5 w-3.5" />}>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        value={guests}
+                                        onChange={(event) => setGuests(event.target.value)}
+                                        placeholder="Estimated"
+                                        className="h-7 w-full bg-transparent text-sm font-semibold text-[#2f2517] outline-none placeholder:text-[#85755d] dark:text-white dark:placeholder:text-white/42"
+                                    />
+                                </FieldShell>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="inline-flex min-h-[3.35rem] items-center justify-center gap-2 rounded-[0.95rem] bg-[#2f2517] px-4 text-sm font-bold uppercase tracking-[0.08em] text-white shadow-[0_16px_40px_rgba(47,37,23,0.20)] transition hover:-translate-y-0.5 hover:bg-[#4a3921] disabled:cursor-not-allowed disabled:opacity-65 dark:bg-[#f1d89b] dark:text-[#17120b]"
                                 >
-                                    <Clock3 className="h-3 w-3 text-[#9d7b3d] dark:text-[#f1d89b]" />
-                                    {item.key} {item.display}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
+                                    {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                    {loading ? 'Checking' : 'Check'}
+                                </button>
+                            </form>
 
-                    {validationMessage ? (
-                        <div className="mx-auto mt-2 max-w-[1800px] rounded-[0.9rem] border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
-                            {validationMessage}
+                            <div className="mx-auto mt-1.5 flex w-full max-w-[1800px] flex-col gap-1.5 px-3 text-[11px] sm:px-4 lg:flex-row lg:items-center lg:justify-between lg:px-6">
+                                <div className="min-w-0 leading-5 text-[#6e604c] dark:text-white/56">
+                                    {selectedVenue ? (
+                                        <>
+                                            <span className="font-bold text-[#2f2517] dark:text-white">{selectedVenue.label}</span>
+                                            {selectedVenue.category ? ` • ${selectedVenue.category}` : ''}
+                                            {selectedVenue.capacity ? ` • Capacity: ${selectedVenue.capacity}` : ''}
+                                        </>
+                                    ) : (
+                                        'Select a venue area to begin checking availability.'
+                                    )}
+                                </div>
+
+                                <div className="flex flex-wrap gap-1.5">
+                                    {blockOrderPreview.map((item) => (
+                                        <span
+                                            key={item.key}
+                                            className="inline-flex items-center gap-1.5 rounded-full border border-[#d9c7a6]/70 bg-white/70 px-2 py-0.5 text-[10px] font-bold text-[#6e604c] dark:border-white/10 dark:bg-white/7 dark:text-white/56"
+                                        >
+                                            <Clock3 className="h-3 w-3 text-[#9d7b3d] dark:text-[#f1d89b]" />
+                                            {item.key} {item.display}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {validationMessage ? (
+                                <div className="mx-auto mt-2 max-w-[1800px] rounded-[0.9rem] border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-100">
+                                    {validationMessage}
+                                </div>
+                            ) : null}
                         </div>
-                    ) : null}
-                </div>
-            </motion.section>
+                    </motion.section>
+                ) : (
+                    <motion.button
+                        key="availability-icon"
+                        type="button"
+                        onClick={() => updateCollapsed(false)}
+                        className="fixed bottom-5 right-4 z-[99960] grid h-14 w-14 place-items-center rounded-full border border-[#b08d48]/35 bg-[#145f52] text-white shadow-[0_24px_70px_rgba(20,95,82,0.30)] transition hover:-translate-y-1 hover:bg-[#1d7566] sm:right-6"
+                        initial={{ opacity: 0, y: 14, scale: 0.94, filter: 'blur(8px)' }}
+                        animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                        exit={{ opacity: 0, y: 14, scale: 0.94, filter: 'blur(8px)' }}
+                        transition={{ duration: 0.28, ease }}
+                        aria-label="Show availability checker"
+                    >
+                        <CalendarDays className="h-5 w-5" />
+                    </motion.button>
+                )}
+            </AnimatePresence>
 
             <AvailabilityResultModal
                 open={modalOpen}

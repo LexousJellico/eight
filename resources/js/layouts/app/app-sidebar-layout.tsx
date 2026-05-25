@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 
 const SIDEBAR_EXPANDED_WIDTH = '17.25rem';
 const SIDEBAR_COLLAPSED_WIDTH = '5.25rem';
+const BACKEND_TOPBAR_HEIGHT = '4.5rem';
 
 function getInitialSidebarState() {
     if (typeof window === 'undefined') {
@@ -83,8 +84,13 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
         () =>
             ({
                 '--bccc-backend-sidebar-width': collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH,
+                '--bccc-sidebar-width': collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH,
                 '--bccc-backend-sidebar-expanded-width': SIDEBAR_EXPANDED_WIDTH,
                 '--bccc-backend-sidebar-collapsed-width': SIDEBAR_COLLAPSED_WIDTH,
+                '--bccc-sidebar-width-expanded': SIDEBAR_EXPANDED_WIDTH,
+                '--bccc-sidebar-width-collapsed': SIDEBAR_COLLAPSED_WIDTH,
+                '--bccc-backend-topbar-height': BACKEND_TOPBAR_HEIGHT,
+                '--bccc-app-header-height': BACKEND_TOPBAR_HEIGHT,
             }) as CSSProperties,
         [collapsed],
     );
@@ -104,8 +110,8 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
 
             <BackendChromePortal breadcrumbs={breadcrumbs} collapsed={collapsed} onCollapsedChange={updateCollapsed} shellStyle={shellStyle} />
 
-            <div className="backend-shell relative z-10 min-h-screen">
-                <div className="backend-main min-w-0 transition-[padding] duration-300 ease-out">
+            <div className="backend-shell relative z-10 min-h-screen" style={shellStyle}>
+                <div className="backend-main min-w-0 transition-[padding,width] duration-300 ease-out">
                     <AppContent>{children}</AppContent>
                 </div>
             </div>

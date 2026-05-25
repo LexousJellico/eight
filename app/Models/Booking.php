@@ -48,6 +48,11 @@ class Booking extends Model
         'completed_at' => 'datetime',
         'final_computation_meta' => 'array',
         'final_computation_locked_at' => 'datetime',
+        'review_notified_at' => 'datetime',
+        'event_reminder_10d_sent_at' => 'datetime',
+        'event_reminder_3d_sent_at' => 'datetime',
+        'event_reminder_1d_sent_at' => 'datetime',
+        'payment_due_reminder_sent_at' => 'datetime',
         'cancellation_penalty_rate' => 'decimal:4',
         'cancellation_penalty_amount' => 'decimal:2',
     ];
@@ -117,6 +122,11 @@ class Booking extends Model
     public function views(): HasMany
     {
         return $this->hasMany(BookingView::class);
+    }
+
+    public function drafts(): HasMany
+    {
+        return $this->hasMany(BookingDraft::class);
     }
 
     public function getDisplayTitleAttribute(): string

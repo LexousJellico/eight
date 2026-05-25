@@ -357,10 +357,22 @@ class NotificationService
         $event = $booking->type_of_event ?: 'your event';
 
         return match ($status) {
-            'approved', 'accepted', 'confirmed', 'active' => [
+            'for_review' => [
+                'type' => 'booking_under_review',
+                'title' => 'Your reservation is under review',
+                'message' => sprintf('Your reservation for %s is now being reviewed by the BCCC team. You will be notified again when a decision or payment instruction is ready.', $event),
+                'severity' => 'info',
+            ],
+            'confirmed' => [
+                'type' => 'booking_confirmed_payment_next',
+                'title' => 'Your reservation was confirmed for payment',
+                'message' => sprintf('Your reservation for %s was confirmed. Please proceed with the required payment step and monitor your booking details for the payment deadline.', $event),
+                'severity' => 'success',
+            ],
+            'approved', 'accepted', 'active' => [
                 'type' => 'booking_approved',
                 'title' => 'Your booking has been approved',
-                'message' => sprintf('Your reservation for %s has been approved. Please open your booking details for payment and schedule instructions.', $event),
+                'message' => sprintf('Your reservation for %s has been approved and synced to the calendar. Please open your booking details for final schedule instructions.', $event),
                 'severity' => 'success',
             ],
             'pencil_booked' => [
@@ -721,6 +733,134 @@ class NotificationService
             'Your account was created successfully. System messages about your booking, payment, and account updates will appear here privately.',
             $this->safeRouteAny(['dashboard'], '/dashboard'),
             $this->clientOptions(null, $user, 'account.created.client', 'success')
+        );
+    }
+
+
+    public function userEmailVerified(User $user): void
+    {
+        $this->notifyMany(
+            $this->adminAuditRecipients(null),
+            'user_email_verified',
+            'Client account verified',
+            sprintf('Client account email was verified: %s (%s).', $user->name ?: 'Client', $user->email ?: 'no email'),
+            $this->safeRouteAny(['users.index', 'admin.users.index'], '/users'),
+            $this->adminOptions(null, $user, 'user.email_verified.admin', 'success')
+        );
+
+        $this->createNotification(
+            $user,
+            'account_verified',
+            'Your account has been verified',
+            'Your BCCC EASE account email has been verified. You can now receive private booking, payment, and account updates here.',
+            $this->safeRouteAny(['dashboard'], '/dashboard'),
+            $this->clientOptions(null, $user, 'account.verified.client', 'success')
+        );
+    }
+
+    public function bookingOpenedForReview(Booking $booking, User $actor): void
+    {
+        if (! $this->userHasAnyRole($actor, ['admin', 'manager', 'staff'])) {
+            return;
+        }
+
+        $owner = $this->bookingOwner($booking);
+
+        if (! $owner || (int) $owner->id === (int) $actor->id) {
+            return;
+        }
+
+        $role = strtoupper($this->actorRole($actor));
+        $event = $booking->type_of_event ?: 'your event';
+
+        $this->createNotification(
+            $owner,
+            'booking_under_review',
+            'Your reservation is under review',
+            sprintf('Your reservation for %s is now under review by %s. You will be notified when the review is completed or when payment instructions are ready.', $event, $role),
+            $this->bookingLink($booking),
+            $this->clientOptions($actor, $booking, 'booking.review_opened.client', 'info', [
+                'booking_id' => $booking->id,
+                'reviewed_by_role' => $role,
+            ])
+        );
+    }
+
+    public function bookingApprovedAfterPayment(Booking $booking, ?User $actor = null): void
+    {
+        $owner = $this->bookingOwner($booking);
+
+        if (! $owner) {
+            return;
+        }
+
+        $event = $booking->type_of_event ?: 'your event';
+
+        $this->createNotification(
+            $owner,
+            'booking_payment_completed_approved',
+            'Your reservation is approved',
+            sprintf('Your payment was approved and your reservation for %s is now approved. The approved schedule is now available in your calendar.', $event),
+            $this->bookingLink($booking),
+            $this->clientOptions($actor, $booking, 'booking.payment_completed.approved.client', 'success', [
+                'booking_id' => $booking->id,
+                'payment_status' => $booking->payment_status,
+                'booking_status' => $booking->booking_status,
+            ])
+        );
+    }
+
+    public function bookingEventReminder(Booking $booking, int $daysBefore): void
+    {
+        $owner = $this->bookingOwner($booking);
+
+        if (! $owner) {
+            return;
+        }
+
+        $event = $booking->type_of_event ?: 'your approved event';
+        $date = $booking->booking_date_from ? $booking->booking_date_from->format('M d, Y h:ia') : 'your reserved date';
+        $label = $daysBefore === 1 ? 'tomorrow' : $daysBefore . ' days from now';
+
+        $this->createNotification(
+            $owner,
+            'booking_event_reminder_' . $daysBefore . 'd',
+            $daysBefore === 1 ? 'Your event is tomorrow' : 'Your event is approaching',
+            sprintf('Reminder: %s is scheduled on %s (%s). Please review your booking details and final instructions.', $event, $date, $label),
+            $this->bookingLink($booking),
+            $this->clientOptions(null, $booking, 'booking.event_reminder.' . $daysBefore . 'd.client', 'warning', [
+                'booking_id' => $booking->id,
+                'days_before' => $daysBefore,
+            ])
+        );
+    }
+
+    public function bookingPaymentDueReminder(Booking $booking, string $deadlineType = 'payment'): void
+    {
+        $owner = $this->bookingOwner($booking);
+
+        if (! $owner) {
+            return;
+        }
+
+        $event = $booking->type_of_event ?: 'your reservation';
+        $deadline = $deadlineType === 'balance'
+            ? $booking->payment_balance_due_at
+            : ($booking->expired_at ?: $booking->payment_balance_due_at);
+        $deadlineText = $deadline ? $deadline->format('M d, Y h:ia') : 'the payment deadline';
+        $title = $deadlineType === 'balance' ? 'Balance payment deadline reminder' : 'Payment deadline reminder';
+
+        $this->createNotification(
+            $owner,
+            $deadlineType === 'balance' ? 'booking_balance_due_reminder' : 'booking_payment_due_reminder',
+            $title,
+            sprintf('Reminder: %s still has a pending %s. Please settle it on or before %s to avoid cancellation.', $event, $deadlineType === 'balance' ? 'balance payment' : 'payment requirement', $deadlineText),
+            $this->bookingLink($booking, '#payments'),
+            $this->clientOptions(null, $booking, 'booking.payment_due_reminder.' . $deadlineType . '.client', 'warning', [
+                'booking_id' => $booking->id,
+                'deadline_type' => $deadlineType,
+                'deadline_at' => optional($deadline)->toIso8601String(),
+            ])
         );
     }
 

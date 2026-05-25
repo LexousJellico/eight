@@ -189,7 +189,15 @@ function MobileSection({
     );
 }
 
-export function AppSidebarHeader({ breadcrumbs = [], collapsed = false }: { breadcrumbs?: BreadcrumbItem[]; collapsed?: boolean }) {
+export function AppSidebarHeader({
+    breadcrumbs = [],
+    collapsed = false,
+    onCollapsedChange,
+}: {
+    breadcrumbs?: BreadcrumbItem[];
+    collapsed?: boolean;
+    onCollapsedChange?: (value: boolean) => void;
+}) {
     const page = usePage();
     const props = page.props as SharedProps;
     const role = getBackendRole(props.auth);
@@ -242,8 +250,7 @@ export function AppSidebarHeader({ breadcrumbs = [], collapsed = false }: { brea
     return (
         <>
             <header className={cx(
-                    'backend-topbar backend-main-topbar fixed inset-x-0 top-0 z-[99960] border-b border-slate-200/70 bg-white/88 shadow-[0_14px_46px_rgba(15,23,42,0.07)] backdrop-blur-2xl transition-[left] duration-300 dark:border-white/10 dark:bg-[#0a0d12]/88 dark:shadow-[0_18px_50px_rgba(0,0,0,0.28)]',
-                    collapsed ? 'lg:left-[5.25rem]' : 'lg:left-[17.25rem]',
+                    'backend-topbar backend-main-topbar fixed inset-x-0 top-0 z-[99960] border-b border-slate-200/70 bg-white/88 shadow-[0_14px_46px_rgba(15,23,42,0.07)] backdrop-blur-2xl transition-[left,width] duration-300 dark:border-white/10 dark:bg-[#0a0d12]/88 dark:shadow-[0_18px_50px_rgba(0,0,0,0.28)]',
                 )}>
                 <div className="backend-main-topbar-inner mx-auto flex min-h-16 w-full max-w-[1920px] items-center gap-2 px-3 py-2 sm:px-4 lg:px-5 xl:px-6">
                     <button
@@ -254,6 +261,18 @@ export function AppSidebarHeader({ breadcrumbs = [], collapsed = false }: { brea
                     >
                         <Menu className="h-5 w-5" />
                     </button>
+
+                    {onCollapsedChange ? (
+                        <button
+                            type="button"
+                            onClick={() => onCollapsedChange(!collapsed)}
+                            className="hidden h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-200/80 bg-white/78 text-slate-900 shadow-[0_12px_30px_rgba(15,23,42,0.08)] transition hover:-translate-y-0.5 hover:border-[#d6b05c]/50 hover:bg-white dark:border-white/10 dark:bg-white/[0.055] dark:text-white dark:hover:bg-white/[0.09] lg:grid"
+                            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        >
+                            {collapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                        </button>
+                    ) : null}
 
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">

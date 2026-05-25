@@ -53,15 +53,15 @@ export default function WelcomeSection() {
                     </div>
                 </div>
 
-                <div className="relative min-h-[24rem] overflow-hidden bg-[#d8e2df] shadow-[0_24px_70px_rgba(23,100,86,0.12)] dark:bg-white/5">
+                <div className="relative min-h-[14rem] overflow-hidden">
                     <SafeImage
-                        src="/marketing/images/facilities/darkvip.JPG"
+                        src="/marketing/images/hero/welcome.png"
                         fallbackSrc="/marketing/images/hero/noon2.jpg"
                         alt="Baguio Convention and Cultural Center interior"
                         className="h-full min-h-[24rem] w-full object-cover"
                         wrapperClassName="h-full w-full"
                     />
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_40%,rgba(0,0,0,0.48))]" />
+                    <div className="absolute inset-0" />
 
                     <div className="absolute bottom-0 left-0 right-0 grid gap-3 p-5 text-white sm:grid-cols-2 sm:p-6">
                         <a

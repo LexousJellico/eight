@@ -43,7 +43,7 @@ export default function FloatingQuickLinks({ siteSettings }: Props) {
 
     return (
         <div
-            className="bccc-floating-quick-links fixed bottom-5 right-4 z-[99970] flex flex-col items-end gap-3 sm:bottom-6 sm:right-6"
+            className="bccc-floating-quick-links fixed bottom-24 right-4 z-[99970] flex flex-col items-end gap-3 sm:bottom-28 sm:right-6"
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
             onFocus={() => setOpen(true)}

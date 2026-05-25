@@ -11,6 +11,7 @@ use App\Http\Controllers\BookingApprovalController;
 use App\Http\Controllers\BookingAuditController;
 use App\Http\Controllers\BookingAvailabilityController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BookingDraftController;
 use App\Http\Controllers\BookingOperationsController;
 use App\Http\Controllers\CalendarAnalyticsController;
 use App\Http\Controllers\CalendarBlockController;
@@ -125,6 +126,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', RoleRedirectController::class)
         ->name('dashboard');
+
+    Route::get('/booking-drafts/latest', [BookingDraftController::class, 'latest'])
+        ->name('booking-drafts.latest');
+
+    Route::post('/booking-drafts', [BookingDraftController::class, 'store'])
+        ->middleware('throttle:60,1')
+        ->name('booking-drafts.store');
+
+    Route::get('/booking-drafts/{bookingDraft}', [BookingDraftController::class, 'show'])
+        ->whereNumber('bookingDraft')
+        ->name('booking-drafts.show');
+
+    Route::delete('/booking-drafts/{bookingDraft}', [BookingDraftController::class, 'destroy'])
+        ->whereNumber('bookingDraft')
+        ->name('booking-drafts.destroy');
 });
 
 /*

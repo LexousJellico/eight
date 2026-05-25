@@ -68,6 +68,9 @@ class StoreBookingRequest extends FormRequest
             'items.*.service_id' => ['required_with:items', 'exists:services,id'],
             'items.*.quantity' => ['nullable', 'numeric', 'min:1'],
             'payment_meta' => ['nullable', 'array'],
+            'mice_payload' => ['nullable', 'array'],
+            'booking_draft_key' => ['nullable', 'string', 'max:120'],
+            'draft_key' => ['nullable', 'string', 'max:120'],
 
             'selected_package_code' => ['nullable', 'string', 'max:80'],
             'package_code' => ['nullable', 'string', 'max:80'],

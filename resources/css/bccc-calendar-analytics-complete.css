@@ -1104,3 +1104,60 @@
         min-width: 0 !important;
     }
 }
+
+/* =========================================================
+   Batch 6 — Client calendar status clarity
+   ---------------------------------------------------------
+   Keeps own client bookings visible while separating private
+   reserved dates from faded past/unavailable dates.
+   ========================================================= */
+.user-calendar-day {
+    isolation: isolate;
+}
+
+.user-calendar-day > span:first-child {
+    mix-blend-mode: normal;
+}
+
+.user-calendar-detail-panel .user-calendar-block-row {
+    border-radius: 1rem;
+}
+
+@media (max-width: 767px) {
+    .user-calendar-grid-inner {
+        min-width: 38rem;
+    }
+
+    .user-calendar-day {
+        min-height: 5.85rem;
+        padding: 0.7rem;
+    }
+
+    .user-calendar-detail-panel {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 520px) {
+    .user-calendar-responsive-card > div:first-child {
+        padding-inline: 0.9rem;
+    }
+
+    .user-calendar-responsive-card > div:first-child > button {
+        top: 0.9rem;
+        height: 2.35rem;
+        width: 2.35rem;
+    }
+
+    .user-calendar-grid-scroll {
+        padding: 0.65rem;
+    }
+
+    .user-calendar-grid-inner {
+        min-width: 34rem;
+    }
+
+    .user-calendar-day {
+        min-height: 5.35rem;
+    }
+}

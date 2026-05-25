@@ -13,6 +13,7 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
+import { useState } from 'react';
 
 type PageProps = {
     siteSettings?: SiteSettings;
@@ -32,13 +33,40 @@ export default function LocationAssistance() {
     const address = settings.address || 'Baguio Convention and Cultural Center, Baguio City';
     const phone = settings.phone || '(074) 446 2009';
     const email = settings.email || 'info@bccc-ease.com';
+    const [directionStatus, setDirectionStatus] = useState('');
 
     const openMapUrl =
         settings.openMapUrl ||
         settings.open_map_url ||
         `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 
-    const mapEmbedUrl = settings.mapEmbedUrl || settings.map_embed_url || '';
+    const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}&travelmode=driving`;
+    const mapEmbedUrl = settings.mapEmbedUrl || settings.map_embed_url || `https://maps.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+
+    function openDirectionsFromCurrentLocation() {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            window.open(directionsUrl, '_blank', 'noopener,noreferrer');
+            setDirectionStatus('GPS is not available on this browser, so Google Maps opened with BCCC as the destination.');
+            return;
+        }
+
+        setDirectionStatus('Requesting device GPS permission for directions...');
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const origin = `${position.coords.latitude.toFixed(6)},${position.coords.longitude.toFixed(6)}`;
+                const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(address)}&travelmode=driving`;
+
+                window.open(url, '_blank', 'noopener,noreferrer');
+                setDirectionStatus('Directions opened using your current GPS location.');
+            },
+            () => {
+                window.open(directionsUrl, '_blank', 'noopener,noreferrer');
+                setDirectionStatus('Location permission was not granted, so Google Maps opened with BCCC as the destination.');
+            },
+            { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
+        );
+    }
 
     return (
         <section className="bccc-location-assistance relative overflow-hidden bg-[#eef4f2] px-4 py-14 dark:bg-[#08110f] sm:px-6 lg:px-8">
@@ -167,6 +195,15 @@ export default function LocationAssistance() {
                             <ArrowRight className="h-4 w-4" />
                         </Link>
 
+                        <button
+                            type="button"
+                            onClick={openDirectionsFromCurrentLocation}
+                            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white px-5 text-sm font-semibold text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#f7f0e3] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                        >
+                            Get Directions
+                            <Navigation className="h-4 w-4" />
+                        </button>
+
                         <a
                             href={openMapUrl}
                             target="_blank"
@@ -177,6 +214,12 @@ export default function LocationAssistance() {
                             <ExternalLink className="h-4 w-4" />
                         </a>
                     </div>
+
+                    {directionStatus ? (
+                        <p className="mt-3 rounded-[1rem] border border-[#d9c7a6]/70 bg-[#f7f0e3]/74 px-4 py-3 text-xs font-semibold leading-5 text-[#6e604c] dark:border-white/10 dark:bg-white/7 dark:text-white/60">
+                            {directionStatus}
+                        </p>
+                    ) : null}
                 </motion.section>
 
                 <motion.section

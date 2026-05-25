@@ -11,6 +11,7 @@ use App\Http\Resources\BookingResource;
 use App\Http\Resources\ServiceResource;
 use App\Http\Resources\ServiceTypeResource;
 use App\Models\Booking;
+use App\Models\BookingDraft;
 use App\Models\BookingPayment;
 use App\Models\MiceRecord;
 use App\Models\Service;
@@ -32,6 +33,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -138,6 +140,7 @@ class BookingController extends Controller
             'initialVenue' => trim((string) $request->query('venue', $request->query('area', ''))) ?: null,
             'initialEventType' => trim((string) $request->query('event_type', '')) ?: null,
             'initialGuests' => $request->filled('guests') ? (int) $request->query('guests') : null,
+            'latestDraft' => $this->latestBookingDraftPayload($request),
             'workspaceRole' => WorkspaceAccess::role($request),
             'isStaffWorkspace' => WorkspaceAccess::isStaffLike($request),
         ]);
@@ -167,10 +170,12 @@ class BookingController extends Controller
         }
 
         $booking = $this->bookings->create($data);
+        $this->saveOfficialMiceRecordFromBookingForm($request, $booking);
+        $this->markBookingDraftSubmitted($request, $booking);
 
         return redirect()
             ->route(WorkspacePage::routeName($request, 'bookings.show'), $booking->id)
-            ->with('success', 'Reservation submitted successfully. You can now review the full booking details, MICE draft, and payment deadline.');
+            ->with('success', 'Reservation submitted successfully. Your MICE report details were saved with the booking and the reservation is now pending review.');
     }
 
     public function survey(Request $request, Booking $booking): Response
@@ -254,13 +259,9 @@ class BookingController extends Controller
             $payload['submitted_by_user_id'] = $request->user()?->id;
         }
 
-        if (($payload['status'] ?? 'draft') === 'draft') {
-            $payload['draft_expires_at'] = $existing?->draft_expires_at ?: now()->addWeekdays(15);
-            $payload['finalized_at'] = null;
-        } else {
-            $payload['draft_expires_at'] = null;
-            $payload['finalized_at'] = $existing?->finalized_at ?: now();
-        }
+        $payload['status'] = 'submitted';
+        $payload['draft_expires_at'] = null;
+        $payload['finalized_at'] = $existing?->finalized_at ?: now();
 
         MiceRecord::query()->updateOrCreate(
             ['booking_id' => $booking->id],
@@ -269,15 +270,14 @@ class BookingController extends Controller
 
         return redirect()
             ->route(WorkspacePage::routeName($request, 'bookings.show'), $booking->id)
-            ->with('success', ($payload['status'] ?? 'draft') === 'draft'
-                ? 'MICE/contact details saved as draft. It will become official after booking confirmation.'
-                : 'MICE report submitted and finalized successfully.');
+            ->with('success', 'MICE report details saved with this booking.');
     }
 
     public function show(Request $request, Booking $booking): Response
     {
         $this->ensureBookingAccess($request, $booking);
 
+        $this->notifyPendingBookingViewedByHead($request, $booking);
         $this->markAsViewed($request, $booking);
         $this->bookings->syncLifecycleStatus($booking);
 
@@ -353,6 +353,7 @@ class BookingController extends Controller
         $this->ensureBookingAccess($request, $booking);
         abort_unless(WorkspaceAccess::canUpdateBooking($request, $booking), 403);
 
+        $this->notifyPendingBookingViewedByHead($request, $booking);
         $this->markAsViewed($request, $booking);
         $this->bookings->syncLifecycleStatus($booking);
 
@@ -435,7 +436,7 @@ class BookingController extends Controller
         $data = $this->normalizePaymentPayload($request, $data, $canManage);
 
         try {
-            $booking->payments()->create($data);
+            $payment = $booking->payments()->create($data);
         } catch (\Throwable $exception) {
             if (! empty($data['proof_image_path'])) {
                 $this->deleteStoredFile($data['proof_image_path']);
@@ -465,6 +466,7 @@ class BookingController extends Controller
 
         $data = $request->validated();
         $oldProofPath = $payment->proof_image_path;
+        $oldStatus = BookingStatusCatalog::normalizePaymentProofStatus((string) ($payment->status ?? $payment->payment_status ?? 'pending'), 'pending');
 
         $data = $this->normalizePaymentPayload($request, $data, true, $payment);
 
@@ -491,6 +493,17 @@ class BookingController extends Controller
         }
 
         $this->bookings->recalculatePaymentStatus($booking->refresh());
+
+        $newStatus = BookingStatusCatalog::normalizePaymentProofStatus((string) ($payment->status ?? $payment->payment_status ?? 'pending'), 'pending');
+        if ($newStatus !== $oldStatus && in_array($newStatus, ['approved', 'rejected'], true)) {
+            $this->notifications->paymentReviewed(
+                $payment->refresh(),
+                $booking->refresh(),
+                $request->user(),
+                $newStatus,
+                $newStatus === 'rejected' ? ($data['remarks'] ?? null) : null
+            );
+        }
 
         return redirect()
             ->back()
@@ -647,6 +660,121 @@ class BookingController extends Controller
         return $normalized;
     }
 
+    private function latestBookingDraftPayload(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if (! $user || ! Schema::hasTable('booking_drafts')) {
+            return null;
+        }
+
+        $draft = BookingDraft::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['auto', 'manual'])
+            ->latest('last_touched_at')
+            ->latest('updated_at')
+            ->first();
+
+        if (! $draft) {
+            return null;
+        }
+
+        return [
+            'id' => $draft->id,
+            'draft_key' => $draft->draft_key,
+            'status' => $draft->status,
+            'workspace_role' => $draft->workspace_role,
+            'current_step' => $draft->current_step,
+            'payload' => $draft->payload ?: [],
+            'last_touched_at' => optional($draft->last_touched_at)->toIso8601String(),
+        ];
+    }
+
+    private function saveOfficialMiceRecordFromBookingForm(Request $request, Booking $booking): void
+    {
+        if (! Schema::hasTable('mice_records')) {
+            return;
+        }
+
+        $booking->refresh()->loadMissing([
+            'service.serviceType',
+            'bookingServices.service.serviceType',
+            'scheduleSegments',
+            'postEventCharges',
+        ]);
+
+        $raw = $request->input('mice_payload');
+
+        if (! is_array($raw)) {
+            $meta = $request->input('payment_meta', []);
+            $raw = is_array($meta) && isset($meta['mice_draft']) && is_array($meta['mice_draft'])
+                ? $meta['mice_draft']
+                : [];
+        }
+
+        $fallback = $this->miceDefaultsFromBooking($booking);
+        $payload = MiceRecordPayload::fromRequest(
+            array_replace($fallback, $raw),
+            $booking,
+            $request->user(),
+        );
+
+        $existing = MiceRecord::query()
+            ->where('booking_id', $booking->id)
+            ->first();
+
+        $yearRecorded = (int) ($payload['year_recorded'] ?? now()->year);
+        $payload['record_no'] = $existing?->record_no ?: $this->nextMiceRecordNumber($yearRecorded);
+        $payload['status'] = 'submitted';
+        $payload['draft_expires_at'] = null;
+        $payload['finalized_at'] = $existing?->finalized_at ?: now();
+        $payload['submitted_at'] = $existing?->submitted_at ?: now();
+        $payload['updated_by_user_id'] = $request->user()?->id;
+
+        if (! $existing) {
+            $payload['submitted_by_user_id'] = $request->user()?->id;
+        }
+
+        MiceRecord::query()->updateOrCreate(
+            ['booking_id' => $booking->id],
+            $payload,
+        );
+    }
+
+    private function markBookingDraftSubmitted(Request $request, Booking $booking): void
+    {
+        $user = $request->user();
+
+        if (! $user || ! Schema::hasTable('booking_drafts')) {
+            return;
+        }
+
+        $draftKey = trim((string) ($request->input('booking_draft_key') ?: $request->input('draft_key') ?: ''));
+
+        $query = BookingDraft::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['auto', 'manual']);
+
+        if ($draftKey !== '') {
+            $query->where('draft_key', $draftKey);
+        } else {
+            $query->latest('last_touched_at')->latest('updated_at')->limit(1);
+        }
+
+        $draft = $query->first();
+
+        if (! $draft) {
+            return;
+        }
+
+        $draft->forceFill([
+            'booking_id' => $booking->id,
+            'status' => 'submitted',
+            'submitted_at' => now(),
+            'last_touched_at' => now(),
+        ])->saveQuietly();
+    }
+
     private function ensureBookingAccess(Request $request, Booking $booking): void
     {
         abort_unless(WorkspaceAccess::canViewBooking($request, $booking), 403);
@@ -662,7 +790,7 @@ class BookingController extends Controller
 
         $data['client_email'] = strtolower(trim((string) $user->email));
         $data['created_by_user_id'] = $user->id;
-        $data['booking_status'] = 'pencil_booked';
+        $data['booking_status'] = 'pending';
         $data['payment_status'] = 'unpaid';
 
         unset(
@@ -734,6 +862,41 @@ class BookingController extends Controller
         );
 
         return $data;
+    }
+
+    private function notifyPendingBookingViewedByHead(Request $request, Booking $booking): void
+    {
+        $user = $request->user();
+
+        if (! $user || ! WorkspaceAccess::isStaffLike($request)) {
+            return;
+        }
+
+        $status = BookingStatusCatalog::normalizeBookingStatus((string) ($booking->booking_status ?? ''), 'pending');
+
+        if (! in_array($status, ['pending', 'submitted', 'pencil_booked', 'for_review'], true)) {
+            return;
+        }
+
+        if (Schema::hasColumn('bookings', 'review_notified_at') && filled($booking->review_notified_at)) {
+            return;
+        }
+
+        $this->notifications->bookingOpenedForReview($booking, $user);
+
+        $payload = [];
+
+        if (Schema::hasColumn('bookings', 'review_notified_at')) {
+            $payload['review_notified_at'] = now();
+        }
+
+        if (Schema::hasColumn('bookings', 'review_notified_by_user_id')) {
+            $payload['review_notified_by_user_id'] = $user->id;
+        }
+
+        if (! empty($payload)) {
+            $booking->forceFill($payload)->saveQuietly();
+        }
     }
 
     private function markAsViewed(Request $request, Booking $booking): void

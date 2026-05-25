@@ -18,6 +18,11 @@ Schedule::command('bookings:sync-lifecycle --quiet-report')
     ->withoutOverlapping()
     ->runInBackground();
 
+Schedule::command('bookings:send-reminders')
+    ->dailyAt('08:00')
+    ->withoutOverlapping()
+    ->runInBackground();
+
 
 Artisan::command('bccc:audit {--strict : Return a non-zero exit code when warnings are found}', function (): int {
     $result = BcccFinalQaAudit::run(base_path());

@@ -23,7 +23,7 @@ import {
     X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type PublicSiteSettings = {
     logo_url?: string | null;
@@ -267,7 +267,31 @@ function BookNowButton({ mobile = false, onClick }: { mobile?: boolean; onClick?
 
 function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSettings }) {
     const [moreOpen, setMoreOpen] = useState(false);
+    const closeTimer = useRef<number | null>(null);
     const items = moreItems(settings);
+
+    function cancelClose() {
+        if (closeTimer.current !== null) {
+            window.clearTimeout(closeTimer.current);
+            closeTimer.current = null;
+        }
+    }
+
+    function openMore() {
+        cancelClose();
+        setMoreOpen(true);
+    }
+
+    function closeMoreWithDelay() {
+        cancelClose();
+        closeTimer.current = window.setTimeout(() => setMoreOpen(false), 260);
+    }
+
+    useEffect(() => () => {
+        if (closeTimer.current !== null) {
+            window.clearTimeout(closeTimer.current);
+        }
+    }, []);
 
     return (
         <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 xl:flex 2xl:gap-1.5" aria-label="Primary navigation">
@@ -289,7 +313,17 @@ function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSetti
                 );
             })}
 
-            <div className="relative" onMouseEnter={() => setMoreOpen(true)} onMouseLeave={() => setMoreOpen(false)}>
+            <div
+                className="relative"
+                onMouseEnter={openMore}
+                onMouseLeave={closeMoreWithDelay}
+                onFocus={openMore}
+                onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                        closeMoreWithDelay();
+                    }
+                }}
+            >
                 <button
                     type="button"
                     onClick={() => setMoreOpen((value) => !value)}
@@ -300,10 +334,14 @@ function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSetti
                     aria-expanded={moreOpen}
                 >
                     More <ChevronDown className={cx('h-3.5 w-3.5 transition', moreOpen && 'rotate-180')} />
-                </button> 
+                </button>
 
                 {moreOpen ? (
-                    <div className="absolute left-1/2 top-full z-[99995] mt-3 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white/96 p-4 text-slate-800 shadow-[0_26px_70px_rgba(2,26,22,0.22)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0d1715]/96">
+                    <div
+                        className="absolute left-1/2 top-full z-[99995] mt-3 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-xl border border-slate-200 bg-white/96 p-4 text-slate-800 shadow-[0_26px_70px_rgba(2,26,22,0.22)] backdrop-blur-2xl dark:border-white/10 dark:bg-[#0d1715]/96"
+                        onMouseEnter={openMore}
+                        onMouseLeave={closeMoreWithDelay}
+                    >
                         <div className="grid gap-2 md:grid-cols-2">
                             {items.map((child) => {
                                 const Icon = child.icon;
@@ -328,11 +366,11 @@ function DesktopNav({ url, settings }: { url: string; settings?: PublicSiteSetti
                                     'group flex min-h-[5.25rem] items-start gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-slate-100 dark:hover:bg-white/10';
 
                                 return child.external || isExternal(child.href) ? (
-                                    <a key={child.label} href={child.href} target="_blank" rel="noreferrer" className={className}>
+                                    <a key={child.label} href={child.href} target="_blank" rel="noreferrer" className={className} onClick={() => setMoreOpen(false)}>
                                         {content}
                                     </a>
                                 ) : (
-                                    <Link key={child.label} href={child.href} className={className}>
+                                    <Link key={child.label} href={child.href} className={className} onClick={() => setMoreOpen(false)}>
                                         {content}
                                     </Link>
                                 );

@@ -42,7 +42,7 @@ class PaymentReviewService
         ?string $remarks = null
     ): void {
         $status = BookingStatusCatalog::normalizePaymentProofStatus($status, 'pending');
-
+        $now = now();
         $payload = [];
 
         if (Schema::hasColumn($payment->getTable(), 'status')) {
@@ -54,17 +54,23 @@ class PaymentReviewService
         }
 
         if ($status === 'approved') {
-            foreach (['approved_at', 'verified_at', 'reviewed_at'] as $column) {
+            foreach (['paid_at', 'approved_at', 'verified_at', 'reviewed_at'] as $column) {
                 if (Schema::hasColumn($payment->getTable(), $column)) {
-                    $payload[$column] = now();
+                    $payload[$column] = $payment->{$column} ?: $now;
+                }
+            }
+
+            foreach (['declined_at', 'failed_at', 'rejected_at'] as $column) {
+                if (Schema::hasColumn($payment->getTable(), $column)) {
+                    $payload[$column] = null;
                 }
             }
         }
 
         if ($status === 'rejected') {
-            foreach (['rejected_at', 'reviewed_at'] as $column) {
+            foreach (['declined_at', 'rejected_at', 'reviewed_at'] as $column) {
                 if (Schema::hasColumn($payment->getTable(), $column)) {
-                    $payload[$column] = now();
+                    $payload[$column] = $now;
                 }
             }
         }
@@ -79,7 +85,9 @@ class PaymentReviewService
             $payload['remarks'] = $remarks;
         }
 
-        $payment->forceFill($payload)->save();
+        if (! empty($payload)) {
+            $payment->forceFill($payload)->save();
+        }
     }
 
     public function syncBookingPaymentStatus(?Booking $booking, ?int $userId = null, ?string $eventDescription = null): void
@@ -88,12 +96,14 @@ class PaymentReviewService
             return;
         }
 
-        $booking->loadMissing('payments');
+        $booking->loadMissing(['payments', 'bookingServices.service']);
 
         $totalCharges = $this->bookingTotalCharges($booking);
         $approvedPayments = $this->approvedPaymentTotal($booking);
         $submittedPayments = $this->submittedPaymentTotal($booking);
         $remainingBalance = max($totalCharges - $approvedPayments, 0);
+        $previousBookingStatus = (string) ($booking->booking_status ?? '');
+        $previousPaymentStatus = (string) ($booking->payment_status ?? '');
 
         $bookingPayload = [];
 
@@ -102,32 +112,14 @@ class PaymentReviewService
                 totalCharges: $totalCharges,
                 approvedPayments: $approvedPayments,
                 submittedPayments: $submittedPayments,
-                currentPaymentStatus: (string) ($booking->payment_status ?? '')
+                currentPaymentStatus: $previousPaymentStatus
             );
         }
 
-        if ($remainingBalance <= 0 && $approvedPayments > 0) {
-            if (Schema::hasColumn('bookings', 'payment_balance_due_at')) {
-                $bookingPayload['payment_balance_due_at'] = null;
-            }
-
-            if (Schema::hasColumn('bookings', 'expired_at')) {
-                $bookingPayload['expired_at'] = null;
-            }
-
-            if (Schema::hasColumn('bookings', 'booking_status')) {
-                $currentStatus = strtolower(str_replace(['-', ' '], '_', (string) ($booking->booking_status ?? '')));
-
-                if (in_array($currentStatus, ['pending', 'submitted', 'pencil_booked', 'for_review'], true)) {
-                    $bookingPayload['booking_status'] = 'approved';
-                }
-            }
-        }
-
-        if ($remainingBalance > 0 && $approvedPayments > 0) {
-            if (Schema::hasColumn('bookings', 'payment_balance_due_at') && blank($booking->payment_balance_due_at)) {
-                $bookingPayload['payment_balance_due_at'] = app(BookingDeadlineService::class)->addWorkingDays(now(), BookingDeadlineService::BALANCE_DEADLINE_WORKING_DAYS);
-            }
+        if ($approvedPayments > 0 && $remainingBalance <= 0) {
+            $this->applyFullyPaidBookingPayload($booking, $bookingPayload, $userId);
+        } elseif ($approvedPayments > 0 && $remainingBalance > 0) {
+            $this->applyPartiallyPaidBookingPayload($booking, $bookingPayload, $userId);
         }
 
         if ($userId && Schema::hasColumn('bookings', 'updated_by_user_id')) {
@@ -156,6 +148,10 @@ class PaymentReviewService
                 'approved_payments' => $approvedPayments,
                 'submitted_payments' => $submittedPayments,
                 'remaining_balance' => $remainingBalance,
+                'from_booking_status' => $previousBookingStatus,
+                'to_booking_status' => $booking?->booking_status,
+                'from_payment_status' => $previousPaymentStatus,
+                'to_payment_status' => $booking?->payment_status,
             ]
         );
     }
@@ -166,7 +162,21 @@ class PaymentReviewService
             return (float) $booking->totals['items_total'];
         }
 
-        foreach (['total_amount', 'grand_total', 'amount_due', 'estimated_total', 'total_price'] as $column) {
+        $meta = $booking->payment_meta;
+        if (is_string($meta)) {
+            $decoded = json_decode($meta, true);
+            $meta = is_array($decoded) ? $decoded : [];
+        }
+
+        if (is_array($meta)) {
+            foreach (['grand_total', 'estimated_total', 'total_payable', 'amount_due', 'items_total'] as $key) {
+                if (isset($meta[$key]) && (float) $meta[$key] > 0) {
+                    return (float) $meta[$key];
+                }
+            }
+        }
+
+        foreach (['finalized_total', 'total_amount', 'grand_total', 'amount_due', 'estimated_total', 'total_price'] as $column) {
             if (Schema::hasColumn('bookings', $column) && filled($booking->{$column})) {
                 return (float) $booking->{$column};
             }
@@ -176,21 +186,31 @@ class PaymentReviewService
             try {
                 $items = $booking->relationLoaded('bookingServices')
                     ? $booking->bookingServices
-                    : $booking->bookingServices()->get();
+                    : $booking->bookingServices()->with('service')->get();
 
-                $sum = 0;
+                $sum = 0.0;
 
                 foreach ($items as $item) {
-                    foreach (['total', 'amount', 'price', 'subtotal', 'line_total'] as $column) {
-                        if (isset($item->{$column})) {
+                    foreach (['total', 'amount', 'price', 'subtotal', 'line_total', 'total_amount'] as $column) {
+                        if (isset($item->{$column}) && (float) $item->{$column} > 0) {
                             $sum += (float) $item->{$column};
                             continue 2;
+                        }
+                    }
+
+                    $service = $item->service ?? null;
+                    if ($service) {
+                        foreach (['price', 'rate', 'amount', 'base_price', 'base_rate'] as $column) {
+                            if (isset($service->{$column}) && (float) $service->{$column} > 0) {
+                                $sum += (float) $service->{$column} * max(1, (int) ($item->quantity ?? 1));
+                                continue 2;
+                            }
                         }
                     }
                 }
 
                 if ($sum > 0) {
-                    return $sum;
+                    return round($sum, 2);
                 }
             } catch (\Throwable) {
                 return 0;
@@ -208,6 +228,7 @@ class PaymentReviewService
             'paid',
             'completed',
             'settled',
+            'confirmed',
         ]);
     }
 
@@ -222,6 +243,74 @@ class PaymentReviewService
         ]);
     }
 
+    private function applyFullyPaidBookingPayload(Booking $booking, array &$payload, ?int $userId): void
+    {
+        if (Schema::hasColumn('bookings', 'payment_balance_due_at')) {
+            $payload['payment_balance_due_at'] = null;
+        }
+
+        if (Schema::hasColumn('bookings', 'balance_due_at')) {
+            $payload['balance_due_at'] = null;
+        }
+
+        if (Schema::hasColumn('bookings', 'expired_at')) {
+            $payload['expired_at'] = null;
+        }
+
+        if (Schema::hasColumn('bookings', 'booking_status')) {
+            $currentStatus = $this->normalizeStatus($booking->booking_status ?? '');
+
+            if (in_array($currentStatus, ['pending', 'submitted', 'pencil_booked', 'for_review', 'confirmed', 'awaiting_downpayment', 'awaiting_payment', 'awaiting_balance'], true)) {
+                $payload['booking_status'] = 'approved';
+            }
+        }
+
+        if (Schema::hasColumn('bookings', 'confirmed_at') && blank($booking->confirmed_at)) {
+            $payload['confirmed_at'] = now();
+        }
+
+        if ($userId && Schema::hasColumn('bookings', 'confirmed_by_user_id') && blank($booking->confirmed_by_user_id)) {
+            $payload['confirmed_by_user_id'] = $userId;
+        }
+
+        if (Schema::hasColumn('bookings', 'is_public_calendar_visible')) {
+            $payload['is_public_calendar_visible'] = true;
+        }
+
+        if (Schema::hasColumn('bookings', 'public_calendar_title') && blank($booking->public_calendar_title)) {
+            $payload['public_calendar_title'] = $booking->type_of_event ?: 'Reserved Event';
+        }
+    }
+
+    private function applyPartiallyPaidBookingPayload(Booking $booking, array &$payload, ?int $userId): void
+    {
+        if (Schema::hasColumn('bookings', 'payment_balance_due_at') && blank($booking->payment_balance_due_at)) {
+            $payload['payment_balance_due_at'] = app(BookingDeadlineService::class)
+                ->addWorkingDays(now(), BookingDeadlineService::BALANCE_DEADLINE_WORKING_DAYS);
+        }
+
+        if (Schema::hasColumn('bookings', 'balance_due_at') && blank($booking->balance_due_at)) {
+            $payload['balance_due_at'] = $booking->booking_date_from ?: app(BookingDeadlineService::class)
+                ->addWorkingDays(now(), BookingDeadlineService::BALANCE_DEADLINE_WORKING_DAYS);
+        }
+
+        if (Schema::hasColumn('bookings', 'booking_status')) {
+            $currentStatus = $this->normalizeStatus($booking->booking_status ?? '');
+
+            if (in_array($currentStatus, ['pending', 'submitted', 'pencil_booked', 'for_review', 'awaiting_downpayment', 'awaiting_payment'], true)) {
+                $payload['booking_status'] = 'confirmed';
+            }
+        }
+
+        if (Schema::hasColumn('bookings', 'confirmed_at') && blank($booking->confirmed_at)) {
+            $payload['confirmed_at'] = now();
+        }
+
+        if ($userId && Schema::hasColumn('bookings', 'confirmed_by_user_id') && blank($booking->confirmed_by_user_id)) {
+            $payload['confirmed_by_user_id'] = $userId;
+        }
+    }
+
     private function paymentTotalByStatuses(Booking $booking, array $statuses): float
     {
         if (! method_exists($booking, 'payments')) {
@@ -233,14 +322,13 @@ class PaymentReviewService
                 ? $booking->payments
                 : $booking->payments()->get();
 
-            return (float) $payments
-                ->filter(function ($payment) use ($statuses): bool {
-                    $status = strtolower(str_replace(['-', ' '], '_', (string) ($payment->status ?? $payment->payment_status ?? '')));
+            $normalizedStatuses = array_map(fn (string $value): string => $this->normalizeStatus($value), $statuses);
 
-                    return in_array($status, array_map(
-                        fn (string $value): string => strtolower(str_replace(['-', ' '], '_', $value)),
-                        $statuses
-                    ), true);
+            return (float) $payments
+                ->filter(function ($payment) use ($normalizedStatuses): bool {
+                    $status = $this->normalizeStatus((string) ($payment->status ?? $payment->payment_status ?? ''));
+
+                    return in_array($status, $normalizedStatuses, true);
                 })
                 ->sum(fn ($payment): float => (float) ($payment->amount ?? 0));
         } catch (\Throwable) {
@@ -254,7 +342,11 @@ class PaymentReviewService
         float $submittedPayments,
         string $currentPaymentStatus
     ): string {
-        if ($totalCharges > 0 && $approvedPayments >= $totalCharges) {
+        if ($totalCharges > 0 && $approvedPayments + 0.00001 >= $totalCharges) {
+            return 'paid';
+        }
+
+        if ($totalCharges <= 0 && $approvedPayments > 0) {
             return 'paid';
         }
 
@@ -266,13 +358,13 @@ class PaymentReviewService
             return 'for_review';
         }
 
-        $normalized = strtolower(str_replace(['-', ' '], '_', $currentPaymentStatus));
+        $normalized = $this->normalizeStatus($currentPaymentStatus);
 
-        if (in_array($normalized, ['expired', 'rejected', 'declined'], true)) {
+        if (in_array($normalized, ['expired', 'rejected', 'declined', 'failed'], true)) {
             return $normalized;
         }
 
-        return 'pending';
+        return 'unpaid';
     }
 
     private function recordLifecycleEvent(
@@ -292,8 +384,16 @@ class PaymentReviewService
 
             $table = 'booking_lifecycle_events';
 
+            if (Schema::hasColumn($table, 'actor_user_id') && $userId) {
+                $payload['actor_user_id'] = $userId;
+            }
+
             if (Schema::hasColumn($table, 'label')) {
                 $payload['label'] = 'payment_review';
+            }
+
+            if (Schema::hasColumn($table, 'event_key')) {
+                $payload['event_key'] = 'payment_review_updated';
             }
 
             if (Schema::hasColumn($table, 'title')) {
@@ -304,20 +404,32 @@ class PaymentReviewService
                 $payload['description'] = $description ?: 'Payment review status was updated.';
             }
 
+            if (Schema::hasColumn($table, 'reason')) {
+                $payload['reason'] = $description ?: 'Payment review status was updated.';
+            }
+
             if (Schema::hasColumn($table, 'from_payment_status')) {
-                $payload['from_payment_status'] = null;
+                $payload['from_payment_status'] = $meta['from_payment_status'] ?? null;
             }
 
             if (Schema::hasColumn($table, 'to_payment_status')) {
-                $payload['to_payment_status'] = $booking->payment_status ?? null;
+                $payload['to_payment_status'] = $meta['to_payment_status'] ?? ($booking->payment_status ?? null);
+            }
+
+            if (Schema::hasColumn($table, 'from_status')) {
+                $payload['from_status'] = $meta['from_booking_status'] ?? null;
+            }
+
+            if (Schema::hasColumn($table, 'to_status')) {
+                $payload['to_status'] = $meta['to_booking_status'] ?? ($booking->booking_status ?? null);
             }
 
             if (Schema::hasColumn($table, 'from_booking_status')) {
-                $payload['from_booking_status'] = null;
+                $payload['from_booking_status'] = $meta['from_booking_status'] ?? null;
             }
 
             if (Schema::hasColumn($table, 'to_booking_status')) {
-                $payload['to_booking_status'] = $booking->booking_status ?? null;
+                $payload['to_booking_status'] = $meta['to_booking_status'] ?? ($booking->booking_status ?? null);
             }
 
             if (Schema::hasColumn($table, 'event_at')) {
@@ -333,12 +445,19 @@ class PaymentReviewService
             }
 
             if (Schema::hasColumn($table, 'meta')) {
-                $payload['meta'] = $meta;
+                $payload['meta'] = collect($meta)
+                    ->filter(fn ($value) => $value !== null && $value !== '' && $value !== [])
+                    ->all();
             }
 
             BookingLifecycleEvent::query()->create($payload);
         } catch (\Throwable) {
             // Do not block payment review if audit logging shape differs.
         }
+    }
+
+    private function normalizeStatus(mixed $value): string
+    {
+        return strtolower(str_replace(['-', ' '], '_', trim((string) $value)));
     }
 }

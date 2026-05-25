@@ -61,6 +61,7 @@ class WorkspaceCalendarController extends Controller
                 'EVE' => (bool) ($dayStatus['EVE'] ?? true),
                 'is_fully_booked' => (bool) ($dayStatus['is_fully_booked'] ?? false),
                 'day_status' => (string) ($dayStatus['day_status'] ?? 'available'),
+                'is_past' => $d->lt(Carbon::today()),
             ];
         }
 
@@ -220,6 +221,7 @@ class WorkspaceCalendarController extends Controller
                 'company_name',
                 'type_of_event',
                 'booking_status',
+                'payment_status',
                 'booking_date_from',
                 'booking_date_to',
                 'number_of_guests',
@@ -245,6 +247,7 @@ class WorkspaceCalendarController extends Controller
                 'company_name',
                 'type_of_event',
                 'booking_status',
+                'payment_status',
                 'booking_date_from',
                 'booking_date_to',
                 'number_of_guests',
@@ -280,9 +283,12 @@ class WorkspaceCalendarController extends Controller
             'start' => optional($booking->booking_date_from)->format('Y-m-d\TH:i'),
             'end' => optional($booking->booking_date_to)->format('Y-m-d\TH:i'),
             'status' => $status,
+            'payment_status' => (string) ($booking->payment_status ?? 'unpaid'),
             'area' => $venueArea !== '' ? $venueArea : null,
             'block' => $serviceName !== '' ? $serviceName : null,
             'guests' => $booking->number_of_guests,
+            'is_client_owned' => $clientSafe,
+            'is_public_calendar_visible' => (bool) ($booking->is_public_calendar_visible ?? false),
             'groupKey' => substr(hash('sha1', $groupSeed !== '' ? $groupSeed : ('booking|' . $booking->id)), 0, 16),
         ];
     }

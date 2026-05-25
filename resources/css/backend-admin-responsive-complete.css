@@ -412,3 +412,41 @@
     padding: 0 !important;
   }
 }
+
+/* Batch 7: Admin command center print/export polish */
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+
+  .app-sidebar,
+  .backend-sidebar,
+  .backend-app-sidebar,
+  .bccc-backend-sidebar,
+  .bccc-app-sidebar,
+  .backend-topbar,
+  .app-header,
+  .bccc-app-header,
+  .bccc-admin-command-center button,
+  .bccc-admin-command-center a[href='/admin/bookings/create'],
+  .bccc-admin-command-center a[href='/admin/content'] {
+    display: none !important;
+  }
+
+  .backend-app-content,
+  .bccc-admin-command-center {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .bccc-admin-command-panel,
+  .bccc-admin-command-metric {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border-color: #d9c7a6 !important;
+    background: #ffffff !important;
+    color: #21180d !important;
+  }
+}

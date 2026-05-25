@@ -5,14 +5,14 @@ import { Head, Link } from '@inertiajs/react';
 import {
     Activity,
     AlertTriangle,
-    BarChart3,
-    Building2,
     CalendarClock,
-    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
     CheckCircle2,
     CircleDollarSign,
     ClipboardList,
     CreditCard,
+    Download,
     ExternalLink,
     FileBarChart,
     Gauge,
@@ -21,14 +21,14 @@ import {
     LayoutDashboard,
     LineChart,
     PieChart,
+    Printer,
     ReceiptText,
     ShieldCheck,
     Sparkles,
-    TimerReset,
     TrendingUp,
     UsersRound,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 type CommandMetric = {
@@ -78,6 +78,26 @@ type WebsiteSummary = {
     conversion_hint?: string | null;
 };
 
+type UsersSummary = {
+    total?: number;
+    verified?: number;
+    unverified?: number;
+    new_today?: number;
+    operator_accounts?: number;
+    client_accounts?: number;
+};
+
+type RecentUserRow = {
+    id?: number | string;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    email_verified?: boolean | null;
+    bookings_count?: number;
+    pending_bookings_count?: number;
+    created_at?: string | null;
+};
+
 type SystemHealth = {
     label: string;
     value: string | number;
@@ -94,6 +114,8 @@ type AdminCommandCenterPayload = {
     paymentSummary?: PaymentSummary;
     miceSummary?: CommandMetric[];
     websiteSummary?: WebsiteSummary;
+    usersSummary?: UsersSummary;
+    recentUsers?: RecentUserRow[];
     systemHealth?: SystemHealth[];
     recentActivity?: ActivityRow[];
 };
@@ -171,6 +193,65 @@ function toneClass(tone?: CommandMetric['tone'] | SystemHealth['state']) {
 
 function maxOf(rows: Array<{ value: number }>): number {
     return Math.max(1, ...rows.map((row) => numberValue(row.value)));
+}
+
+function downloadTextFile(filename: string, contents: string, type = 'text/plain;charset=utf-8') {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const blob = new Blob([contents], { type });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function csvEscape(value: unknown): string {
+    const text = String(value ?? '');
+    return `"${text.replaceAll('"', '""')}"`;
+}
+
+function dashboardCsv(adminCommandCenter: AdminCommandCenterPayload, workspaceStats: WorkspaceStats): string {
+    const rows: string[][] = [
+        ['Section', 'Label', 'Value', 'Helper'],
+        ...((adminCommandCenter.headlineMetrics ?? []).map((metric) => [
+            'Headline Metric',
+            metric.label,
+            String(metric.value ?? ''),
+            String(metric.helper ?? ''),
+        ])),
+        ...((adminCommandCenter.bookingStatus ?? []).map((row) => [
+            'Booking Status',
+            row.label,
+            String(row.value ?? 0),
+            String(row.helper ?? ''),
+        ])),
+        ...((adminCommandCenter.paymentSummary
+            ? Object.entries(adminCommandCenter.paymentSummary).map(([key, value]) => [
+                'Payment Summary',
+                cleanLabel(key),
+                String(value ?? 0),
+                '',
+            ])
+            : [])),
+        ...((adminCommandCenter.systemHealth ?? []).map((item) => [
+            'System Health',
+            item.label,
+            String(item.value ?? ''),
+            String(item.helper ?? ''),
+        ])),
+        ...Object.entries(workspaceStats).map(([key, value]) => [
+            'Workspace Stats',
+            cleanLabel(key),
+            String(value ?? ''),
+            '',
+        ]),
+    ];
+
+    return rows.map((row) => row.map(csvEscape).join(',')).join('\n');
 }
 
 function CommandMetricCard({ metric, index }: { metric: CommandMetric; index: number }) {
@@ -380,8 +461,37 @@ export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCe
     const scheduleMix = adminCommandCenter.scheduleMix ?? [];
     const paymentSummary = adminCommandCenter.paymentSummary ?? {};
     const websiteSummary = adminCommandCenter.websiteSummary ?? {};
+    const usersSummary = adminCommandCenter.usersSummary ?? {};
+    const recentUsers = adminCommandCenter.recentUsers ?? [];
     const systemHealth = adminCommandCenter.systemHealth ?? [];
     const recentActivity = adminCommandCenter.recentActivity ?? [];
+    const [activityPage, setActivityPage] = useState(1);
+    const activityPageSize = 5;
+    const activityTotalPages = Math.max(1, Math.ceil(recentActivity.length / activityPageSize));
+    const safeActivityPage = Math.min(activityPage, activityTotalPages);
+    const pagedActivity = recentActivity.slice((safeActivityPage - 1) * activityPageSize, safeActivityPage * activityPageSize);
+
+    const printDashboard = () => {
+        if (typeof window !== 'undefined') {
+            window.print();
+        }
+    };
+
+    const exportJson = () => {
+        downloadTextFile(
+            `bccc-admin-dashboard-${new Date().toISOString().slice(0, 10)}.json`,
+            JSON.stringify({ workspaceStats, adminCommandCenter }, null, 2),
+            'application/json;charset=utf-8',
+        );
+    };
+
+    const exportCsv = () => {
+        downloadTextFile(
+            `bccc-admin-dashboard-${new Date().toISOString().slice(0, 10)}.csv`,
+            dashboardCsv(adminCommandCenter, workspaceStats),
+            'text/csv;charset=utf-8',
+        );
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -411,6 +521,30 @@ export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCe
                         </div>
 
                         <div className="flex flex-wrap gap-2 xl:justify-end">
+                            <button
+                                type="button"
+                                onClick={printDashboard}
+                                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white/76 px-4 text-xs font-black uppercase tracking-[0.16em] text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#fffaf0] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                            >
+                                <Printer className="h-4 w-4" />
+                                Print
+                            </button>
+                            <button
+                                type="button"
+                                onClick={exportCsv}
+                                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white/76 px-4 text-xs font-black uppercase tracking-[0.16em] text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#fffaf0] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                            >
+                                <Download className="h-4 w-4" />
+                                CSV
+                            </button>
+                            <button
+                                type="button"
+                                onClick={exportJson}
+                                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#d9c7a6]/70 bg-white/76 px-4 text-xs font-black uppercase tracking-[0.16em] text-[#2f2517] transition hover:-translate-y-0.5 hover:bg-[#fffaf0] dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                            >
+                                <Download className="h-4 w-4" />
+                                JSON
+                            </button>
                             <ResourceActionLink href="/admin/content" variant="secondary">
                                 Manage Content
                             </ResourceActionLink>
@@ -484,7 +618,7 @@ export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCe
                     </Panel>
                 </section>
 
-                <section className="grid gap-5 xl:grid-cols-3">
+                <section className="grid gap-5 xl:grid-cols-2 2xl:grid-cols-4">
                     <Panel title="MICE Reporting" eyebrow="Registry" icon={FileBarChart} actions={<Link href="/admin/reports/mice-registry" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Open registry</Link>}>
                         <div className="space-y-3">
                             {(adminCommandCenter.miceSummary ?? []).map((metric) => (
@@ -501,6 +635,40 @@ export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCe
                             <MiniMetric label="Open Inquiries" value={websiteSummary.inquiries_open ?? 0} icon={Inbox} tone="warn" />
                         </div>
                         {websiteSummary.conversion_hint ? <p className="mt-4 text-sm leading-6 text-[#6e604c] dark:text-white/56">{websiteSummary.conversion_hint}</p> : null}
+                    </Panel>
+
+                    <Panel title="Account Monitoring" eyebrow="Users" icon={UsersRound} actions={<Link href="/admin/users" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Open users</Link>}>
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                            <MiniMetric label="Total Accounts" value={usersSummary.total ?? 0} icon={UsersRound} tone="neutral" />
+                            <MiniMetric label="Verified" value={usersSummary.verified ?? 0} icon={CheckCircle2} tone="good" />
+                            <MiniMetric label="Unverified" value={usersSummary.unverified ?? 0} icon={AlertTriangle} tone="warn" />
+                            <MiniMetric label="New Today" value={usersSummary.new_today ?? 0} icon={Sparkles} tone="info" />
+                        </div>
+
+                        {recentUsers.length ? (
+                            <div className="mt-4 space-y-2">
+                                {recentUsers.slice(0, 3).map((user) => (
+                                    <Link
+                                        key={user.id ?? user.email ?? user.name}
+                                        href={user.id ? `/admin/users/${user.id}/edit` : '/admin/users'}
+                                        className="block rounded-[1rem] border border-[#d9c7a6]/60 bg-[#fffaf0]/70 p-3 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.035] dark:hover:bg-white/[0.07]"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-sm font-semibold text-[#21180d] dark:text-white">{user.name || 'Unnamed user'}</p>
+                                                <p className="truncate text-xs text-[#7a6b55] dark:text-white/45">{user.email || 'No email'} · {cleanLabel(user.role)}</p>
+                                            </div>
+                                            <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.13em] ${user.email_verified ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200' : 'bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200'}`}>
+                                                {user.email_verified ? 'Verified' : 'New'}
+                                            </span>
+                                        </div>
+                                        <p className="mt-2 text-xs text-[#8a7a63] dark:text-white/42">
+                                            {user.bookings_count ?? 0} booking(s) · {user.pending_bookings_count ?? 0} pending
+                                        </p>
+                                    </Link>
+                                ))}
+                            </div>
+                        ) : null}
                     </Panel>
 
                     <Panel title="System Health" eyebrow="Readiness" icon={Gauge}>
@@ -523,8 +691,9 @@ export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCe
 
                 <Panel title="Recent System Activity" eyebrow="Admin Monitoring" icon={Activity} actions={<Link href="/notifications" className="text-xs font-black uppercase tracking-[0.18em] text-[#9d7b3d] dark:text-[#f1d89b]">Notification center</Link>}>
                     {recentActivity.length ? (
-                        <div className="divide-y divide-[#d9c7a6]/60 overflow-hidden rounded-[1.25rem] border border-[#d9c7a6]/60 bg-[#fffaf0]/60 dark:divide-white/10 dark:border-white/10 dark:bg-white/[0.035]">
-                            {recentActivity.map((item) => {
+                        <>
+                            <div className="divide-y divide-[#d9c7a6]/60 overflow-hidden rounded-[1.25rem] border border-[#d9c7a6]/60 bg-[#fffaf0]/60 dark:divide-white/10 dark:border-white/10 dark:bg-white/[0.035]">
+                            {pagedActivity.map((item) => {
                                 const row = (
                                     <div className="grid gap-3 p-4 transition hover:bg-white/70 dark:hover:bg-white/[0.045] lg:grid-cols-[1fr_auto] lg:items-center">
                                         <div className="min-w-0">
@@ -550,6 +719,33 @@ export default function AdminCommandCenter({ workspaceStats = {}, adminCommandCe
                                 );
                             })}
                         </div>
+
+                        <div className="mt-4 flex flex-col gap-3 rounded-[1.1rem] border border-[#d9c7a6]/60 bg-[#fffaf0]/60 p-3 dark:border-white/10 dark:bg-white/[0.035] sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a7a63] dark:text-white/45">
+                                Showing {pagedActivity.length} of {recentActivity.length} activity item(s) · Page {safeActivityPage} of {activityTotalPages}
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    disabled={safeActivityPage <= 1}
+                                    onClick={() => setActivityPage((page) => Math.max(1, page - 1))}
+                                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#d9c7a6]/70 bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-[#2f2517] transition hover:bg-[#f7f0e3] disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    Prev
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={safeActivityPage >= activityTotalPages}
+                                    onClick={() => setActivityPage((page) => Math.min(activityTotalPages, page + 1))}
+                                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-[#d9c7a6]/70 bg-white px-3 text-xs font-black uppercase tracking-[0.14em] text-[#2f2517] transition hover:bg-[#f7f0e3] disabled:cursor-not-allowed disabled:opacity-45 dark:border-white/10 dark:bg-white/7 dark:text-white dark:hover:bg-white/12"
+                                >
+                                    Next
+                                    <ChevronRight className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                        </>
                     ) : (
                         <div className="rounded-[1.35rem] border border-dashed border-[#d9c7a6]/80 bg-[#fffaf0]/58 p-8 text-center dark:border-white/10 dark:bg-white/[0.035]">
                             <Activity className="mx-auto h-9 w-9 text-[#9d7b3d] dark:text-[#f1d89b]" />

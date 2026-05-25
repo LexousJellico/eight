@@ -14,12 +14,16 @@ class MiceRecordPayload
     {
         $eventDateFrom = self::dateValue(
             Arr::get($validated, 'event_date_from')
+            ?? Arr::get($validated, 'date_event_started')
+            ?? Arr::get($validated, 'event_started_at')
             ?? Arr::get($validated, 'booking_date_from')
             ?? $booking?->booking_date_from
         );
 
         $eventDateTo = self::dateValue(
             Arr::get($validated, 'event_date_to')
+            ?? Arr::get($validated, 'date_event_finished')
+            ?? Arr::get($validated, 'event_finished_at')
             ?? Arr::get($validated, 'booking_date_to')
             ?? $booking?->booking_date_to
             ?? $eventDateFrom
@@ -63,8 +67,8 @@ class MiceRecordPayload
             'function_halls_count' => $isPublic ? MiceReportCatalog::FUNCTION_HALLS_COUNT : null,
             'function_hall_capacity' => $isPublic ? MiceReportCatalog::FUNCTION_HALL_CAPACITY : null,
             'covered_month' => self::text(Arr::get($validated, 'covered_month'), $eventDateFrom ? Carbon::parse($eventDateFrom)->format('F') : now()->format('F')),
-            'event_started_at' => self::dateOnly(Arr::get($validated, 'event_started_at') ?? $eventDateFrom),
-            'event_finished_at' => self::dateOnly(Arr::get($validated, 'event_finished_at') ?? $eventDateTo),
+            'event_started_at' => self::dateOnly(Arr::get($validated, 'event_started_at') ?? Arr::get($validated, 'date_event_started') ?? $eventDateFrom),
+            'event_finished_at' => self::dateOnly(Arr::get($validated, 'event_finished_at') ?? Arr::get($validated, 'date_event_finished') ?? $eventDateTo),
             'number_of_hours' => self::decimalValue(Arr::get($validated, 'number_of_hours'), 10),
 
             'establishment_name' => MiceReportCatalog::EVENT_CENTER_NAME,

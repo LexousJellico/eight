@@ -125,9 +125,10 @@ class PaymentReviewController extends Controller
         ]);
 
         if ($validated['status'] === 'approved') {
-$reviewed = $service->approve($payment, $request->user()?->id);
+            $reviewed = $service->approve($payment, $request->user()?->id);
             $reviewed->loadMissing('booking');
             $this->notifications->paymentReviewed($reviewed, $reviewed->booking, $request->user(), 'approved');
+            $this->notifyBookingIfPaymentCompleted($reviewed, $request);
 
             return back()->with('success', 'Payment proof approved successfully.');
         }
@@ -151,6 +152,7 @@ $reviewed = $service->approve($payment, $request->user()?->id);
         $reviewed = $service->approve($payment, $request->user()?->id);
         $reviewed->loadMissing('booking');
         $this->notifications->paymentReviewed($reviewed, $reviewed->booking, $request->user(), 'approved');
+        $this->notifyBookingIfPaymentCompleted($reviewed, $request);
 
         return back()->with('success', 'Payment proof approved successfully.');
     }
@@ -173,6 +175,22 @@ $reviewed = $service->approve($payment, $request->user()?->id);
         $this->notifications->paymentReviewed($reviewed, $reviewed->booking, $request->user(), 'rejected', $validated['remarks'] ?? null);
 
         return back()->with('success', 'Payment proof rejected successfully.');
+    }
+
+    private function notifyBookingIfPaymentCompleted(BookingPayment $payment, Request $request): void
+    {
+        $booking = $payment->booking;
+
+        if (! $booking) {
+            return;
+        }
+
+        $bookingStatus = strtolower(str_replace(['-', ' '], '_', (string) ($booking->booking_status ?? '')));
+        $paymentStatus = strtolower(str_replace(['-', ' '], '_', (string) ($booking->payment_status ?? '')));
+
+        if (in_array($bookingStatus, ['approved', 'active'], true) && in_array($paymentStatus, ['paid', 'approved', 'settled'], true)) {
+            $this->notifications->bookingApprovedAfterPayment($booking, $request->user());
+        }
     }
 
     private function serializePayment(BookingPayment $payment, PaymentReviewService $service): array

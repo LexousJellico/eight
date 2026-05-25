@@ -58,57 +58,64 @@ function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
 }
 
-function availabilityLabel(day?: CalendarAvailabilityDay): string {
-    const status = String(day?.day_status || '').toLowerCase();
+function todayKey(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
 
+    return `${year}-${month}-${day}`;
+}
+
+function availabilityLabel(day?: CalendarAvailabilityDay, key?: string): string {
+    const status = String(day?.day_status || '').toLowerCase();
+    const isPast = key ? key < todayKey() : false;
+
+    if (isPast) return 'Past / Unavailable';
     if (!day) return 'No Data';
-    if (status === 'blocked') return 'Blocked';
+    if (status === 'blocked') return 'Unavailable';
     if (status === 'public_booked') return 'Public Event';
-    if (status === 'private_booked') return 'Private / Reserved';
+    if (status === 'private_booked' || day.is_fully_booked) return 'Reserved';
     if (status === 'limited' || status === 'partial' || status === 'partially_booked') return 'Limited';
-    if (day.is_fully_booked) return 'Fully Booked';
 
     return 'Available';
 }
 
-function availabilityTone(day?: CalendarAvailabilityDay): string {
-    const status = String(day?.day_status || '').toLowerCase();
+function availabilityTone(day?: CalendarAvailabilityDay, key?: string): string {
+    const label = availabilityLabel(day, key);
 
-    if (!day) {
-        return 'border-[var(--bccc-backend-line)] bg-[var(--bccc-backend-panel-muted)]';
+    if (label === 'Past / Unavailable' || label === 'Unavailable' || !day) {
+        return 'border-slate-300/35 bg-slate-400/10 dark:border-white/10 dark:bg-white/[0.045]';
     }
 
-    if (status === 'blocked' || day.is_fully_booked) {
+    if (label === 'Reserved') {
         return 'border-rose-300/35 bg-rose-400/10';
     }
 
-    if (status === 'public_booked') {
+    if (label === 'Public Event') {
         return 'border-sky-300/35 bg-sky-400/10';
     }
 
-    if (status === 'private_booked') {
-        return 'border-amber-300/40 bg-amber-400/10';
-    }
-
-    if (status === 'limited' || status === 'partial' || status === 'partially_booked') {
+    if (label === 'Limited') {
         return 'border-blue-300/35 bg-blue-400/10';
     }
 
     return 'border-emerald-300/35 bg-emerald-400/10';
 }
 
-function statusDot(day?: CalendarAvailabilityDay): string {
-    const status = String(day?.day_status || '').toLowerCase();
+function statusDot(day?: CalendarAvailabilityDay, key?: string): string {
+    const label = availabilityLabel(day, key);
 
-    if (status === 'blocked' || day?.is_fully_booked) return 'bg-rose-500';
-    if (status === 'public_booked') return 'bg-sky-500';
-    if (status === 'private_booked') return 'bg-amber-500';
-    if (status === 'limited' || status === 'partial' || status === 'partially_booked') return 'bg-blue-500';
+    if (label === 'Past / Unavailable' || label === 'Unavailable') return 'bg-slate-400';
+    if (label === 'Reserved') return 'bg-rose-500';
+    if (label === 'Public Event') return 'bg-sky-500';
+    if (label === 'Limited') return 'bg-blue-500';
 
     return 'bg-emerald-500';
 }
 
-function blockOpen(day: CalendarAvailabilityDay | undefined, block: CalendarBlockKey): boolean {
+function blockOpen(day: CalendarAvailabilityDay | undefined, block: CalendarBlockKey, key?: string): boolean {
+    if (key && key < todayKey()) return false;
     if (!day) return true;
 
     return day[block] !== false;
@@ -205,7 +212,7 @@ function CalendarDay({
             className={cx(
                 'group relative min-h-[8.75rem] border-b border-r border-[var(--bccc-backend-line)] p-2 text-left transition duration-500 hover:z-10 hover:border-[var(--bccc-backend-gold-line)] hover:bg-[var(--bccc-backend-hover)] sm:min-h-[9.75rem]',
                 day.isCurrentMonth ? '' : 'opacity-45',
-                availabilityTone(day.availability),
+                availabilityTone(day.availability, day.key),
                 selected && 'z-20 ring-2 ring-inset ring-[var(--bccc-backend-gold)]',
             )}
         >
@@ -232,14 +239,14 @@ function CalendarDay({
                     </span>
 
                     <span className="hidden items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-[var(--bccc-backend-muted)] sm:inline-flex">
-                        <span className={cx('h-2 w-2 rounded-full', statusDot(day.availability))} />
-                        {availabilityLabel(day.availability)}
+                        <span className={cx('h-2 w-2 rounded-full', statusDot(day.availability, day.key))} />
+                        {availabilityLabel(day.availability, day.key)}
                     </span>
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-1">
                     {blockKeys.map((block) => (
-                        <AvailabilityPill key={block} block={block} open={blockOpen(day.availability, block)} />
+                        <AvailabilityPill key={block} block={block} open={blockOpen(day.availability, block, day.key)} />
                     ))}
                 </div>
 
@@ -373,13 +380,13 @@ function SelectedDayPanel({
                     </p>
 
                     <div className="mt-3 inline-flex items-center gap-2 border border-[var(--bccc-backend-gold-line)] bg-[rgba(169,132,67,0.10)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--bccc-backend-gold)]">
-                        <span className={cx('h-2 w-2 rounded-full', statusDot(day.availability))} />
-                        {availabilityLabel(day.availability)}
+                        <span className={cx('h-2 w-2 rounded-full', statusDot(day.availability, day.key))} />
+                        {availabilityLabel(day.availability, day.key)}
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
                         {blockKeys.map((block) => (
-                            <AvailabilityPill key={block} block={block} open={blockOpen(day.availability, block)} />
+                            <AvailabilityPill key={block} block={block} open={blockOpen(day.availability, block, day.key)} />
                         ))}
                     </div>
                 </div>

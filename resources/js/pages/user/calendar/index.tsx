@@ -1,6 +1,19 @@
 import { BookingRolePageShell } from '@/components/bookings/booking-role-page-shell';
 import { Link, router, usePage } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, CalendarDays, CheckCircle2, Clock3, LockKeyhole, MapPin, Plus } from 'lucide-react';
+import {
+    ArrowLeft,
+    ArrowRight,
+    CalendarDays,
+    CheckCircle2,
+    Clock3,
+    CreditCard,
+    Hourglass,
+    LockKeyhole,
+    MapPin,
+    Plus,
+    ShieldCheck,
+    XCircle,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 type CalendarAvailabilityDay = {
@@ -9,6 +22,7 @@ type CalendarAvailabilityDay = {
     EVE?: boolean;
     is_fully_booked?: boolean;
     day_status?: string;
+    is_past?: boolean;
 };
 
 type CalendarEvent = {
@@ -18,8 +32,11 @@ type CalendarEvent = {
     start?: string | null;
     end?: string | null;
     status?: string | null;
+    payment_status?: string | null;
     area?: string | null;
     block?: string | null;
+    guests?: number | string | null;
+    is_client_owned?: boolean;
 };
 
 type PageProps = {
@@ -28,7 +45,25 @@ type PageProps = {
     events?: CalendarEvent[];
 };
 
+type CalendarCell = {
+    key: string;
+    number: number;
+    current: boolean;
+    today: boolean;
+};
+
+type DayTone = {
+    fill: string;
+    border: string;
+    selectedBorder: string;
+    text: string;
+    badge: string;
+    dot: string;
+    icon: typeof CalendarDays;
+};
+
 const weekLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const currentDayKey = () => dateKey(new Date());
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ');
@@ -71,7 +106,7 @@ function addMonth(value: string, offset: number) {
     return dateKey(next).slice(0, 7);
 }
 
-function buildGrid(month: string) {
+function buildGrid(month: string): CalendarCell[] {
     const [year, monthNumber] = month.split('-').map(Number);
     const first = new Date(year, (monthNumber || 1) - 1, 1);
     const start = new Date(first);
@@ -86,9 +121,13 @@ function buildGrid(month: string) {
             key: dateKey(date),
             number: date.getDate(),
             current: date.getMonth() === first.getMonth(),
-            today: dateKey(date) === dateKey(new Date()),
+            today: dateKey(date) === currentDayKey(),
         };
     });
+}
+
+function normalize(value?: string | null) {
+    return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 }
 
 function eventTouchesDate(event: CalendarEvent, key: string) {
@@ -101,93 +140,196 @@ function eventTouchesDate(event: CalendarEvent, key: string) {
     return key >= start && key <= end;
 }
 
-function dayStatus(day?: CalendarAvailabilityDay, key?: string) {
-    const status = String(day?.day_status || '').toLowerCase();
-    const isPast = key ? key < dateKey(new Date()) : false;
-
-    if (!day) return isPast ? 'Unavailable' : 'Available';
-    if (isPast && status === 'available') return 'Unavailable';
-    if (status === 'blocked' || status === 'past_unavailable' || day.is_fully_booked) return 'Unavailable';
-    if (status === 'public_booked') return isPast ? 'Past Event' : 'Public Activity';
-    if (status === 'private_booked') return isPast ? 'Completed Event' : 'Reserved';
-    if (status === 'limited' || status === 'partial' || status === 'partially_booked') return isPast ? 'Past / Limited' : 'Limited';
-
-    return isPast ? 'Unavailable' : 'Available';
+function eventsForDate(events: CalendarEvent[], key: string) {
+    return events.filter((event) => eventTouchesDate(event, key));
 }
 
-function dayStatusDescription(day?: CalendarAvailabilityDay, key?: string) {
-    const status = dayStatus(day, key);
+function ownBookingForDate(events: CalendarEvent[], key: string) {
+    return eventsForDate(events, key).find((event) => normalize(event.kind) === 'booking');
+}
 
-    if (status === 'Unavailable') return 'This date is not open for a new reservation request.';
-    if (status === 'Reserved') return 'This date already has a reservation or operational hold.';
-    if (status === 'Completed Event' || status === 'Past Event') return 'This is a historical calendar record. It is not available for a new reservation.';
+function ownBookingStage(event?: CalendarEvent): string | null {
+    if (!event) return null;
+
+    const status = normalize(event.status);
+    const payment = normalize(event.payment_status);
+
+    if (['pending', 'pencil_booked', 'submitted', 'draft'].includes(status)) return 'My Pending Booking';
+    if (['for_review', 'under_review', 'awaiting_review'].includes(status)) return 'Under Review';
+    if (status === 'confirmed') {
+        if (['for_review', 'submitted'].includes(payment)) return 'Payment Under Review';
+        if (payment === 'partial') return 'Partial Payment';
+
+        return 'Payment Stage';
+    }
+    if (['approved', 'active'].includes(status)) return 'Approved Reservation';
+    if (status === 'completed') return 'Completed Reservation';
+    if (['cancelled', 'canceled', 'declined', 'expired', 'archived'].includes(status)) return 'Closed Reservation';
+
+    return 'My Booking';
+}
+
+function dayStatus(day: CalendarAvailabilityDay | undefined, key: string, ownBooking?: CalendarEvent) {
+    const ownStage = ownBookingStage(ownBooking);
+    const status = normalize(day?.day_status);
+    const isPast = key < currentDayKey() || day?.is_past === true;
+
+    if (ownStage) return ownStage;
+    if (isPast) return 'Past / Unavailable';
+    if (!day) return 'Available';
+    if (status === 'public_booked') return 'Public Activity';
+    if (status === 'private_booked' || day.is_fully_booked) return 'Reserved';
+    if (status === 'blocked' || status === 'past_unavailable' || status === 'unavailable') return 'Unavailable';
+    if (['limited', 'partial', 'partially_booked'].includes(status)) return 'Limited';
+
+    return 'Available';
+}
+
+function dayStatusDescription(status: string) {
+    if (status === 'My Pending Booking') return 'Your reservation request is saved and waiting for BCCC staff review.';
+    if (status === 'Under Review') return 'Your reservation is being checked by the BCCC operations team.';
+    if (status === 'Payment Stage') return 'Your reservation is confirmed for payment processing. Check your booking record for payment instructions.';
+    if (status === 'Payment Under Review') return 'Your payment proof has been submitted and is waiting for review.';
+    if (status === 'Partial Payment') return 'Your booking has a partial approved payment. Complete the remaining balance before the due date.';
+    if (status === 'Approved Reservation') return 'Your booking is approved and will appear in your calendar as an official reservation.';
+    if (status === 'Completed Reservation') return 'This is your completed booking record.';
+    if (status === 'Closed Reservation') return 'This booking is no longer active. Open the booking record for the final status details.';
+    if (status === 'Past / Unavailable') return 'This is a past date and is shown as unavailable in a faded neutral color.';
+    if (status === 'Reserved') return 'This date is reserved or fully occupied. Private booking details are hidden.';
+    if (status === 'Unavailable') return 'This date is blocked for operations or not open for a new reservation request.';
     if (status === 'Public Activity') return 'This date includes a public BCCC activity.';
     if (status === 'Limited') return 'Some time blocks may still be available. Review the block details below.';
 
     return 'This date is generally available based on the current calendar.';
 }
 
-function dayTone(day?: CalendarAvailabilityDay, key?: string) {
-    const status = dayStatus(day, key);
-
-    if (status === 'Unavailable') {
+function dayTone(status: string): DayTone {
+    if (status === 'My Pending Booking') {
         return {
-            fill: 'bg-rose-500/12 dark:bg-rose-400/12',
-            border: 'border-rose-500/25 dark:border-rose-300/20',
-            selectedBorder: 'border-rose-500/55 dark:border-rose-300/45',
-            text: 'text-rose-700 dark:text-rose-100',
-            badge: 'bg-rose-500/12 text-rose-700 ring-1 ring-rose-500/25 dark:text-rose-100',
-            dot: 'bg-rose-500',
-        };
-    }
-
-    if (status === 'Reserved' || status === 'Completed Event') {
-        return {
-            fill: 'bg-amber-500/12 dark:bg-amber-300/12',
-            border: 'border-amber-500/25 dark:border-amber-300/20',
-            selectedBorder: 'border-amber-500/55 dark:border-amber-300/45',
+            fill: 'bg-amber-500/10 dark:bg-amber-300/10',
+            border: 'border-amber-500/30 dark:border-amber-300/25',
+            selectedBorder: 'border-amber-500/60 dark:border-amber-300/55',
             text: 'text-amber-800 dark:text-amber-100',
-            badge: 'bg-amber-500/12 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-100',
+            badge: 'bg-amber-500/10 text-amber-800 ring-1 ring-amber-500/25 dark:text-amber-100',
             dot: 'bg-amber-500',
+            icon: Hourglass,
         };
     }
 
-    if (status === 'Public Activity' || status === 'Past Event') {
+    if (['Under Review', 'Payment Stage', 'Payment Under Review', 'Partial Payment'].includes(status)) {
         return {
-            fill: 'bg-sky-500/12 dark:bg-sky-300/12',
-            border: 'border-sky-500/25 dark:border-sky-300/20',
-            selectedBorder: 'border-sky-500/55 dark:border-sky-300/45',
+            fill: 'bg-blue-500/10 dark:bg-blue-300/10',
+            border: 'border-blue-500/30 dark:border-blue-300/25',
+            selectedBorder: 'border-blue-500/60 dark:border-blue-300/55',
+            text: 'text-blue-800 dark:text-blue-100',
+            badge: 'bg-blue-500/10 text-blue-800 ring-1 ring-blue-500/25 dark:text-blue-100',
+            dot: 'bg-blue-500',
+            icon: CreditCard,
+        };
+    }
+
+    if (status === 'Approved Reservation') {
+        return {
+            fill: 'bg-emerald-500/10 dark:bg-emerald-300/10',
+            border: 'border-emerald-500/30 dark:border-emerald-300/25',
+            selectedBorder: 'border-emerald-500/60 dark:border-emerald-300/55',
+            text: 'text-emerald-800 dark:text-emerald-100',
+            badge: 'bg-emerald-500/10 text-emerald-800 ring-1 ring-emerald-500/25 dark:text-emerald-100',
+            dot: 'bg-emerald-500',
+            icon: ShieldCheck,
+        };
+    }
+
+    if (status === 'Completed Reservation') {
+        return {
+            fill: 'bg-slate-500/10 dark:bg-slate-300/10',
+            border: 'border-slate-400/30 dark:border-slate-300/25',
+            selectedBorder: 'border-slate-500/55 dark:border-slate-300/45',
+            text: 'text-slate-700 dark:text-slate-100',
+            badge: 'bg-slate-500/10 text-slate-700 ring-1 ring-slate-500/20 dark:text-slate-100',
+            dot: 'bg-slate-500',
+            icon: CheckCircle2,
+        };
+    }
+
+    if (status === 'Closed Reservation') {
+        return {
+            fill: 'bg-rose-500/10 dark:bg-rose-300/10',
+            border: 'border-rose-400/25 dark:border-rose-300/20',
+            selectedBorder: 'border-rose-500/50 dark:border-rose-300/40',
+            text: 'text-rose-800 dark:text-rose-100',
+            badge: 'bg-rose-500/10 text-rose-800 ring-1 ring-rose-500/20 dark:text-rose-100',
+            dot: 'bg-rose-500',
+            icon: XCircle,
+        };
+    }
+
+    if (status === 'Past / Unavailable' || status === 'Unavailable') {
+        return {
+            fill: 'bg-slate-500/10 dark:bg-white/[0.055]',
+            border: 'border-slate-300/55 dark:border-white/10',
+            selectedBorder: 'border-slate-500/55 dark:border-white/25',
+            text: 'text-slate-600 dark:text-slate-200',
+            badge: 'bg-slate-500/10 text-slate-600 ring-1 ring-slate-500/20 dark:text-slate-200',
+            dot: 'bg-slate-400',
+            icon: LockKeyhole,
+        };
+    }
+
+    if (status === 'Reserved') {
+        return {
+            fill: 'bg-rose-500/15 dark:bg-rose-300/15',
+            border: 'border-rose-500/35 dark:border-rose-300/25',
+            selectedBorder: 'border-rose-500/65 dark:border-rose-300/50',
+            text: 'text-rose-800 dark:text-rose-100',
+            badge: 'bg-rose-500/10 text-rose-800 ring-1 ring-rose-500/25 dark:text-rose-100',
+            dot: 'bg-rose-500',
+            icon: LockKeyhole,
+        };
+    }
+
+    if (status === 'Public Activity') {
+        return {
+            fill: 'bg-sky-500/10 dark:bg-sky-300/10',
+            border: 'border-sky-500/30 dark:border-sky-300/25',
+            selectedBorder: 'border-sky-500/60 dark:border-sky-300/55',
             text: 'text-sky-800 dark:text-sky-100',
-            badge: 'bg-sky-500/12 text-sky-800 ring-1 ring-sky-500/25 dark:text-sky-100',
+            badge: 'bg-sky-500/10 text-sky-800 ring-1 ring-sky-500/25 dark:text-sky-100',
             dot: 'bg-sky-500',
+            icon: CalendarDays,
         };
     }
 
     if (status === 'Limited') {
         return {
-            fill: 'bg-yellow-500/12 dark:bg-yellow-300/12',
-            border: 'border-yellow-500/25 dark:border-yellow-300/20',
-            selectedBorder: 'border-yellow-500/55 dark:border-yellow-300/45',
+            fill: 'bg-yellow-500/10 dark:bg-yellow-300/10',
+            border: 'border-yellow-500/30 dark:border-yellow-300/25',
+            selectedBorder: 'border-yellow-500/60 dark:border-yellow-300/55',
             text: 'text-yellow-800 dark:text-yellow-100',
-            badge: 'bg-yellow-500/12 text-yellow-800 ring-1 ring-yellow-500/25 dark:text-yellow-100',
+            badge: 'bg-yellow-500/10 text-yellow-800 ring-1 ring-yellow-500/25 dark:text-yellow-100',
             dot: 'bg-yellow-500',
+            icon: CalendarDays,
         };
     }
 
     return {
         fill: 'bg-emerald-500/10 dark:bg-emerald-300/10',
-        border: 'border-emerald-500/22 dark:border-emerald-300/18',
-        selectedBorder: 'border-emerald-500/50 dark:border-emerald-300/40',
+        border: 'border-emerald-500/25 dark:border-emerald-300/20',
+        selectedBorder: 'border-emerald-500/55 dark:border-emerald-300/45',
         text: 'text-emerald-800 dark:text-emerald-100',
-        badge: 'bg-emerald-500/12 text-emerald-800 ring-1 ring-emerald-500/25 dark:text-emerald-100',
+        badge: 'bg-emerald-500/10 text-emerald-800 ring-1 ring-emerald-500/25 dark:text-emerald-100',
         dot: 'bg-emerald-500',
+        icon: CheckCircle2,
     };
 }
 
-function blockAvailable(day: CalendarAvailabilityDay | undefined, block: 'AM' | 'PM' | 'EVE', key?: string) {
-    if (!day) return key ? key >= dateKey(new Date()) : true;
+function blockAvailable(day: CalendarAvailabilityDay | undefined, block: 'AM' | 'PM' | 'EVE', key: string, ownBooking?: CalendarEvent) {
+    if (ownBooking || key < currentDayKey()) return false;
+    if (!day) return true;
 
-    return day[block] !== false && !day.is_fully_booked && dayStatus(day, key) !== 'Unavailable';
+    const status = dayStatus(day, key);
+
+    return day[block] !== false && !day.is_fully_booked && !['Unavailable', 'Reserved', 'Past / Unavailable'].includes(status);
 }
 
 function goToMonth(month: string) {
@@ -195,11 +337,23 @@ function goToMonth(month: string) {
 }
 
 function eventLabel(event: CalendarEvent) {
-    if (event.kind === 'booking') return event.title || 'My booking';
-    if (event.kind === 'public_event') return 'Public activity';
-    if (event.kind === 'block') return 'Calendar hold';
+    const kind = normalize(event.kind);
+    const stage = ownBookingStage(event);
+
+    if (kind === 'booking') return event.title || stage || 'My booking';
+    if (kind === 'public_event') return event.title || 'Public activity';
+    if (kind === 'block') return event.title || 'Calendar hold';
 
     return event.title || 'Calendar item';
+}
+
+function eventStatusLabel(event: CalendarEvent) {
+    if (normalize(event.kind) === 'booking') return ownBookingStage(event) || normalize(event.status).replace(/_/g, ' ') || 'Booking';
+    if (normalize(event.kind) === 'public_event') return 'Public Activity';
+    if (normalize(event.status) === 'private_booked') return 'Reserved';
+    if (normalize(event.status) === 'blocked') return 'Unavailable';
+
+    return String(event.status || event.kind || 'Calendar item').replace(/_/g, ' ');
 }
 
 function blockTimes(block: 'AM' | 'PM' | 'EVE') {
@@ -222,56 +376,62 @@ function blockBookingHref(date: string, block: 'AM' | 'PM' | 'EVE') {
     return `/book?${params.toString()}`;
 }
 
-function eventStatusTone(status?: string | null) {
-    const normalized = String(status || '').toLowerCase();
+function eventTone(event: CalendarEvent) {
+    const stage = ownBookingStage(event);
 
-    if (normalized.includes('confirmed') || normalized.includes('active') || normalized.includes('completed')) {
-        return 'border-emerald-500/20 bg-emerald-500/8 text-emerald-800 dark:text-emerald-100';
-    }
+    if (stage) return dayTone(stage).badge;
 
-    if (normalized.includes('public')) {
-        return 'border-sky-500/20 bg-sky-500/8 text-sky-800 dark:text-sky-100';
-    }
+    const status = normalize(event.status);
 
-    if (normalized.includes('blocked') || normalized.includes('declined') || normalized.includes('cancelled')) {
-        return 'border-rose-500/20 bg-rose-500/8 text-rose-800 dark:text-rose-100';
-    }
+    if (status === 'public_booked') return dayTone('Public Activity').badge;
+    if (status === 'private_booked') return dayTone('Reserved').badge;
+    if (status === 'blocked') return dayTone('Unavailable').badge;
 
-    return 'border-amber-500/20 bg-amber-500/8 text-amber-800 dark:text-amber-100';
+    return 'bg-background text-foreground ring-1 ring-border';
+}
+
+function bookingHref(event?: CalendarEvent) {
+    if (!event || normalize(event.kind) !== 'booking' || !/^\d+$/.test(String(event.id ?? ''))) return null;
+
+    return `/my-bookings/${event.id}`;
 }
 
 export default function UserCalendarIndex() {
     const { props } = usePage<PageProps>();
-    const month = props.month || dateKey(new Date()).slice(0, 7);
+    const month = props.month || currentDayKey().slice(0, 7);
     const availability = props.monthAvailability ?? {};
     const events = props.events ?? [];
     const grid = useMemo(() => buildGrid(month), [month]);
-    const todayKey = dateKey(new Date());
+    const todayKey = currentDayKey();
     const [selectedDate, setSelectedDate] = useState(todayKey.slice(0, 7) === month ? todayKey : `${month}-01`);
 
     useEffect(() => {
         setSelectedDate((current) => {
             if (current.slice(0, 7) === month) return current;
 
-            const today = dateKey(new Date());
+            const today = currentDayKey();
             return today.slice(0, 7) === month ? today : `${month}-01`;
         });
     }, [month]);
 
     const selectedAvailability = availability[selectedDate];
-    const selectedStatus = dayStatus(selectedAvailability, selectedDate);
-    const selectedTone = dayTone(selectedAvailability, selectedDate);
-    const selectedEvents = useMemo(
-        () => events.filter((event) => eventTouchesDate(event, selectedDate)).slice(0, 4),
-        [events, selectedDate],
-    );
+    const selectedOwnBooking = ownBookingForDate(events, selectedDate);
+    const selectedEvents = useMemo(() => eventsForDate(events, selectedDate).slice(0, 6), [events, selectedDate]);
+    const selectedStatus = dayStatus(selectedAvailability, selectedDate, selectedOwnBooking);
+    const selectedTone = dayTone(selectedStatus);
+    const SelectedIcon = selectedTone.icon;
+    const selectedBookingHref = bookingHref(selectedOwnBooking);
 
     const statusCounts = useMemo(() => {
-        return Object.entries(availability).reduce(
-            (carry, [key, day]) => {
-                const status = dayStatus(day, key);
+        return grid.reduce(
+            (carry, day) => {
+                if (!day.current) return carry;
 
-                if (status === 'Available') carry.available += 1;
+                const own = ownBookingForDate(events, day.key);
+                const status = dayStatus(availability[day.key], day.key, own);
+
+                if (status.startsWith('My ') || status === 'Under Review' || status.includes('Payment') || status.includes('Reservation')) carry.mine += 1;
+                else if (status === 'Available') carry.available += 1;
                 else if (status === 'Limited') carry.limited += 1;
                 else if (status === 'Reserved') carry.reserved += 1;
                 else if (status === 'Public Activity') carry.public += 1;
@@ -280,6 +440,7 @@ export default function UserCalendarIndex() {
                 return carry;
             },
             {
+                mine: 0,
                 available: 0,
                 limited: 0,
                 reserved: 0,
@@ -287,13 +448,13 @@ export default function UserCalendarIndex() {
                 unavailable: 0,
             },
         );
-    }, [availability]);
+    }, [availability, events, grid]);
 
     return (
         <BookingRolePageShell
             role="user"
             title="My Calendar"
-            description="Check date availability first. Selecting a day only opens the details panel and will not immediately create a booking."
+            description="Check your reservation requests, approved schedules, and available time blocks. Selecting a date only opens details and will not automatically create a booking."
             actions={
                 <Link
                     href="/book"
@@ -315,13 +476,13 @@ export default function UserCalendarIndex() {
                         <ArrowLeft className="h-4 w-4" />
                     </button>
 
-                    <div className="mx-auto max-w-xl px-14 text-center">
-                        <p className="text-[0.68rem] font-black uppercase tracking-[0.32em] text-muted-foreground">Calendar</p>
+                    <div className="mx-auto max-w-2xl px-14 text-center">
+                        <p className="text-[0.68rem] font-black uppercase tracking-[0.32em] text-muted-foreground">Client Calendar</p>
                         <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-foreground sm:text-4xl">
                             {monthLabel(month)}
                         </h2>
-                        <p className="mx-auto mt-2 max-w-md text-xs leading-6 text-muted-foreground sm:text-sm">
-                            Tap a date to view simple availability details. Color fills show the current day status.
+                        <p className="mx-auto mt-2 max-w-lg text-xs leading-6 text-muted-foreground sm:text-sm">
+                            Your own bookings appear by status. Reserved dates from other clients stay private, while past unavailable dates are faded gray.
                         </p>
                     </div>
 
@@ -336,11 +497,12 @@ export default function UserCalendarIndex() {
 
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
                         {[
+                            ['Mine', statusCounts.mine, 'bg-blue-500'],
                             ['Available', statusCounts.available, 'bg-emerald-500'],
                             ['Limited', statusCounts.limited, 'bg-yellow-500'],
-                            ['Reserved', statusCounts.reserved, 'bg-amber-500'],
+                            ['Reserved', statusCounts.reserved, 'bg-rose-500'],
                             ['Public', statusCounts.public, 'bg-sky-500'],
-                            ['Unavailable', statusCounts.unavailable, 'bg-rose-500'],
+                            ['Past / Unavailable', statusCounts.unavailable, 'bg-slate-400'],
                         ].map(([label, count, dot]) => (
                             <span
                                 key={String(label)}
@@ -354,7 +516,7 @@ export default function UserCalendarIndex() {
                     </div>
                 </div>
 
-                <div className="user-calendar-layout grid gap-0 xl:grid-cols-[minmax(0,1fr)_23rem]">
+                <div className="user-calendar-layout grid gap-0 xl:grid-cols-[minmax(0,1fr)_24rem]">
                     <div className="user-calendar-grid-scroll overflow-x-auto p-3 sm:p-5">
                         <div className="user-calendar-grid-inner min-w-[42rem] overflow-hidden">
                             <div className="user-calendar-grid grid grid-cols-7 gap-2">
@@ -369,8 +531,11 @@ export default function UserCalendarIndex() {
 
                                 {grid.map((day) => {
                                     const dayAvailability = availability[day.key];
-                                    const tone = dayTone(dayAvailability, day.key);
+                                    const own = ownBookingForDate(events, day.key);
+                                    const status = dayStatus(dayAvailability, day.key, own);
+                                    const tone = dayTone(status);
                                     const selected = day.key === selectedDate;
+                                    const hasVisibleEvents = eventsForDate(events, day.key).length > 0;
 
                                     return (
                                         <button
@@ -378,26 +543,38 @@ export default function UserCalendarIndex() {
                                             type="button"
                                             onClick={() => setSelectedDate(day.key)}
                                             className={cx(
-                                                'user-calendar-day group relative min-h-[5.5rem] overflow-hidden border bg-background/70 p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_rgba(0,0,0,0.10)] dark:bg-white/[0.035] sm:min-h-[6.15rem]',
+                                                'user-calendar-day group relative min-h-[6.1rem] overflow-hidden border bg-background/70 p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-[0_18px_40px_rgba(0,0,0,0.10)] dark:bg-white/[0.035] sm:min-h-[6.7rem]',
                                                 tone.border,
                                                 !day.current && 'opacity-40',
                                                 selected && cx('z-10 bg-background shadow-[0_0_0_1px_rgba(180,140,80,0.20),0_24px_65px_rgba(0,0,0,0.16)] dark:bg-white/[0.07]', tone.selectedBorder),
                                                 day.today && !selected && 'ring-1 ring-inset ring-primary/35',
                                             )}
-                                            aria-label={`${fullDateLabel(day.key)} ${dayStatus(dayAvailability, day.key)}`}
+                                            aria-label={`${fullDateLabel(day.key)} ${status}`}
                                         >
                                             <span className={cx('pointer-events-none absolute inset-0 transition duration-300', tone.fill)} />
 
-                                            <span className="relative z-10 flex h-full min-h-[4.4rem] items-start justify-between">
-                                                <strong className={cx('text-lg font-black tracking-[-0.03em]', day.current ? 'text-foreground' : 'text-muted-foreground')}>
-                                                    {day.number}
-                                                </strong>
+                                            <span className="relative z-10 flex h-full min-h-[4.9rem] flex-col justify-between gap-2">
+                                                <span className="flex items-start justify-between gap-2">
+                                                    <strong className={cx('text-lg font-black tracking-[-0.03em]', day.current ? 'text-foreground' : 'text-muted-foreground')}>
+                                                        {day.number}
+                                                    </strong>
 
-                                                {selected ? (
-                                                    <span className={cx('rounded-full px-2 py-1 text-[0.56rem] font-black uppercase tracking-[0.12em]', tone.badge)}>
-                                                        Selected
-                                                    </span>
-                                                ) : null}
+                                                    <span className={cx('mt-1 h-2.5 w-2.5 rounded-full', tone.dot)} />
+                                                </span>
+
+                                                <span className="min-w-0">
+                                                    {own ? (
+                                                        <span className={cx('block truncate rounded-full px-2 py-1 text-[0.56rem] font-black uppercase tracking-[0.12em]', tone.badge)}>
+                                                            {ownBookingStage(own)}
+                                                        </span>
+                                                    ) : selected ? (
+                                                        <span className={cx('block truncate rounded-full px-2 py-1 text-[0.56rem] font-black uppercase tracking-[0.12em]', tone.badge)}>
+                                                            Selected
+                                                        </span>
+                                                    ) : hasVisibleEvents ? (
+                                                        <span className="block truncate text-[0.62rem] font-bold text-muted-foreground">Calendar item</span>
+                                                    ) : null}
+                                                </span>
                                             </span>
                                         </button>
                                     );
@@ -412,15 +589,16 @@ export default function UserCalendarIndex() {
                             <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-foreground">{fullDateLabel(selectedDate)}</h3>
 
                             <div className={cx('mt-4 inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black uppercase tracking-[0.14em]', selectedTone.badge)}>
+                                <SelectedIcon className="h-4 w-4" />
                                 <span className={cx('h-2.5 w-2.5 rounded-full', selectedTone.dot)} />
                                 {selectedStatus}
                             </div>
 
-                            <p className="mt-4 text-sm leading-7 text-muted-foreground">{dayStatusDescription(selectedAvailability, selectedDate)}</p>
+                            <p className="mt-4 text-sm leading-7 text-muted-foreground">{dayStatusDescription(selectedStatus)}</p>
 
                             <div className="mt-5 grid gap-2">
                                 {(['AM', 'PM', 'EVE'] as const).map((block) => {
-                                    const available = blockAvailable(selectedAvailability, block, selectedDate);
+                                    const available = blockAvailable(selectedAvailability, block, selectedDate, selectedOwnBooking);
                                     const times = blockTimes(block);
                                     const content = (
                                         <>
@@ -432,8 +610,8 @@ export default function UserCalendarIndex() {
                                                 </span>
                                             </span>
 
-                                            <strong className={cx('shrink-0 text-xs font-black uppercase tracking-[0.13em]', available ? 'text-emerald-700 dark:text-emerald-200' : 'text-rose-700 dark:text-rose-200')}>
-                                                {available ? 'Book This' : 'Not Available'}
+                                            <strong className={cx('shrink-0 text-xs font-black uppercase tracking-[0.13em]', available ? 'text-emerald-700 dark:text-emerald-200' : 'text-slate-600 dark:text-slate-200')}>
+                                                {available ? 'Book This' : selectedOwnBooking ? 'Your Booking' : 'Not Available'}
                                             </strong>
                                         </>
                                     );
@@ -442,12 +620,12 @@ export default function UserCalendarIndex() {
                                         <Link
                                             key={block}
                                             href={blockBookingHref(selectedDate, block)}
-                                            className="user-calendar-block-row flex items-center justify-between gap-3 border border-emerald-500/20 bg-emerald-500/8 px-3 py-3 transition hover:-translate-y-0.5 hover:border-primary/45 hover:bg-primary/10 hover:shadow-[0_14px_32px_rgba(0,0,0,0.10)]"
+                                            className="user-calendar-block-row flex items-center justify-between gap-3 border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 transition hover:-translate-y-0.5 hover:border-primary/45 hover:bg-primary/10 hover:shadow-[0_14px_32px_rgba(0,0,0,0.10)]"
                                         >
                                             {content}
                                         </Link>
                                     ) : (
-                                        <div key={block} className="user-calendar-block-row flex items-center justify-between gap-3 border border-border bg-background/70 px-3 py-3 opacity-70">
+                                        <div key={block} className="user-calendar-block-row flex items-center justify-between gap-3 border border-border bg-background/70 px-3 py-3 opacity-80">
                                             {content}
                                         </div>
                                     );
@@ -458,23 +636,41 @@ export default function UserCalendarIndex() {
                                 <p className="text-[0.66rem] font-black uppercase tracking-[0.22em] text-muted-foreground">Small Details</p>
 
                                 {selectedEvents.length > 0 ? (
-                                    selectedEvents.map((event, index) => (
-                                        <div
-                                            key={`${event.id ?? event.title ?? index}`}
-                                            className={cx('rounded-xl border px-3 py-3 text-sm', eventStatusTone(event.status))}
-                                        >
+                                    selectedEvents.map((event, index) => {
+                                        const href = bookingHref(event);
+                                        const body = (
                                             <div className="flex items-start gap-2">
-                                                {event.kind === 'block' ? <LockKeyhole className="mt-0.5 h-4 w-4" /> : <CalendarDays className="mt-0.5 h-4 w-4" />}
-                                                <div className="min-w-0">
+                                                {normalize(event.kind) === 'block' ? <LockKeyhole className="mt-0.5 h-4 w-4" /> : <CalendarDays className="mt-0.5 h-4 w-4" />}
+                                                <div className="min-w-0 flex-1">
                                                     <strong className="block truncate font-bold">{eventLabel(event)}</strong>
                                                     <span className="mt-1 inline-flex items-center gap-1 text-xs opacity-75">
                                                         <MapPin className="h-3.5 w-3.5" />
                                                         {event.area || event.block || 'BCCC'}
                                                     </span>
+                                                    <span className="mt-1 block text-[0.68rem] font-black uppercase tracking-[0.12em] opacity-80">
+                                                        {eventStatusLabel(event)}
+                                                    </span>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))
+                                        );
+
+                                        return href ? (
+                                            <Link
+                                                key={`${event.id ?? event.title ?? index}`}
+                                                href={href}
+                                                className={cx('block rounded-xl border px-3 py-3 text-sm transition hover:-translate-y-0.5 hover:shadow-md', eventTone(event))}
+                                            >
+                                                {body}
+                                            </Link>
+                                        ) : (
+                                            <div
+                                                key={`${event.id ?? event.title ?? index}`}
+                                                className={cx('rounded-xl border px-3 py-3 text-sm', eventTone(event))}
+                                            >
+                                                {body}
+                                            </div>
+                                        );
+                                    })
                                 ) : (
                                     <div className="rounded-xl border border-border bg-background/70 px-3 py-3 text-sm leading-6 text-muted-foreground">
                                         No visible client calendar item on this date.
@@ -483,7 +679,15 @@ export default function UserCalendarIndex() {
                             </div>
 
                             <div className="mt-5 flex flex-col gap-2">
-                                {selectedStatus === 'Unavailable' ? (
+                                {selectedBookingHref ? (
+                                    <Link
+                                        href={selectedBookingHref}
+                                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-xs font-black uppercase tracking-[0.16em] text-primary-foreground transition hover:-translate-y-0.5 hover:shadow-lg"
+                                    >
+                                        <CalendarDays className="h-4 w-4" />
+                                        View My Booking
+                                    </Link>
+                                ) : ['Unavailable', 'Reserved', 'Past / Unavailable'].includes(selectedStatus) ? (
                                     <button
                                         type="button"
                                         disabled
@@ -504,7 +708,7 @@ export default function UserCalendarIndex() {
 
                                 <button
                                     type="button"
-                                    onClick={() => goToMonth(dateKey(new Date()).slice(0, 7))}
+                                    onClick={() => goToMonth(currentDayKey().slice(0, 7))}
                                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 text-xs font-black uppercase tracking-[0.16em] text-muted-foreground transition hover:border-primary/35 hover:text-foreground"
                                 >
                                     <CalendarDays className="h-4 w-4" />
